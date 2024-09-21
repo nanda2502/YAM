@@ -6,7 +6,7 @@ import Graph
 import Payoff (generatePayoffs)
 import Learning
 import LinearAlgebra (solveLinearSystem)
-import Utils (writeMatrixToCSV, formatResult)
+import Utils (writeMatrixToCSV, formatResult, readAdjacencyMatrices)
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector as V
@@ -62,7 +62,7 @@ computeExpectedSteps adjacencyMatrix strategy alpha gen = do
     let transitionMatrixList = map V.toList $ V.toList transitionMatrix
 
     -- Identify absorbing and transient states
-    let isAbsorbingState r = VU.all id r  -- All traits are learned
+    let isAbsorbingState = VU.all id  -- All traits are learned
         absorbingStates = [ (i, r) | (i, r) <- repertoiresWithIndices, isAbsorbingState r ]
         transientStates = [ (i, r) | (i, r) <- repertoiresWithIndices, not (isAbsorbingState r) ]
 
@@ -120,7 +120,7 @@ main = do
     let (numNodes, saveTransitionMatrices) = parseArgs args
         n = numNodes
 
-    let alphas = [0.5, 1.0, 2.0]  -- Alpha parameters
+    let alphas = [0.0, 1.0, 2.0]  -- Alpha parameters
         strategies = [RandomLearning, PayoffBasedLearning]  -- Learning strategies
 
     gen <- getStdGen  -- Use system's standard random generator
@@ -132,9 +132,9 @@ main = do
     createDirectory outputDir
 
     -- Generate all adjacency matrices
-    adjacencyMatrices <- generateAdjacencyMatrices n
+    adjacencyMatrices <- readAdjacencyMatrices n
 
-    putStrLn $ "Generated " ++ show (length adjacencyMatrices) ++ " unique adjacency matrices."
+    putStrLn $ "Loaded " ++ show (length adjacencyMatrices) ++ " unique adjacency matrices." 
 
     -- For each adjacency matrix, compute expected steps for each alpha and strategy
     results <- forM adjacencyMatrices $ \adjMatrix -> do
@@ -172,7 +172,11 @@ main = do
 
 parseArgs :: [String] -> (Int, Bool)
 parseArgs args = case args of
-    []        -> (4, True)  -- Default values
-    [n]       -> (read n, True)
-    [n, flag] -> (read n, read flag)
-    _         -> error "Usage: program [numNodes] [saveTransitionMatrices]"
+    [] -> (4, False)  -- Default values
+    [n] -> (read n, True)
+    [n, arg2] 
+        | isBoolString arg2 -> (read n, read arg2)
+        | otherwise         -> error "Second argument must be True or False."
+    _ -> error "Usage: program [numNodes] [saveTransitionMatrices]"
+  where
+    isBoolString s = s == "True" || s == "False"

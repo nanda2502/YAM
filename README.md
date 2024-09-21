@@ -18,7 +18,7 @@ Given a number of nodes, YAM generates all possible adjacency matrices represent
 1. **Clone the Repository:**
 
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/nanda2502/YAM.git
     cd yam
     ```
 

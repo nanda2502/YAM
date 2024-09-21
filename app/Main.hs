@@ -12,9 +12,9 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector as V
 import qualified Data.Map.Strict as M
 import System.Random (StdGen, getStdGen)
-import Control.Monad (forM)
+import Control.Monad (forM, when)
 import System.Environment (getArgs)
-import System.Directory (createDirectoryIfMissing)
+import System.Directory (doesDirectoryExist, removeDirectoryRecursive, createDirectory)
 import System.FilePath ((</>))
 import Text.Printf (printf)
 
@@ -117,9 +117,7 @@ computeExpectedSteps adjacencyMatrix strategy alpha gen = do
 main :: IO ()
 main = do
     args <- getArgs
-    let numNodes = case args of
-                     (arg:_) -> read arg
-                     []      -> 4
+    let (numNodes, saveTransitionMatrices) = parseArgs args
         n = numNodes
 
     let alphas = [0.5, 1.0, 2.0]  -- Alpha parameters
@@ -128,7 +126,10 @@ main = do
     gen <- getStdGen  -- Use system's standard random generator
 
     let outputDir = "./output"
-    createDirectoryIfMissing True outputDir
+
+    dirExists <- doesDirectoryExist outputDir 
+    when dirExists $ removeDirectoryRecursive outputDir
+    createDirectory outputDir
 
     -- Generate all adjacency matrices
     adjacencyMatrices <- generateAdjacencyMatrices n
@@ -142,14 +143,16 @@ main = do
             forM alphas $ \alpha -> do
                 (expectedSteps, transitionMatrix) <- computeExpectedSteps adjMatrix strategy alpha gen
 
-                -- Save the transition matrix
                 let strategyStr = case strategy of
                                     RandomLearning      -> "RandomLearning"
                                     PayoffBasedLearning -> "PayoffBasedLearning"
-                    alphaStr = printf "%.2f" alpha  -- Format alpha with two decimal places
-                    fileName = "transition_mat_" ++ adjMatrixBinary ++ "_strategy_" ++ strategyStr ++ "_alpha_" ++ alphaStr ++ ".csv"
-                    filePath = outputDir </> fileName
-                writeMatrixToCSV filePath transitionMatrix
+
+                -- Save the transition matrix if the flag is set
+                when saveTransitionMatrices $ do
+                    let alphaStr = printf "%.2f" alpha  -- Format alpha with two decimal places
+                        fileName = "transition_mat_" ++ adjMatrixBinary ++ "_strategy_" ++ strategyStr ++ "_alpha_" ++ alphaStr ++ ".csv"
+                        filePath = outputDir </> fileName
+                    writeMatrixToCSV filePath transitionMatrix
 
                 return (n, adjMatrixBinary, alpha, strategyStr, expectedSteps)
         return (concat res)
@@ -166,3 +169,10 @@ main = do
     writeFile outputCsvPath $ unlines csvData
 
     putStrLn $ "Expected steps to absorption saved to '" ++ outputCsvPath ++ "'"
+
+parseArgs :: [String] -> (Int, Bool)
+parseArgs args = case args of
+    []        -> (4, True)  -- Default values
+    [n]       -> (read n, True)
+    [n, flag] -> (read n, read flag)
+    _         -> error "Usage: program [numNodes] [saveTransitionMatrices]"

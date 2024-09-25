@@ -1,0 +1,6 @@
+.clangd
+build/
+output/
+yam.exe
+.vscode/
+.cache/

@@ -30,14 +30,14 @@ std::string strategyToString(Strategy strategy) {
     }
 }
 
-std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, double expectedSteps) {
+std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep) {
     std::ostringstream oss;
-    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << std::fixed << std::setprecision(2) << expectedSteps;
+    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << repl << ',' << std::fixed << std::setprecision(4) << expectedSteps << ',' << expectedPayoffPerStep;
     return oss.str();
 }
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
-    std::string filePath = "../data/adj_mat_" + std::to_string(n) + ".csv";
+    std::string filePath = "../data/data_new/adj_mat_" + std::to_string(n) + ".csv";
     std::ifstream file(filePath);
     if (!file.is_open()) throw std::runtime_error("Could not open file " + filePath);
 
@@ -82,4 +82,30 @@ void printMatrix(const std::vector<std::vector<double>>& matrix) {
         }
         std::cout << '\n';
     }
+}
+
+int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices) {
+    int numNodes = 4;  // Default value
+    saveTransitionMatrices = false;  // Default value
+
+    if (argc == 1) {
+        // Use default values
+    } else if (argc == 2) {
+        numNodes = std::stoi(argv[1]);
+        saveTransitionMatrices = true;
+    } else if (argc == 3) {
+        numNodes = std::stoi(argv[1]);
+        std::string arg2 = argv[2];
+        if (arg2 == "True") {
+            saveTransitionMatrices = true;
+        } else if (arg2 == "False") {
+            saveTransitionMatrices = false;
+        } else {
+            throw std::invalid_argument("Second argument must be True or False.");
+        }
+    } else {
+        throw std::invalid_argument("Usage: program [numNodes] [saveTransitionMatrices]");
+    }
+
+    return numNodes;
 }

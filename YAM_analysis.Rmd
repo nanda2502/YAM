@@ -1,0 +1,210 @@
+---
+title: "YAM analysis"
+author: "Nanda Jafarian"
+date: "2024-09-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(igraph)
+library(combinat)
+library(ggplot2)
+library(gridExtra)
+library(ggraph)
+library(dplyr)
+library(grid)
+``` 
+
+# Plot the expected steps by strategy for each adjacency matrix
+
+```{r}
+# Function to remove isomorphic duplicates
+remove_duplicates <- function(data) {
+  unique_graphs <- list()
+  unique_indices <- c()
+  
+  unique_combinations <- unique(data[, c("AdjacencyMatrix", "NumNodes")])
+  
+  for (i in seq_len(nrow(unique_combinations))) {
+    adj_string <- unique_combinations$AdjacencyMatrix[i]
+    num_nodes <- unique_combinations$NumNodes[i]
+    
+    # Convert the adjacency string to a numeric vector
+    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
+    
+    # Create a graph object
+    g <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
+    
+    # Check if the graph is isomorphic to any of the already added unique graphs
+    is_duplicate <- any(sapply(unique_graphs, function(unique_g) isomorphic(unique_g, g)))
+    
+    if (!is_duplicate) {
+      unique_graphs <- append(unique_graphs, list(g))
+      unique_indices <- c(unique_indices, which(data$AdjacencyMatrix == adj_string & data$NumNodes == num_nodes))
+    }
+  }
+  
+  return(data[unique_indices, ])
+}
+# Load the data
+data <- read.csv("./output/expected_steps.csv", stringsAsFactors = FALSE, colClasses = c(AdjacencyMatrix = "character"))
+
+# Filter data for Alpha == 1
+data_sub <- subset(data, Alpha == 1.0)
+
+# Remove isomorphic duplicates
+data_sub_unique <- remove_duplicates(data_sub)
+
+plots_list <- list()
+
+unique_combinations <- unique(data_sub_unique[, c("AdjacencyMatrix", "NumNodes")])
+
+# Loop over each unique combination
+for (i in seq_len(nrow(unique_combinations))) {
+  combination <- unique_combinations[i, ]
+  
+  adj_string <- combination$AdjacencyMatrix
+  num_nodes <- combination$NumNodes
+  
+  # Convert the adjacency string to a numeric vector
+  adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+  adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
+  
+  # Create a graph object
+  g <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
+  
+  # Assign names to nodes
+  V(g)$name <- as.character(1:num_nodes)
+  
+  # Create the graph plot using ggraph
+  graph_plot <- ggraph(g, layout = "tree") +
+    geom_edge_link(arrow = arrow(length = unit(4, 'mm'), type = "closed"), end_cap = circle(3, 'mm')) +
+    geom_node_point(size = 5) +
+    theme_void()
+  
+  # Get ExpectedSteps for different Strategies for the same AdjacencyMatrix and NumNodes
+  strategies_data <- subset(data_sub_unique, AdjacencyMatrix == adj_string & NumNodes == num_nodes)
+  
+  # Check if strategies_data is not empty
+  if (nrow(strategies_data) > 0) {
+    # Prepare data for bar plot
+    bar_data <- aggregate(ExpectedSteps ~ Strategy, data = strategies_data, FUN = mean)
+    
+    # Create bar plot
+    bar_plot <- ggplot(bar_data, aes(x = Strategy, y = ExpectedSteps, fill = Strategy)) +
+      geom_bar(stat = 'identity') +
+      ylim(0, max(bar_data$ExpectedSteps) + 1) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+    
+    # Arrange the graph and bar plot side by side
+    combined_plot <- grid.arrange(graph_plot, bar_plot, ncol = 2)
+    
+    # Store the combined plot
+    plots_list[[i]] <- combined_plot
+  }
+}
+
+
+for (i in seq_along(plots_list)) {
+  grid.newpage()
+  grid.draw(plots_list[[i]])
+}
+
+## plot 3x3 grid
+outplot <- grid.arrange(grobs = plots_list, ncol = 3, top = textGrob("Expected Steps until Absorption for α = 1.0 "))
+
+```
+
+```{r}
+
+plotRatioByDistance <- function(data, DV) {
+
+  calc_total_distance_from_root <- function(graph, root="1") {
+    distances <- shortest_paths(graph, from=root, to=V(graph)$name, mode="out")$vpath
+    total_distance <- sum(sapply(distances, function(path) length(path) - 1))
+    return(total_distance)
+  }
+  
+  result_df <- data.frame(TotalDistance=numeric(), Ratio=numeric(), Alpha=factor(), stringsAsFactors=FALSE)
+  unique_alphas <- unique(data$Alpha)
+  
+  for (alpha in unique_alphas) {
+    data_sub_unique <- subset(data, Alpha == alpha)
+    #data_sub_unique <- remove_duplicates(data_sub)
+    
+    unique_combinations <- data_sub_unique %>%
+      select(NumNodes, AdjacencyMatrix) %>%
+      distinct()
+    
+    for (i in seq_len(nrow(unique_combinations))) {
+      combination <- unique_combinations[i, ]
+      adj_string <- combination$AdjacencyMatrix
+      num_nodes <- combination$NumNodes
+  
+      adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+      adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
+      g <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
+      V(g)$name <- as.character(1:num_nodes)
+      total_distance <- calc_total_distance_from_root(g, root="1")
+      
+      strategies_data <- subset(data_sub_unique, AdjacencyMatrix == adj_string & NumNodes == num_nodes)
+      
+      if (nrow(strategies_data) > 0) {
+        random_learning_steps <- strategies_data[strategies_data$Strategy == "RandomLearning", DV]
+        payoff_based_steps <- strategies_data[strategies_data$Strategy == "PayoffBasedLearning", DV]
+        
+        if (length(random_learning_steps) > 0 && length(payoff_based_steps) > 0) {
+          ratio <- payoff_based_steps / random_learning_steps
+          result_df <- rbind(result_df, data.frame(TotalDistance=total_distance, Ratio=ratio, Alpha=factor(alpha)))
+        }
+      }
+    }
+  }
+  
+  plot <- ggplot(result_df, aes(x = TotalDistance, y = Ratio, color = Alpha)) +
+    geom_point() +
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(title = paste0("Total Distance from Root vs. ", DV, " Ratio by Alpha"),
+         x = "Total Distance from Root",
+         y = paste0("Ratio of ", DV, " (PayoffBased / RandomLearning)")) +
+    theme_minimal() +
+    scale_color_discrete(name = "Alpha")
+  
+  
+  print(plot)
+ return(plot) 
+}
+
+data <- read.csv("./output/expected_steps.csv", stringsAsFactors = FALSE, colClasses = c(AdjacencyMatrix = "character"))
+
+
+
+payoff_plot <- plotRatioByDistance(data[data$Alpha >= 0, ], "ExpectedPayoffPerStep")
+steps_plot <- plotRatioByDistance(data[data$Alpha >= 0, ], "ExpectedSteps")
+
+data[data$Alpha > 0, ]
+``` 
+
+```{r}
+data_dir <- "data"
+csv_files <- list.files(data_dir, pattern = "adj_mat_[2-8]\\.csv", full.names = TRUE)
+
+for (file_path in csv_files) {
+  file_name <- basename(file_path)
+  N <- as.numeric(gsub("adj_mat_([2-8])\\.csv", "\\1", file_name))
+  data <- read.csv(file_path, header = F)
+  cat("N =", N, "; Number unique adjacency matrices =", nrow(data), "\n")
+}
+
+
+nodes <- c(2:8)
+matrices <- c(1,2,4,9,20,48,115)
+plot(nodes, matrices)
+```
+

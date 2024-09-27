@@ -19,7 +19,9 @@ struct Result {
     std::string adjMatrixBinary;
     double alpha;
     Strategy strategy;
+    int repl;
     double expectedSteps;
+    double expectedPayoffPerStep;
 };
 
 #endif // TYPES_HPP

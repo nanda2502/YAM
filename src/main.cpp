@@ -1,62 +1,66 @@
 #include <iostream>
+#include <mutex>
+#include <algorithm>
+#include <execution>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <sstream>
-
 #include <filesystem>
 #include <random>
-#include <stdexcept>
 #include <iomanip>
 #include <tuple>
 
-
+#include "Debug.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
 #include "Graph.hpp"
 #include "ExpectedSteps.hpp"
 
-int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices) {
-    int numNodes = 4;  // Default value
-    saveTransitionMatrices = false;  // Default value
+void processRepl(int repl, const AdjacencyMatrix& adjMatrix, const Strategy& strategy, double alpha, int n, bool saveTransitionMatrices, const std::string &outputDir, std::mutex& resultsMutex, std::vector<Result>& flatResults) {
+    DEBUG_PRINT(1, "Replication:")
+    if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
 
-    if (argc == 1) {
-        // Use default values
-    } else if (argc == 2) {
-        numNodes = std::stoi(argv[1]);
-        saveTransitionMatrices = true;
-    } else if (argc == 3) {
-        numNodes = std::stoi(argv[1]);
-        std::string arg2 = argv[2];
-        if (arg2 == "True") {
-            saveTransitionMatrices = true;
-        } else if (arg2 == "False") {
-            saveTransitionMatrices = false;
-        } else {
-            throw std::invalid_argument("Second argument must be True or False.");
-        }
-    } else {
-        throw std::invalid_argument("Usage: program [numNodes] [saveTransitionMatrices]");
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // Compute expected steps
+    double expectedSteps = 0.0;
+    double expectedPayoffPerStep = 0.0;
+    std::vector<std::vector<double>> transitionMatrix;
+    try {
+        std::tie(expectedSteps, expectedPayoffPerStep, transitionMatrix) = computeExpectedSteps(adjMatrix, strategy, alpha, gen);
+    } catch (const std::exception& e) {
+        std::cerr << "Error computing expected steps: " << e.what() << '\n';
+        return;
     }
 
-    return numNodes;
+    // Save transition matrix if flag is set
+    if (saveTransitionMatrices) {
+        std::ostringstream alphaStrStream;
+        alphaStrStream << std::fixed << std::setprecision(2) << alpha;
+        std::string alphaStr = alphaStrStream.str();
+
+        std::string strategyStr = strategyToString(strategy);
+        std::string fileName = "transition_mat_" + adjMatrixToBinaryString(adjMatrix) + "_strategy_" + strategyStr + "_alpha_" + alphaStr + ".csv";
+        std::string filePath = outputDir + "/" + fileName;
+        writeMatrixToCSV(filePath, transitionMatrix);
+    }
+
+    // Store results
+    std::lock_guard<std::mutex> guard(resultsMutex);
+    flatResults.push_back(Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep});
 }
 
-
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
+    // Parse command line arguments
+    bool saveTransitionMatrices = false;
+    int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
+    int n = numNodes;
     try {
-        // Parse command line arguments
-        bool saveTransitionMatrices = false;
-        int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
-        int n = numNodes;
-
         // Define alphas and strategies
         std::vector<double> alphas = {0.0, 1.0, 2.0};
         std::vector<Strategy> strategies = {Strategy::RandomLearning, Strategy::PayoffBasedLearning};
-
-        // Initialize random number generator with a fixed seed
-        std::mt19937 gen(42);
 
         // Prepare output directory
         std::string outputDir = "../output";
@@ -69,45 +73,37 @@ int main(int argc, char* argv[])
         std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
 
         std::cout << "Loaded " << adjacencyMatrices.size() << " unique adjacency matrices." << '\n';
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() << " runs." << '\n';
 
         // For each adjacency matrix
         std::vector<Result> flatResults;
+        std::mutex resultsMutex;  // Mutex to protect concurrent access to flatResults
 
-        for (const auto& adjMatrix : adjacencyMatrices) {
+        std::for_each(std::execution::par, adjacencyMatrices.begin(), adjacencyMatrices.end(), [&](const auto& adjMatrix) {
             std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
+            DEBUG_PRINT(1, "Adjacency Matrix:");
+            if(DEBUG_LEVEL >= 1) std::cout << adjMatrixBinary << '\n';
 
-            for (const auto& strategy : strategies) {
-                for (const auto& alpha : alphas) {
-                    // Compute expected steps
-                    double expectedSteps = 0.0;
-                    std::vector<std::vector<double>> transitionMatrix;
-                    try {
-                        std::tie(expectedSteps, transitionMatrix) = computeExpectedSteps(adjMatrix, strategy, alpha, gen);
-                    } catch (const std::exception& e) {
-                        std::cerr << "Error computing expected steps: " << e.what() << '\n';
-                        continue;
-                    }
+            std::for_each(std::execution::par, strategies.begin(), strategies.end(), [&](const auto& strategy) {
+                DEBUG_PRINT(1, "Strategy:");
+                if(DEBUG_LEVEL >= 1) std::cout << strategyToString(strategy) << '\n';
 
-                    // Save transition matrix if flag is set
-                    if (saveTransitionMatrices) {
-                        std::ostringstream alphaStrStream;
-                        alphaStrStream << std::fixed << std::setprecision(2) << alpha;
-                        std::string alphaStr = alphaStrStream.str();
+                std::for_each(std::execution::par, alphas.begin(), alphas.end(), [&](const auto& alpha) {
+                    DEBUG_PRINT(1, "Alpha:");
+                    if(DEBUG_LEVEL >= 1) std::cout << alpha << '\n';
 
-                        std::string strategyStr = strategyToString(strategy);
-                        std::string fileName = "transition_mat_" + adjMatrixBinary + "_strategy_" + strategyStr + "_alpha_" + alphaStr + ".csv";
-                        std::string filePath = outputDir + "/" + fileName;
-                        writeMatrixToCSV(filePath, transitionMatrix);
-                    }
+                    std::vector<int> replicas(10);
+                    std::iota(replicas.begin(), replicas.end(), 0);
 
-                    // Store results
-                    flatResults.push_back(Result{n, adjMatrixBinary, alpha, strategy, expectedSteps});
-                }
-            }
-        }
+                    std::for_each(std::execution::par, replicas.begin(), replicas.end(), [&](int repl) {
+                        processRepl(repl, adjMatrix, strategy, alpha);
+                    });
+                });
+            });
+        });
 
         // Prepare CSV data with header
-        std::string csvHeader = "NumNodes,AdjacencyMatrix,Alpha,Strategy,ExpectedSteps";
+        std::string csvHeader = "NumNodes,AdjacencyMatrix,Alpha,Strategy,Repl,ExpectedSteps,ExpectedPayoffPerStep";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -117,13 +113,15 @@ int main(int argc, char* argv[])
                 result.adjMatrixBinary,
                 result.alpha,
                 result.strategy,
-                result.expectedSteps
+                result.repl,
+                result.expectedSteps,
+                result.expectedPayoffPerStep
             );
             csvData.push_back(formattedResult);
         }
 
         // Write results to CSV
-        std::string outputCsvPath = outputDir + "/expected_steps.csv";
+        std::string outputCsvPath = outputDir + "/expected_steps_" + std::to_string(n) + ".csv";
         std::ofstream csvFile(outputCsvPath);
         if (!csvFile.is_open()) {
             std::cerr << "Failed to open file for writing: " << outputCsvPath << '\n';

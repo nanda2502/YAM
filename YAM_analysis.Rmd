@@ -17,6 +17,7 @@ library(gridExtra)
 library(ggraph)
 library(dplyr)
 library(grid)
+library(cowplot)
 ``` 
 
 
@@ -81,7 +82,7 @@ plotRatioByDistance <- function(data, DV, DV_label) {
       }
     }
   }
-  
+  result_df <- result_df[result_df$Ratio < 3,]
   plot <- ggplot(result_df, aes(x = TotalDistance, y = Ratio, color = alpha)) +
     geom_point() +
     geom_hline(yintercept = 1, color = "black", linetype = "dashed") +
@@ -93,7 +94,7 @@ plotRatioByDistance <- function(data, DV, DV_label) {
     theme_minimal() +
     scale_color_discrete(name = "Alpha") + 
     scale_y_continuous(
-      breaks = seq(0, max(result_df$Ratio), by = 1),
+      breaks = seq(0, max(result_df$Ratio) + 1, by = 1),
       minor_breaks = seq(0, max(result_df$Ratio), by = 0.5)
       )
   
@@ -101,9 +102,12 @@ plotRatioByDistance <- function(data, DV, DV_label) {
   return(plot) 
 }
 
-num_nodes <- 7
+num_nodes <- 6
 filename <- paste0("./output/expected_steps_", num_nodes, ".csv.gz")
-data <- read.csv(gzfile(filename), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character"))
+data <- read.csv(gzfile(filename), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character")) %>%
+  filter(!is.nan(step_payoff))
+
+sum(is.nan(data$step_payoff))
 
 steps_plot <- plotRatioByDistance(data[data$alpha >= 0, ], "steps", "Expected Steps")
 payoff_plot <- plotRatioByDistance(data[data$alpha >= 0, ], "step_payoff", "Expected Payoff/Step")
@@ -132,8 +136,8 @@ unique_combinations <- unique(data_sub_unique[, c("AdjacencyMatrix", "NumNodes")
 for (i in seq_len(nrow(unique_combinations))) {
   combination <- unique_combinations[i, ]
   
-  adj_string <- combination$AdjacencyMatrix
-  num_nodes <- combination$NumNodes
+  adj_string <- combination$adj_mat
+  num_nodes <- combination$num_nodes
   
   # Convert the adjacency string to a numeric vector
   adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
@@ -216,4 +220,69 @@ remove_duplicates <- function(data) {
   return(data[unique_indices, ])
 }
 ``` 
+
+```{r}
+plot_graph_panel <- function(df, num_nodes) {
+  # Extract unique adjacency matrices
+  unique_adj_matrices <- df %>% 
+    distinct(adj_mat, num_nodes)
+  
+  plot_list <- list()
+  
+  # Loop through unique adjacency matrices to create graph plots
+  for (i in 1:nrow(unique_adj_matrices)) {
+    adj_string <- unique_adj_matrices$adj_mat[i]
+    num_nodes <- unique_adj_matrices$num_nodes[i]
+    
+    # Convert the adjacency string to a numeric vector
+    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
+    
+    # Create a graph object
+    g <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
+    
+    # Assign names to nodes
+    V(g)$name <- as.character(1:num_nodes)
+    
+    # Create the graph plot using ggraph
+    graph_plot <- ggraph(g, layout = "tree") +
+      geom_edge_link(arrow = arrow(length = unit(2, 'mm'), type = "closed"), end_cap = circle(2, 'mm')) +
+      geom_node_point(size = 2) +
+      theme_void() +
+      theme(
+        plot.margin = unit(c(1,1,1,1), "pt"), # Slight margin to separate plots
+        panel.border = element_rect(color = "black", fill = NA, size = 0.25) # Thin black border
+      )
+    
+    # Store the plot
+    plot_list[[i]] <- graph_plot
+  }
+  
+  # Calculate the number of plots
+  n_plots <- length(plot_list)
+  
+  # Determine the number of columns and rows for the grid layout
+  # Adjust n_cols and n_rows according to your preferences
+  n_cols <- ceiling(sqrt(n_plots))
+  n_rows <- ceiling(n_plots / n_cols)
+  
+  # Arrange the plots using cowplot's plot_grid function
+  combined_plot <- plot_grid(plotlist = plot_list, ncol = n_cols, nrow = n_rows, align = 'none')
+  
+  # Save the combined plot to a PDF file with specified dimensions
+  # Adjust the width and height according to the number of columns and rows
+  pdf_width <- n_cols * 1.5  # Each plot is approximately 1.5 inches wide
+  pdf_height <- n_rows * 1.5 # Each plot is approximately 1.5 inches tall
+  
+  # Save to PDF
+  ggsave(filename = paste0("./output/all_graphs_", num_nodes, ".pdf"), plot = combined_plot, width = pdf_width, height = pdf_height, units = "in")
+  
+  # Optional: Print the combined plot to the R graphics device
+  # Note: For a large number of plots, this may not display properly in RStudio's plot pane. It's recommended to view the saved PDF.
+  # print(combined_plot)
+}
+
+
+plot <- plot_graph_panel(data, num_nodes)
+```
 

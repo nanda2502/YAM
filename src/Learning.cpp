@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <queue>
 #include <unordered_set>
+#include <random>
 
 std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix) {
     std::vector<bool> learnable(repertoire.size());
@@ -38,12 +39,13 @@ std::vector<double> baseWeights(Strategy strategy, const PayoffVector& payoffs) 
     }
 }
 
-std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs) {
+
+std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies) {
     std::vector<double> w_star = baseWeights(strategy, payoffs);
 
     std::vector<double> w_unlearned(repertoire.size());
     for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        w_unlearned[trait] = repertoire[trait] ? 0.0 : w_star[trait]; // if trait is in repertoire, weight is 0, else weight is base weight
+        w_unlearned[trait] = repertoire[trait] ? 0.0 : w_star[trait] * traitFrequencies[trait];
     }
 
     double total = std::accumulate(w_unlearned.begin(), w_unlearned.end(), 0.0);
@@ -53,7 +55,34 @@ std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& reper
     }
 
     std::transform(w_unlearned.begin(), w_unlearned.end(), w_unlearned.begin(),
-        [total](double w) { return w / total; }); // divide each base weight by the total
+        [total](double w) { return w / total; });
+
+    return w_unlearned;
+}
+
+std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, std::mt19937& gen) {
+    std::vector<double> w_star = baseWeights(strategy, payoffs);
+    std::uniform_real_distribution<> dis(0.0, 1.0);
+
+    std::vector<double> w_unlearned(repertoire.size());
+    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+        if (repertoire[trait]) {
+            w_unlearned[trait] = 0.0;
+        } else {
+            // Draw a random number and compare it to the trait frequency
+            double random_value = dis(gen);
+            w_unlearned[trait] = (random_value < traitFrequencies[trait]) ? w_star[trait] : 0.0;
+        }
+    }
+
+    double total = std::accumulate(w_unlearned.begin(), w_unlearned.end(), 0.0);
+
+    if (total == 0.0) {
+        return std::vector<double>(repertoire.size(), 0.0);
+    }
+
+    std::transform(w_unlearned.begin(), w_unlearned.end(), w_unlearned.begin(),
+        [total](double w) { return w / total; });
 
     return w_unlearned;
 }
@@ -64,8 +93,12 @@ Repertoire learnTrait(const Repertoire& repertoire, Trait trait) {
     return newRepertoire;
 }
 
-std::vector<std::pair<Repertoire, double>> transitionFromState(Strategy strategy, const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs) {
-    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs);
+std::vector<std::pair<Repertoire, double>> transitionFromState(Strategy strategy, const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies) {
+    //std::random_device rd;
+    //std::mt19937 gen(rd());
+    
+    //std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, gen);
+    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies);
     std::vector<bool> learnable = learnability(repertoire, adjMatrix);
 
     std::vector<std::pair<Repertoire, double>> transitions;
@@ -79,20 +112,20 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(Strategy strategy
     return transitions;
 }
 
-double stayProbability(Strategy strategy, const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs) {
-    auto transitions = transitionFromState(strategy, repertoire, adjMatrix, payoffs);
+double stayProbability(Strategy strategy, const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies) {
+    auto transitions = transitionFromState(strategy, repertoire, adjMatrix, payoffs, traitFrequencies);
 
     double totalTransitionProbability = std::accumulate(
         transitions.begin(), transitions.end(), 0.0,
         [](double sum, const auto& transition) { 
             return sum + transition.second;
-            }
-        );
+        }
+    );
 
     return 1.0 - totalTransitionProbability;
 }
 
-std::vector<Repertoire> generateReachableRepertoires(Strategy strategy, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs) {
+std::vector<Repertoire> generateReachableRepertoires(Strategy strategy, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies) {
     size_t n = adjMatrix.size();
     Repertoire initialRepertoire(n, false);
     initialRepertoire[0] = true; // root trait is always learned
@@ -111,7 +144,7 @@ std::vector<Repertoire> generateReachableRepertoires(Strategy strategy, const Ad
             visited.insert(r);
             result.push_back(r);
 
-            auto transitions = transitionFromState(strategy, r, adjMatrix, payoffs);
+            auto transitions = transitionFromState(strategy, r, adjMatrix, payoffs, traitFrequencies);
             for (const auto& transition : transitions) {
                 const Repertoire& r_prime = transition.first;
                 if (visited.find(r_prime) == visited.end()) {

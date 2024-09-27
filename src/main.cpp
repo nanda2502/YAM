@@ -7,7 +7,6 @@
 #include <filesystem>
 #include <random>
 #include <iomanip>
-#include <tuple>
 
 #include "Debug.hpp"
 #include "Utils.hpp"
@@ -23,9 +22,10 @@ void processRepl(
     bool saveTransitionMatrices,
     const std::string &outputDir,
     std::vector<Result>& flatResults,
-    size_t idx  
+    size_t idx,
+    std::vector<std::atomic<int>>& failureCounts  // Add failureCounts vector
 ) {
-    DEBUG_PRINT(1, "Replication:")
+    DEBUG_PRINT(1, "Replication:");
     if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
 
     std::random_device rd;
@@ -35,10 +35,10 @@ void processRepl(
     double expectedSteps = 0.0;
     double expectedPayoffPerStep = 0.0;
     std::vector<std::vector<double>> transitionMatrix;
-    try {
-        std::tie(expectedSteps, expectedPayoffPerStep, transitionMatrix) = computeExpectedSteps(adjMatrix, strategy, alpha, gen);
-    } catch (const std::exception& e) {
-        std::cerr << "Error computing expected steps: " << e.what() << '\n';
+
+    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, transitionMatrix)) {
+        // Increment failure count
+        ++failureCounts[idx];
         return;
     }
 
@@ -68,30 +68,29 @@ int main(int argc, char* argv[]) {
         // Define alphas and strategies
         std::vector<double> alphas = {0.0, 1.0, 2.0};
         std::vector<Strategy> strategies = {Strategy::RandomLearning, Strategy::PayoffBasedLearning};
-
+    
         // Prepare output directory
         std::string outputDir = "../output";
         if (!std::filesystem::exists(outputDir)) {
             std::filesystem::create_directory(outputDir);
         }
-
+    
         // Read adjacency matrices
         std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
-
-        std::cout << "Loaded " << adjacencyMatrices.size() << " unique adjacency matrices." << '\n';
+    
         std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * 10 << " runs." << '\n';
-
-
+    
         // Prepare the combinations
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);
-
+    
         std::vector<Result> flatResults(combinations.size());
-
+        // Preallocate failure counts vector
+        std::vector<std::atomic<int>> failureCounts(combinations.size());
+    
         // Create indices for storing the results
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
-
-
+    
         // Process all combinations in parallel
         std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t idx) {
             const ParamCombination& comb = combinations[idx];
@@ -101,7 +100,7 @@ int main(int argc, char* argv[]) {
             if(DEBUG_LEVEL >= 1) std::cout << strategyToString(comb.strategy) << '\n';
             DEBUG_PRINT(1, "Alpha:");
             if(DEBUG_LEVEL >= 1) std::cout << comb.alpha << '\n';
-
+    
             processRepl(
                 comb.repl,
                 comb.adjMatrix,
@@ -111,15 +110,25 @@ int main(int argc, char* argv[]) {
                 saveTransitionMatrices,
                 outputDir,
                 flatResults,
-                idx
+                idx,
+                failureCounts  
             );
         });
-
+    
+        // Compute total failures
+        int totalFailures = 0;
+        for (const auto& count : failureCounts) {
+            totalFailures += count.load();
+        }
+    
+        // Print total number of failures with debug level 0
+        DEBUG_PRINT(0, "Total failures: " << totalFailures);
+    
         // Prepare CSV data with header
         std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
-
+    
         for (const auto& result : flatResults) {
             std::string formattedResult = formatResults(
                 result.n,
@@ -132,14 +141,13 @@ int main(int argc, char* argv[]) {
             );
             csvData.push_back(formattedResult);
         }
-
-
+    
         writeAndCompressCSV(outputDir, n, csvData);
        
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << '\n';
         return 1;
     }
-
+    
     return 0;
 }

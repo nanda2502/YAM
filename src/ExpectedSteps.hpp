@@ -45,11 +45,14 @@ std::vector<double> computeExpectedPayoffs(
 );
 
 // Main function to compute expected steps and expected payoff per step
-std::tuple<double, double, std::vector<std::vector<double>>> computeExpectedSteps(
+bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
     double alpha,
-    std::mt19937& gen
+    std::mt19937& gen,
+    double& expectedSteps,                             // Output parameter for expected steps
+    double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
+    std::vector<std::vector<double>>& transitionMatrix // Output parameter for the transition matrix
 );
 
 #endif // EXPECTEDSTEPS_HPP

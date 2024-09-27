@@ -49,6 +49,8 @@ std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
     while (std::getline(file, line)) {
         matrices.push_back(binaryStringToAdjacencyMatrix(n, line));
     }
+    
+    std::cout << "Loaded " << matrices.size() << " adjacency matrices." << '\n';
 
     return matrices;
 }

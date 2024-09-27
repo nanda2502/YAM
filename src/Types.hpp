@@ -14,6 +14,14 @@ enum Strategy {
     PayoffBasedLearning
 };
 
+struct ParamCombination {
+    AdjacencyMatrix adjMatrix;
+    std::string adjMatrixBinary;
+    Strategy strategy;
+    double alpha;
+    int repl;
+};
+
 struct Result {
     int n;
     std::string adjMatrixBinary;

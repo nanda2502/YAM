@@ -17,7 +17,17 @@
 #include "Graph.hpp"
 #include "ExpectedSteps.hpp"
 
-void processRepl(int repl, const AdjacencyMatrix& adjMatrix, const Strategy& strategy, double alpha, int n, bool saveTransitionMatrices, const std::string &outputDir, std::mutex& resultsMutex, std::vector<Result>& flatResults) {
+void processRepl(
+    int repl,
+    const AdjacencyMatrix& adjMatrix,
+    const Strategy& strategy,
+    double alpha,
+    int n,
+    bool saveTransitionMatrices,
+    const std::string &outputDir,
+    std::mutex& resultsMutex,
+    std::vector<Result>& flatResults
+) {
     DEBUG_PRINT(1, "Replication:")
     if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
 
@@ -73,37 +83,50 @@ int main(int argc, char* argv[]) {
         std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
 
         std::cout << "Loaded " << adjacencyMatrices.size() << " unique adjacency matrices." << '\n';
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() << " runs." << '\n';
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * 10 << " runs." << '\n';
 
-        // For each adjacency matrix
-        std::vector<Result> flatResults;
-        std::mutex resultsMutex;  // Mutex to protect concurrent access to flatResults
+        // Prepare the combinations
+        std::vector<ParamCombination> combinations;
 
-        std::for_each(std::execution::par, adjacencyMatrices.begin(), adjacencyMatrices.end(), [&](const auto& adjMatrix) {
+        for (const auto& adjMatrix : adjacencyMatrices) {
             std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
+            for (const auto& strategy : strategies) {
+                for (const auto& alpha : alphas) {
+                    for (int repl = 0; repl < 10; ++repl) {
+                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl});
+                    }
+                }
+            }
+        }
+
+        // Prepare a mutex for thread-safe access to flatResults
+        std::vector<Result> flatResults;
+        std::mutex resultsMutex;
+
+        // Process all combinations in parallel
+        std::for_each(std::execution::par, combinations.begin(), combinations.end(), [&](const ParamCombination& comb) {
             DEBUG_PRINT(1, "Adjacency Matrix:");
-            if(DEBUG_LEVEL >= 1) std::cout << adjMatrixBinary << '\n';
+            if(DEBUG_LEVEL >= 1) std::cout << comb.adjMatrixBinary << '\n';
+            DEBUG_PRINT(1, "Strategy:");
+            if(DEBUG_LEVEL >= 1) std::cout << strategyToString(comb.strategy) << '\n';
+            DEBUG_PRINT(1, "Alpha:");
+            if(DEBUG_LEVEL >= 1) std::cout << comb.alpha << '\n';
 
-            std::for_each(std::execution::par, strategies.begin(), strategies.end(), [&](const auto& strategy) {
-                DEBUG_PRINT(1, "Strategy:");
-                if(DEBUG_LEVEL >= 1) std::cout << strategyToString(strategy) << '\n';
-
-                std::for_each(std::execution::par, alphas.begin(), alphas.end(), [&](const auto& alpha) {
-                    DEBUG_PRINT(1, "Alpha:");
-                    if(DEBUG_LEVEL >= 1) std::cout << alpha << '\n';
-
-                    std::vector<int> replicas(10);
-                    std::iota(replicas.begin(), replicas.end(), 0);
-
-                    std::for_each(std::execution::par, replicas.begin(), replicas.end(), [&](int repl) {
-                        processRepl(repl, adjMatrix, strategy, alpha);
-                    });
-                });
-            });
+            processRepl(
+                comb.repl,
+                comb.adjMatrix,
+                comb.strategy,
+                comb.alpha,
+                n,
+                saveTransitionMatrices,
+                outputDir,
+                resultsMutex,
+                flatResults
+            );
         });
 
         // Prepare CSV data with header
-        std::string csvHeader = "NumNodes,AdjacencyMatrix,Alpha,Strategy,Repl,ExpectedSteps,ExpectedPayoffPerStep";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 

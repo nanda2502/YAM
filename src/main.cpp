@@ -1,10 +1,8 @@
 #include <iostream>
-#include <mutex>
 #include <algorithm>
 #include <execution>
 #include <vector>
 #include <string>
-#include <fstream>
 #include <sstream>
 #include <filesystem>
 #include <random>
@@ -14,7 +12,6 @@
 #include "Debug.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
-#include "Graph.hpp"
 #include "ExpectedSteps.hpp"
 
 void processRepl(
@@ -25,8 +22,8 @@ void processRepl(
     int n,
     bool saveTransitionMatrices,
     const std::string &outputDir,
-    std::mutex& resultsMutex,
-    std::vector<Result>& flatResults
+    std::vector<Result>& flatResults,
+    size_t idx  
 ) {
     DEBUG_PRINT(1, "Replication:")
     if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
@@ -57,9 +54,8 @@ void processRepl(
         writeMatrixToCSV(filePath, transitionMatrix);
     }
 
-    // Store results
-    std::lock_guard<std::mutex> guard(resultsMutex);
-    flatResults.push_back(Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep});
+    // Store results directly into the pre-allocated vector
+    flatResults[idx] = Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep};
 }
 
 int main(int argc, char* argv[]) {
@@ -67,6 +63,7 @@ int main(int argc, char* argv[]) {
     bool saveTransitionMatrices = false;
     int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
     int n = numNodes;
+    int replications = 10;
     try {
         // Define alphas and strategies
         std::vector<double> alphas = {0.0, 1.0, 2.0};
@@ -74,10 +71,9 @@ int main(int argc, char* argv[]) {
 
         // Prepare output directory
         std::string outputDir = "../output";
-        if (std::filesystem::exists(outputDir)) {
-            std::filesystem::remove_all(outputDir);
+        if (!std::filesystem::exists(outputDir)) {
+            std::filesystem::create_directory(outputDir);
         }
-        std::filesystem::create_directory(outputDir);
 
         // Read adjacency matrices
         std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
@@ -85,26 +81,20 @@ int main(int argc, char* argv[]) {
         std::cout << "Loaded " << adjacencyMatrices.size() << " unique adjacency matrices." << '\n';
         std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * 10 << " runs." << '\n';
 
+
         // Prepare the combinations
-        std::vector<ParamCombination> combinations;
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);
 
-        for (const auto& adjMatrix : adjacencyMatrices) {
-            std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
-            for (const auto& strategy : strategies) {
-                for (const auto& alpha : alphas) {
-                    for (int repl = 0; repl < 10; ++repl) {
-                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl});
-                    }
-                }
-            }
-        }
+        std::vector<Result> flatResults(combinations.size());
 
-        // Prepare a mutex for thread-safe access to flatResults
-        std::vector<Result> flatResults;
-        std::mutex resultsMutex;
+        // Create indices for storing the results
+        std::vector<size_t> indices(combinations.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
 
         // Process all combinations in parallel
-        std::for_each(std::execution::par, combinations.begin(), combinations.end(), [&](const ParamCombination& comb) {
+        std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t idx) {
+            const ParamCombination& comb = combinations[idx];
             DEBUG_PRINT(1, "Adjacency Matrix:");
             if(DEBUG_LEVEL >= 1) std::cout << comb.adjMatrixBinary << '\n';
             DEBUG_PRINT(1, "Strategy:");
@@ -120,8 +110,8 @@ int main(int argc, char* argv[]) {
                 n,
                 saveTransitionMatrices,
                 outputDir,
-                resultsMutex,
-                flatResults
+                flatResults,
+                idx
             );
         });
 
@@ -143,20 +133,9 @@ int main(int argc, char* argv[]) {
             csvData.push_back(formattedResult);
         }
 
-        // Write results to CSV
-        std::string outputCsvPath = outputDir + "/expected_steps_" + std::to_string(n) + ".csv";
-        std::ofstream csvFile(outputCsvPath);
-        if (!csvFile.is_open()) {
-            std::cerr << "Failed to open file for writing: " << outputCsvPath << '\n';
-            return 1;
-        }
-        for (const auto& line : csvData) {
-            csvFile << line << "\n";
-        }
-        csvFile.close();
 
-        std::cout << "Expected steps to absorption saved to '" << outputCsvPath << "'" << '\n';
-
+        writeAndCompressCSV(outputDir, n, csvData);
+       
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << '\n';
         return 1;

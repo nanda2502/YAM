@@ -1,8 +1,11 @@
 #include "Utils.hpp"
+#include "Types.hpp"
 #include <fstream>
 #include <iomanip>
 #include <stdexcept>
 #include <iostream>
+#include <cstdio>
+#include <zlib.h>
 
 void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector<double>>& matrix) {
     std::ofstream file(filename);
@@ -92,7 +95,6 @@ int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices) {
         // Use default values
     } else if (argc == 2) {
         numNodes = std::stoi(argv[1]);
-        saveTransitionMatrices = true;
     } else if (argc == 3) {
         numNodes = std::stoi(argv[1]);
         std::string arg2 = argv[2];
@@ -109,3 +111,73 @@ int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices) {
 
     return numNodes;
 }
+
+void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData) {
+    // Construct the output CSV file path
+    std::string outputCsvPath = outputDir + "/expected_steps_" + std::to_string(n) + ".csv";
+
+    // Write results to CSV
+    std::ofstream csvFile(outputCsvPath);
+    if (!csvFile.is_open()) {
+        std::cerr << "Failed to open file for writing: " << outputCsvPath << '\n';
+        return;
+    }
+    for (const auto& line : csvData) {
+        csvFile << line << "\n";
+    }
+    csvFile.close();
+
+    // Compress the CSV file using gzip
+    std::string compressedFilePath = outputCsvPath + ".gz";
+    FILE* source = fopen(outputCsvPath.c_str(), "rb");
+    gzFile dest = gzopen(compressedFilePath.c_str(), "wb");
+    if ((source == nullptr) || (dest == nullptr)) {
+        std::cerr << "Failed to open files for compression\n";
+        if (source != nullptr) fclose(source);
+        if (dest != nullptr) gzclose(dest);
+        return;
+    }
+
+    char buffer[8192];
+    int bytesRead = 0;
+    while ((bytesRead = fread(buffer, 1, sizeof(buffer), source)) > 0) {
+        gzwrite(dest, buffer, bytesRead);
+    }
+
+    fclose(source);
+    gzclose(dest);
+
+    // Remove the original uncompressed file
+    if (std::remove(outputCsvPath.c_str()) != 0) {
+        std::cerr << "Failed to remove original file: " << outputCsvPath << '\n';
+    }
+
+    std::cout << "Expected steps to absorption saved and compressed to '" << compressedFilePath << "'\n";
+}
+
+std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
+    std::string binaryString;
+    binaryString.reserve(adjMatrix.size() * adjMatrix[0].size());
+
+    for (const auto& row : adjMatrix) {
+        for (bool entry : row) {
+            binaryString += entry ? '1' : '0';
+        }
+    }
+    return binaryString;
+}
+
+std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adjacencyMatrices, std::vector<Strategy>& strategies, std::vector<double>& alphas, int replications) {
+    std::vector<ParamCombination> combinations;
+    for (const auto& adjMatrix : adjacencyMatrices) {
+        std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
+        for (const auto& strategy : strategies) {
+            for (const auto& alpha : alphas) {
+                for (int repl = 0; repl < replications; ++repl) {
+                    combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl});
+                }
+            }
+        }
+    }
+    return combinations;
+};

@@ -44,14 +44,3 @@ std::vector<Trait> parentTraits(const AdjacencyMatrix& adjMatrix, Trait trait) {
     return parents;
 }
 
-std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
-    std::string binaryString;
-    binaryString.reserve(adjMatrix.size() * adjMatrix[0].size());
-
-    for (const auto& row : adjMatrix) {
-        for (bool entry : row) {
-            binaryString += entry ? '1' : '0';
-        }
-    }
-    return binaryString;
-}

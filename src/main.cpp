@@ -66,8 +66,8 @@ int main(int argc, char* argv[]) {
     int replications = 10;
     try {
         // Define alphas and strategies
-        std::vector<double> alphas = {0.0, 1.0, 2.0};
-        std::vector<Strategy> strategies = {Strategy::RandomLearning, Strategy::PayoffBasedLearning};
+        std::vector<double> alphas = {1.0};
+        std::vector<Strategy> strategies = {Strategy::RandomLearning, Strategy::PayoffBasedLearning, Strategy::VygotskianLearning};
     
         // Prepare output directory
         std::string outputDir = "../output";

@@ -28,6 +28,8 @@ std::string strategyToString(Strategy strategy) {
             return "RandomLearning";
         case PayoffBasedLearning:
             return "PayoffBasedLearning";
+        case VygotskianLearning:
+            return "VygotskianLearning";
         default:
             throw std::invalid_argument("Unknown strategy");
     }

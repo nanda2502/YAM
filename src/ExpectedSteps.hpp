@@ -21,7 +21,9 @@ std::vector<std::vector<double>> buildTransitionMatrix(
     const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
     Strategy strategy,
     const AdjacencyMatrix& adjacencyMatrix,
-    const PayoffVector& payoffs
+    const PayoffVector& payoffs,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
 );
 
 // Function to reorder the transition matrix, separating transient and absorbing states

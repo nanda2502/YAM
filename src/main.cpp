@@ -34,9 +34,10 @@ void processRepl(
     // Compute expected steps
     double expectedSteps = 0.0;
     double expectedPayoffPerStep = 0.0;
+    double expectedTransitionsPerStep = 0.0;
     std::vector<std::vector<double>> transitionMatrix;
 
-    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, transitionMatrix)) {
+    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
         // Increment failure count
         ++failureCounts[idx];
         return;
@@ -55,7 +56,7 @@ void processRepl(
     }
 
     // Store results directly into the pre-allocated vector
-    flatResults[idx] = Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep};
+    flatResults[idx] = Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep};
 }
 
 int main(int argc, char* argv[]) {
@@ -125,7 +126,7 @@ int main(int argc, char* argv[]) {
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
     
         // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
     
@@ -137,7 +138,8 @@ int main(int argc, char* argv[]) {
                 result.strategy,
                 result.repl,
                 result.expectedSteps,
-                result.expectedPayoffPerStep
+                result.expectedPayoffPerStep,
+                result.expectedTransitionsPerStep
             );
             csvData.push_back(formattedResult);
         }

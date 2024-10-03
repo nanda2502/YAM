@@ -198,13 +198,52 @@ void adjustTraitFrequencies(std::vector<double>& traitFrequencies, double adjust
     }
 }
 
+double computeExpectedTransitionsPerStep(
+    const std::vector<std::vector<double>>& fundamentalMatrix,
+    const std::vector<std::vector<double>>& reorderedTransitionMatrix,
+    int initialStateNewIndex,
+    int numTransientStates,
+    double expectedSteps
+) {
+    // Check for division by zero
+    if (expectedSteps == 0.0) {
+        return 0.0;
+    }
+
+    // Compute occupancy probabilities for transient states
+    std::vector<double> occupancy_probs(numTransientStates);
+    const std::vector<double>& occupancy_counts = fundamentalMatrix[initialStateNewIndex];
+
+    for (int i = 0; i < numTransientStates; ++i) {
+        occupancy_probs[i] = occupancy_counts[i] / expectedSteps;
+    }
+
+    // Extract self-transition probabilities from the diagonal of Q
+    std::vector<double> selfTransitionProbs(numTransientStates);
+    for (int i = 0; i < numTransientStates; ++i) {
+        selfTransitionProbs[i] = reorderedTransitionMatrix[i][i];
+    }
+
+    // Compute expected self-transition probability
+    double expectedSelfTransitionProb = 0.0;
+    for (int i = 0; i < numTransientStates; ++i) {
+        expectedSelfTransitionProb += occupancy_probs[i] * selfTransitionProbs[i];
+    }
+
+    // Expected number of transitions per step
+    double expectedTransitionsPerStep = 1.0 - expectedSelfTransitionProb;
+
+    return expectedTransitionsPerStep;
+}
+
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
     double alpha,
     std::mt19937& gen,
     double& expectedSteps,                             
-    double& expectedPayoffPerStep,                     
+    double& expectedPayoffPerStep,
+    double& expectedTransitionsPerStep,                     
     std::vector<std::vector<double>>& transitionMatrix 
 ) {
     try {
@@ -358,6 +397,21 @@ bool computeExpectedSteps(
         int initialStateNewIndex = finalOldToNewIndexMap[initialStateIndex];
 
         expectedSteps = computeExpectedStepsFromMatrix(finalIMinusQ, initialStateNewIndex);
+
+        //Recompute fundamental matrix for expected transitions per step
+        std::vector<std::vector<double>> fundamentalMatrix(finalNumTransientStates, std::vector<double>(finalNumTransientStates));
+
+        for (int i = 0; i < finalNumTransientStates; ++i) {
+            std::vector<double> e_i(finalNumTransientStates, 0.0);
+            e_i[i] = 1.0;
+            std::vector<double> column = solveLinearSystem(finalIMinusQ, e_i);
+
+            for (int j = 0; j < finalNumTransientStates; ++j) {
+                fundamentalMatrix[j][i] = column[j];
+            }
+        }
+
+        expectedTransitionsPerStep = computeExpectedTransitionsPerStep(fundamentalMatrix, finalReorderedTransitionMatrix, initialStateNewIndex, finalNumTransientStates, expectedSteps);
 
         std::vector<double> statePayoffs(finalRepertoiresList.size(), 0.0);
         for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {

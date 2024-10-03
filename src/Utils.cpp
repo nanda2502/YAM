@@ -35,9 +35,9 @@ std::string strategyToString(Strategy strategy) {
     }
 }
 
-std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep) {
+std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep, double expectedTransitionsPerStep) {
     std::ostringstream oss;
-    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << repl << ',' << std::fixed << std::setprecision(4) << expectedSteps << ',' << expectedPayoffPerStep;
+    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << repl << ',' << std::fixed << std::setprecision(4) << expectedSteps << ',' << expectedPayoffPerStep << ',' << expectedTransitionsPerStep;
     return oss.str();
 }
 

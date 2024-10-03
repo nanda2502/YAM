@@ -31,6 +31,7 @@ struct Result {
     int repl;
     double expectedSteps;
     double expectedPayoffPerStep;
+    double expectedTransitionsPerStep;
 };
 
 #endif // TYPES_HPP

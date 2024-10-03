@@ -9,7 +9,7 @@ void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector
 
 std::string strategyToString(Strategy strategy);
 
-std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep);
+std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep, double expectedTransitionsPerStep);
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
 

@@ -46,6 +46,14 @@ std::vector<double> computeExpectedPayoffs(
     const std::vector<double>& payoffVector
 );
 
+double computeExpectedTransitionsPerStep(
+    const std::vector<std::vector<double>>& fundamentalMatrix,
+    const std::vector<std::vector<double>>& reorderedTransitionMatrix,
+    int initialStateNewIndex,
+    int numTransientStates,
+    double expectedSteps
+);
+
 // Main function to compute expected steps and expected payoff per step
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
@@ -54,6 +62,7 @@ bool computeExpectedSteps(
     std::mt19937& gen,
     double& expectedSteps,                             // Output parameter for expected steps
     double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
+    double& expectedTransitionsPerStep,                // Output parameter for expected transitions per step
     std::vector<std::vector<double>>& transitionMatrix // Output parameter for the transition matrix
 );
 

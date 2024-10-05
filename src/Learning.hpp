@@ -38,14 +38,7 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const std::vector<Repertoire>& allStates
 );
 
-double stayProbability(
-    Strategy strategy, 
-    const Repertoire& repertoire, 
-    const AdjacencyMatrix& adjMatrix, 
-    const PayoffVector& payoffs, 
-    const std::vector<double>& traitFrequencies, 
-    const std::vector<Repertoire>& allStates
-);
+double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
 
 struct RepertoireHash {
     std::size_t operator()(const Repertoire& repertoire) const {

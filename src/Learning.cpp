@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <queue>
+#include <unordered_map>
 #include <unordered_set>
 
 std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix) {
@@ -26,6 +27,28 @@ std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatr
     return learnable;
 }
 
+std::unordered_map<Repertoire, double, RepertoireHash> computeStateFrequencies(
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates) {
+
+    std::unordered_map<Repertoire, double, RepertoireHash> stateFrequencies;
+
+    for (const auto& state : allStates) {
+        double probability = 1.0;
+        for (size_t i = 0; i < state.size(); ++i) {
+            if (state[i]) {
+                probability *= traitFrequencies[i]; // Probability trait i is learned
+            } else {
+                probability *= (1 - traitFrequencies[i]); // Probability trait i is not learned
+            }
+        }
+        stateFrequencies[state] = probability;
+    }
+
+    return stateFrequencies;
+}
+
+
 double computeDelta(const Repertoire& r, const Repertoire& s) {
     // count the number of traits that are present in target state s but not in current state r
     return std::inner_product(s.begin(), s.end(), r.begin(), 0.0,
@@ -42,23 +65,17 @@ std::vector<double> vygotskianBaseWeights(
     const std::vector<Repertoire>& allStates
 ) {
     std::vector<double> w_star(repertoire.size(), 0.0);
-    std::vector<double> stateWeights(allStates.size(), 0.0);
-
-    // Compute state weights
-    for (size_t i = 0; i < allStates.size(); ++i) {
-        double delta = computeDelta(repertoire, allStates[i]);
-        if (delta > 0) {  // Only consider states with at least one more trait
-            stateWeights[i] = traitFrequencies[i] * phi(delta);
-        }
-    }
-
+    auto stateFrequencies = computeStateFrequencies(traitFrequencies, allStates);
     // Compute trait contributions
     for (size_t j = 0; j < repertoire.size(); ++j) {
         if (!repertoire[j]) {  // Only consider unlearned traits
-            for (size_t i = 0; i < allStates.size(); ++i) {
-                if (allStates[i][j] && computeDelta(repertoire, allStates[i]) > 0) {
-                    int N_s = computeDelta(repertoire, allStates[i]);  // Number of additional traits known in s but not in r
-                    w_star[j] += stateWeights[i] / N_s;
+            for (const auto& state : allStates) {
+                if (state[j]) {  // If the state has trait j learned
+                    double delta = computeDelta(repertoire, state);
+                    if (delta > 0) {
+                        int N_s = delta;  // Number of additional traits known in s but not in r
+                        w_star[j] += stateFrequencies.at(state) / N_s;
+                    }
                 }
             }
         }
@@ -149,15 +166,7 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     return transitions;
 }
 
-double stayProbability(
-    Strategy strategy, 
-    const Repertoire& repertoire, 
-    const AdjacencyMatrix& adjMatrix, 
-    const PayoffVector& payoffs, 
-    const std::vector<double>& traitFrequencies, 
-    const std::vector<Repertoire>& allStates
-) {
-    auto transitions = transitionFromState(strategy, repertoire, adjMatrix, payoffs, traitFrequencies, allStates);
+double stayProbability(std::vector<std::pair<Repertoire, double>> transitions) {
 
     double totalTransitionProbability = std::accumulate(
         transitions.begin(), transitions.end(), 0.0,

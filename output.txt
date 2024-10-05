@@ -1,0 +1,739 @@
+$ ./yam 4
+Loaded 1 adjacency matrices.
+Starting 30 runs.
+Adjacency Matrix:
+0101001000000000
+Strategy:
+RandomLearning
+Alpha:
+1
+Replication:
+0
+Payoffs:
+Trait 0: 0
+Trait 1: 1.03276
+Trait 2: 2.11741
+Trait 3: 1.42639
+Starting iterative fixed-point method for trait frequencies
+Iteration 1
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.33       0.33       0.33       0.00       0.00       0.00
+      0.00       0.00       0.00       0.50       0.50       0.00
+      0.00       0.00       0.50       0.00       0.50       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00 
+Q matrix:
+      0.33       0.33       0.33       0.00       0.00
+      0.00       0.00       0.00       0.50       0.50
+      0.00       0.00       0.50       0.00       0.50
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      0.67      -0.33      -0.33       0.00       0.00
+      0.00       1.00       0.00      -0.50      -0.50
+      0.00       0.00       0.50       0.00      -0.50
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.43
+Trait 2: 0.07
+Trait 3: 0.50
+Max difference: 0.93
+Iteration 2
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.07       0.43       0.50       0.00       0.00       0.00
+      0.00       0.00       0.00       0.13       0.88       0.00
+      0.00       0.00       0.14       0.00       0.86       0.00 
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.07       0.43       0.50       0.00       0.00
+      0.00       0.00       0.00       0.13       0.88
+      0.00       0.00       0.14       0.00       0.86
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      0.93      -0.43      -0.50       0.00       0.00
+      0.00       1.00       0.00      -0.13      -0.88
+      0.00       0.00       0.86       0.00      -0.86
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.47
+Trait 2: 0.02
+Trait 3: 0.51
+Max difference: 0.05
+Iteration 3
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.02       0.47       0.51       0.00       0.00       0.00
+      0.00       0.00       0.00       0.04       0.96       0.00
+      0.00       0.00       0.04       0.00       0.96       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.02       0.47       0.51       0.00       0.00
+      0.00       0.00       0.00       0.04       0.96
+      0.00       0.00       0.04       0.00       0.96
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      0.98      -0.47      -0.51       0.00       0.00
+      0.00       1.00       0.00      -0.04      -0.96
+      0.00       0.00       0.96       0.00      -0.96
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.49
+Trait 2: 0.01
+Trait 3: 0.50
+Max difference: 0.02
+Iteration 4
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.01       0.49       0.50       0.00       0.00       0.00
+      0.00      -0.00       0.00       0.01       0.99       0.00
+      0.00       0.00       0.01       0.00       0.99       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.01       0.49       0.50       0.00       0.00
+      0.00      -0.00       0.00       0.01       0.99
+      0.00       0.00       0.01       0.00       0.99
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      0.99      -0.49      -0.50       0.00       0.00
+      0.00       1.00       0.00      -0.01      -0.99 
+      0.00       0.00       0.99       0.00      -0.99
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.50
+Trait 2: 0.00
+Trait 3: 0.50
+Max difference: 0.01
+Iteration 5
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.50       0.50       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.50       0.50       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00 
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.50      -0.50       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.50
+Trait 2: 0.00
+Trait 3: 0.50
+Max difference: 0.00
+Iteration 6
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.50       0.50       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.50       0.50       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.50      -0.50       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.50
+Trait 2: 0.00
+Trait 3: 0.50
+Max difference: 0.00
+Iteration 7
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.50       0.50       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00 
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.50       0.50       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.50      -0.50       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.50
+Trait 2: 0.00
+Trait 3: 0.50
+Max difference: 0.00
+Iteration 8
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.50       0.50       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.50       0.50       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.50      -0.50       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00 
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.50
+Trait 2: 0.00
+Trait 3: 0.50
+Max difference: 0.00
+Converged after 8 iterations
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Q matrix:
+      0.00       0.50       0.50       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.50      -0.50       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Expected steps:
+Expected steps: 3.00
+Adjacency Matrix:
+0101001000000000
+Strategy:
+PayoffBasedLearning
+Alpha:
+1.00
+Replication:
+0
+Payoffs:
+Trait 0: 0.00
+Trait 1: 1.29
+Trait 2: 2.03
+Trait 3: 1.80
+Starting iterative fixed-point method for trait frequencies
+Iteration 1
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.40       0.25       0.35       0.00       0.00       0.00
+      0.00       0.00       0.00       0.53       0.47       0.00
+      0.00       0.00       0.61       0.00       0.39       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.40       0.25       0.35       0.00       0.00
+      0.00       0.00       0.00       0.53       0.47
+      0.00       0.00       0.61       0.00       0.39
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      0.60      -0.25      -0.35       0.00       0.00
+      0.00       1.00       0.00      -0.53      -0.47
+      0.00       0.00       0.39       0.00      -0.39
+      0.00       0.00       0.00       1.00       0.00 
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.36
+Trait 2: 0.06
+Trait 3: 0.58
+Max difference: 0.94
+Iteration 2
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.07       0.29       0.64       0.00       0.00       0.00
+      0.00       0.00       0.00       0.10       0.90       0.00
+      0.00       0.00       0.20       0.00       0.80       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.07       0.29       0.64       0.00       0.00
+      0.00       0.00       0.00       0.10       0.90
+      0.00       0.00       0.20       0.00       0.80
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      0.93      -0.29      -0.64       0.00       0.00 
+      0.00       1.00       0.00      -0.10      -0.90
+      0.00       0.00       0.80       0.00      -0.80
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.41
+Trait 2: 0.01
+Trait 3: 0.58
+Max difference: 0.05
+Iteration 3
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.01       0.33       0.65       0.00       0.00       0.00
+      0.00       0.00       0.00       0.02       0.98       0.00
+      0.00       0.00       0.04       0.00       0.96       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.01       0.33       0.65       0.00       0.00
+      0.00       0.00       0.00       0.02       0.98
+      0.00       0.00       0.04       0.00       0.96 
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      0.99      -0.33      -0.65       0.00       0.00
+      0.00       1.00       0.00      -0.02      -0.98
+      0.00       0.00       0.96       0.00      -0.96
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.44
+Trait 2: 0.00
+Trait 3: 0.56
+Max difference: 0.03
+Iteration 4
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.36       0.64       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.01       0.00       0.99       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00 
+Q matrix:
+      0.00       0.36       0.64       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.01       0.00       0.99
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.36      -0.64       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       0.99       0.00      -0.99
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.45
+Trait 2: 0.00
+Trait 3: 0.55
+Max difference: 0.01
+Iteration 5
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.37       0.63       0.00       0.00       0.00 
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.37       0.63       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.37      -0.63       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00 
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.46
+Trait 2: 0.00
+Trait 3: 0.54
+Max difference: 0.00
+Iteration 6
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.38       0.62       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.38       0.62       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00 
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.38      -0.62       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.46
+Trait 2: 0.00
+Trait 3: 0.54
+Max difference: 0.00
+Iteration 7
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.38       0.62       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00 
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.38       0.62       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.38      -0.62       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.46
+Trait 2: 0.00
+Trait 3: 0.54
+Max difference: 0.00
+Iteration 8
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.38       0.62       0.00       0.00       0.00 
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.38       0.62       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.38      -0.62       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.46
+Trait 2: 0.00
+Trait 3: 0.54
+Max difference: 0.00
+Iteration 9
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.00       0.38       0.62       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.00       0.38       0.62       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.38      -0.62       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00 
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.46
+Trait 2: 0.00
+Trait 3: 0.54
+Max difference: 0.00
+Converged after 9 iterations
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Q matrix:
+      0.00       0.38       0.62       0.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.00      -0.38      -0.62       0.00       0.00
+      0.00       1.00       0.00      -0.00      -1.00
+      0.00       0.00       1.00       0.00      -1.00
+      0.00       0.00       0.00       1.00       0.00 
+      0.00       0.00       0.00       0.00       1.00
+Expected steps:
+Expected steps: 3.00
+Adjacency Matrix:
+0101001000000000
+Strategy:
+VygotskianLearning
+Alpha:
+1.00
+Replication:
+0
+Payoffs:
+Trait 0: 0.00
+Trait 1: 1.54
+Trait 2: 2.15
+Trait 3: 1.72
+Starting iterative fixed-point method for trait frequencies
+Iteration 1
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+      0.06       0.52       0.42       0.00       0.00       0.00
+      0.00       0.00       0.00       0.50       0.50       0.00
+      0.00       0.00       0.25       0.00       0.75       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+      0.06       0.52       0.42       0.00       0.00
+      0.00       0.00       0.00       0.50       0.50 
+      0.00       0.00       0.25       0.00       0.75
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      0.94      -0.52      -0.42       0.00       0.00
+      0.00       1.00       0.00      -0.50      -0.50
+      0.00       0.00       0.75       0.00      -0.75
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.49
+Trait 2: 0.09
+Trait 3: 0.42
+Max difference: 0.91
+Iteration 2
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+     -0.04       0.70       0.34       0.00       0.00       0.00
+      0.00       0.00       0.00       0.67       0.33       0.00
+      0.00       0.00       0.26       0.00       0.74       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00 
+Q matrix:
+     -0.04       0.70       0.34       0.00       0.00
+      0.00       0.00       0.00       0.67       0.33
+      0.00       0.00       0.26       0.00       0.74
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.04      -0.70      -0.34       0.00       0.00
+      0.00       1.00       0.00      -0.67      -0.33
+      0.00       0.00       0.74       0.00      -0.74
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.54
+Trait 2: 0.14
+Trait 3: 0.32
+Max difference: 0.10
+Iteration 3
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+     -0.03       0.68       0.35       0.00       0.00       0.00
+      0.00       0.00       0.00       0.64       0.36       0.00 
+      0.00       0.00       0.26       0.00       0.74       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+     -0.03       0.68       0.35       0.00       0.00
+      0.00       0.00       0.00       0.64       0.36
+      0.00       0.00       0.26       0.00       0.74
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.03      -0.68      -0.35       0.00       0.00
+      0.00       1.00       0.00      -0.64      -0.36
+      0.00       0.00       0.74       0.00      -0.74
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.53
+Trait 2: 0.14
+Trait 3: 0.33
+Max difference: 0.01
+Iteration 4
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+     -0.03       0.68       0.35       0.00       0.00       0.00
+      0.00       0.00       0.00       0.65       0.35       0.00
+      0.00       0.00       0.26       0.00       0.74       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+     -0.03       0.68       0.35       0.00       0.00
+      0.00       0.00       0.00       0.65       0.35
+      0.00       0.00       0.26       0.00       0.74
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.03      -0.68      -0.35       0.00       0.00
+      0.00       1.00       0.00      -0.65      -0.35
+      0.00       0.00       0.74       0.00      -0.74
+      0.00       0.00       0.00       1.00       0.00 
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.53
+Trait 2: 0.14
+Trait 3: 0.33
+Max difference: 0.00
+Iteration 5
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Reordered transition matrix:
+     -0.03       0.68       0.35       0.00       0.00       0.00
+      0.00       0.00       0.00       0.65       0.35       0.00
+      0.00       0.00       0.26       0.00       0.74       0.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+      0.00       0.00       0.00       0.00       0.00       1.00
+Q matrix:
+     -0.03       0.68       0.35       0.00       0.00
+      0.00       0.00       0.00       0.65       0.35
+      0.00       0.00       0.26       0.00       0.74
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.03      -0.68      -0.35       0.00       0.00 
+      0.00       1.00       0.00      -0.65      -0.35
+      0.00       0.00       0.74       0.00      -0.74
+      0.00       0.00       0.00       1.00       0.00
+      0.00       0.00       0.00       0.00       1.00
+Current trait frequencies:
+Trait 0: 1.00
+Trait 1: 0.53
+Trait 2: 0.14
+Trait 3: 0.33
+Max difference: 0.00
+Converged after 5 iterations
+Number of transient states: 5
+Number of absorbing states: 1
+Initial state new index: 0
+Q matrix:
+     -0.03       0.68       0.35       0.00       0.00
+      0.00       0.00       0.00       0.65       0.35
+      0.00       0.00       0.26       0.00       0.74
+      0.00       0.00       0.00       0.00       0.00
+      0.00       0.00       0.00       0.00       0.00
+I - Q matrix:
+      1.03      -0.68      -0.35       0.00       0.00
+      0.00       1.00       0.00      -0.65      -0.35
+      0.00       0.00       0.74       0.00      -0.74
+      0.00       0.00       0.00       1.00       0.00 
+      0.00       0.00       0.00       0.00       1.00
+Expected steps:
+Expected steps: 3.09
+Total failures: 0
+Expected steps to absorption saved and compressed to '../output/expected_steps_4.csv.gz'

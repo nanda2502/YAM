@@ -27,4 +27,6 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
 
 std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adjacencyMatrices, std::vector<Strategy>& strategies, std::vector<double>& alphas, int replications);
 
+std::string stateToString(const Repertoire& state);
+
 #endif // UTILS_HPP

@@ -59,7 +59,7 @@ std::vector<std::vector<double>> buildTransitionMatrix(
     for (int i = 0; i < numStates; ++i) {
         const Repertoire& repertoire = repertoiresList[i];
         auto transitions = transitionFromState(strategy, repertoire, adjacencyMatrix, payoffs, traitFrequencies, allStates);
-        double stayProb = stayProbability(strategy, repertoire, adjacencyMatrix, payoffs, traitFrequencies, allStates);
+        auto stayProb = stayProbability(transitions);
 
         std::unordered_map<int, double> probMap;
         probMap[i] = stayProb;
@@ -79,16 +79,26 @@ std::vector<std::vector<double>> buildTransitionMatrix(
     return transitionMatrix;
 }
 
+bool isAbsorbingState(const Repertoire& repertoire, const std::vector<double>& traitFrequencies) {
+    if (std::all_of(repertoire.begin(), repertoire.end(), [](bool learned) { return learned; })) {
+        return true;
+    }
+    for (Trait i = 1; i < repertoire.size(); ++i) {
+        if (!repertoire[i] && std::abs(traitFrequencies[i]) > 1e-5) {
+            return false;
+        }
+    }
+    DEBUG_PRINT(1, "No unlearned traits in state " << stateToString(repertoire) << " with non-zero frequency");
+    return true;
+}
+
 std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> reorderTransitionMatrix(
     const std::vector<std::vector<double>>& transitionMatrix,
     const std::vector<std::pair<Repertoire, int>>& repertoiresWithIndices,
     const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
-    Trait rootNode
+    Trait rootNode,
+    const std::vector<double>& traitFrequencies
 ) {
-    // Define the function to check if a state is absorbing
-    auto isAbsorbingState = [](const Repertoire& repertoire) {
-        return std::all_of(repertoire.begin(), repertoire.end(), [](bool learned) { return learned; });
-    };
 
     // Build a vector of repertoires indexed by state indices
     size_t numStates = transitionMatrix.size();
@@ -104,7 +114,7 @@ std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> 
     // Use std::stable_partition to reorder indices: transient states first, then absorbing states
     auto partitionPoint = std::stable_partition(
         reorderedStateIndices.begin(), reorderedStateIndices.end(),
-        [&](int index) { return !isAbsorbingState(repertoires[index]); }
+        [&](int index) { return !isAbsorbingState(repertoires[index], traitFrequencies); }
     );
 
     // Calculate the number of transient states
@@ -250,7 +260,13 @@ bool computeExpectedSteps(
         Trait rootNode = 0;
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
         PayoffVector payoffs = generatePayoffs(distances, alpha, gen);
-
+        // print payoffs
+        DEBUG_PRINT(2, "Payoffs:");
+        if(DEBUG_LEVEL >= 2) {
+            for (size_t i = 0; i < payoffs.size(); ++i) {
+                std::cout << "Trait " << i << ": " << payoffs[i] << '\n';
+            }
+        }
         size_t n = adjacencyMatrix.size();
         std::vector<double> traitFrequencies(n, 1.0);
         traitFrequencies[0] = 1.0;
@@ -270,7 +286,7 @@ bool computeExpectedSteps(
             bool success = false;
             int adjustmentAttempts = 0;
             const int MAX_ADJUSTMENT_ATTEMPTS = 10;
-            double adjustmentFactor = 0.9;
+            double adjustmentFactor = 0.95;
 
             while (!success && adjustmentAttempts < MAX_ADJUSTMENT_ATTEMPTS) {
                 try {
@@ -287,8 +303,10 @@ bool computeExpectedSteps(
                     }
 
                     transitionMatrix = buildTransitionMatrix(repertoiresList, repertoireIndexMap, strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates);
-                    auto [reorderedTransitionMatrix, oldToNewIndexMap, numTransientStates] = reorderTransitionMatrix(transitionMatrix, repertoiresWithIndices, repertoireIndexMap, rootNode);
+                    auto [reorderedTransitionMatrix, oldToNewIndexMap, numTransientStates] = reorderTransitionMatrix(transitionMatrix, repertoiresWithIndices, repertoireIndexMap, rootNode, traitFrequencies);
 
+                    DEBUG_PRINT(2, "Reordered transition matrix:");
+                    if(DEBUG_LEVEL >= 2) printMatrix(reorderedTransitionMatrix);
                     if (numTransientStates == 0) {
                         expectedSteps = 0.0;
                         expectedPayoffPerStep = std::accumulate(payoffs.begin(), payoffs.end(), 0.0);
@@ -312,7 +330,10 @@ bool computeExpectedSteps(
                     for (const auto& row : fundamentalMatrix) {
                         totalTransientTime += std::accumulate(row.begin(), row.end(), 0.0);
                     }
-
+                    
+                    //For each trait, loop through all repertoire states. 
+                    //Use the fundamental matrix to get the expected time spent in each transient state.
+                    //Time spent in transient states contributes to the trait frequency for all traits in that state.  
                     for (size_t j = 1; j < n; ++j) {
                         double timeTraitKnown = 0.0;
                         for (size_t r = 0; r < repertoiresList.size(); ++r) {
@@ -325,6 +346,8 @@ bool computeExpectedSteps(
                         }
                         traitFrequencies[j] = timeTraitKnown / totalTransientTime;
                     }
+
+                    // Normalize trait frequencies
                     double sum = std::accumulate(traitFrequencies.begin() + 1, traitFrequencies.end(), 0.0);
                     for (size_t j = 1; j < n; ++j) {
                         traitFrequencies[j] /= sum;
@@ -379,7 +402,7 @@ bool computeExpectedSteps(
         transitionMatrix = buildTransitionMatrix(finalRepertoiresList, finalRepertoireIndexMap, strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates);
 
         auto [finalReorderedTransitionMatrix, finalOldToNewIndexMap, finalNumTransientStates] = reorderTransitionMatrix(
-            transitionMatrix, finalRepertoiresWithIndices, finalRepertoireIndexMap, rootNode
+            transitionMatrix, finalRepertoiresWithIndices, finalRepertoireIndexMap, rootNode, traitFrequencies
         );
 
         if (finalNumTransientStates == 0) {

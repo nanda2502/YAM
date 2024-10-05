@@ -4,7 +4,7 @@
 #include <iostream>
 
 
-#define DEBUG_LEVEL 0  // Set to 0 to disable debug output, 1 to enable, 2 to also print the full matrices
+#define DEBUG_LEVEL 2  // Set to 0 to disable debug output, 1 to enable, 2 to also print the full matrices
 std::ostream& setPrecision(std::ostream& os, int precision);
 
 #define DEBUG_PRINT(level, x) \

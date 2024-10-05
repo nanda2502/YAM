@@ -1,4 +1,255 @@
-#include "ExpectedSteps.hpp"
+#ifndef DEBUG_HPP
+#define DEBUG_HPP
+
+#include <iostream>
+
+
+#define DEBUG_LEVEL 2  // Set to 0 to disable debug output, 1 to enable, 2 to also print the full matrices
+std::ostream& setPrecision(std::ostream& os, int precision);
+
+#define DEBUG_PRINT(level, x) \
+    if (DEBUG_LEVEL >= level) { \
+        std::ios_base::fmtflags old_flags = std::cout.flags(); \
+        std::streamsize old_prec = std::cout.precision(); \
+        std::cout << x << '\n'; \
+        std::cout.flags(old_flags); \
+        std::cout.precision(old_prec); \
+    }
+
+
+#endif //DEBUG_HPP
+#ifndef EXPECTEDSTEPS_HPP
+#define EXPECTEDSTEPS_HPP
+
+#include "Types.hpp"
+#include "Learning.hpp"
+
+#include <random>
+#include <vector>
+#include <unordered_map>
+#include <tuple>
+
+
+std::vector<std::vector<double>> computeIMinusQ(
+    const std::vector<std::vector<double>>& reorderedTransitionMatrix,
+    int numTransientStates
+);
+
+std::vector<std::vector<double>> buildTransitionMatrix(
+    const std::vector<Repertoire>& repertoiresList,
+    const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
+    Strategy strategy,
+    const AdjacencyMatrix& adjacencyMatrix,
+    const PayoffVector& payoffs,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+);
+
+bool isAbsorbingState(const Repertoire& repertoire);
+
+// Function to reorder the transition matrix, separating transient and absorbing states
+std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> reorderTransitionMatrix(
+    const std::vector<std::vector<double>>& transitionMatrix,
+    const std::vector<std::pair<Repertoire, int>>& repertoiresWithIndices,
+    const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
+    Trait rootNode
+);
+
+// Ccompute expected steps from the (I - Q) matrix
+double computeExpectedStepsFromMatrix(
+    const std::vector<std::vector<double>>& iMinusQ,
+    int initialStateNewIndex
+);
+
+// Compute expected payoffs from the (I - Q) matrix and payoff vector
+std::vector<double> computeExpectedPayoffs(
+    const std::vector<std::vector<double>>& iMinusQ,
+    const std::vector<double>& payoffVector
+);
+
+// Compute learning success probability
+double computeExpectedTransitionsPerStep(
+    const std::vector<std::vector<double>>& fundamentalMatrix,
+    const std::vector<std::vector<double>>& reorderedTransitionMatrix,
+    int initialStateNewIndex,
+    int numTransientStates,
+    double expectedSteps
+);
+
+// Main function
+bool computeExpectedSteps(
+    const AdjacencyMatrix& adjacencyMatrix,
+    Strategy strategy,
+    double alpha,
+    std::mt19937& gen,
+    double& expectedSteps,                             // Output parameter for expected steps
+    double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
+    double& expectedTransitionsPerStep,                // Output parameter for expected transitions per step
+    std::vector<std::vector<double>>& transitionMatrix // Output parameter for the transition matrix
+);
+
+#endif // EXPECTEDSTEPS_HPP
+#ifndef GRAPH_HPP 
+#define GRAPH_HPP
+
+#include "Types.hpp" 
+
+std::vector<int> computeDistances(const AdjacencyMatrix& adjMatrix, Trait root);
+
+std::vector<Trait> parentTraits(const AdjacencyMatrix& adjMatrix, Trait trait);
+
+#endif // GRAPH_HPP#ifndef LEARNING_HPP
+#define LEARNING_HPP
+
+#include "Types.hpp"
+#include <vector>
+#include <string>
+#include <random>
+
+std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix);
+
+std::vector<double> baseWeights(
+    Strategy strategy,
+    const Repertoire& repertoire,
+    const PayoffVector& payoffs,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates 
+);
+
+std::vector<double> normalizedWeights(
+    Strategy strategy,
+    const Repertoire& repertoire,
+    const PayoffVector& payoffs,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+);
+
+// In this version, trait frequency is the probability that a trait is considered for learning
+std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, std::mt19937& gen);
+
+Repertoire learnTrait(const Repertoire& repertoire, Trait trait);
+
+std::vector<std::pair<Repertoire, double>> transitionFromState(
+    Strategy strategy, 
+    const Repertoire& repertoire, 
+    const AdjacencyMatrix& adjMatrix, 
+    const PayoffVector& payoffs, 
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+);
+
+double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
+
+struct RepertoireHash {
+    std::size_t operator()(const Repertoire& repertoire) const {
+        return std::hash<std::string>{}(std::string(repertoire.begin(), repertoire.end()));
+    }
+};
+
+std::vector<Repertoire> generateReachableRepertoires(
+    Strategy strategy, 
+    const AdjacencyMatrix& adjMatrix, 
+    const PayoffVector& payoffs, 
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+);
+
+std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix);
+
+size_t countLearnedTraits(const Repertoire& r);
+
+std::vector<Repertoire> retrieveBetterRepertoires(const std::vector<Repertoire>& repertoires, const Repertoire& singleRepertoire);
+
+#endif // LEARNING_HPP#ifndef LINEAR_ALGEBRA_HPP
+#define LINEAR_ALGEBRA_HPP
+
+#include <vector>
+
+std::vector<double> solveLinearSystem(const std::vector<std::vector<double>>& A, const std::vector<double>& b);
+
+#endif // LINEAR_ALGEBRA_HPP#ifndef PAYOFFS_HPP
+#define PAYOFFS_HPP
+
+#include "Types.hpp"
+#include <vector>
+#include <random>
+
+PayoffVector generatePayoffs(const std::vector<int>& distances, double alpha, std::mt19937& gen);
+
+#endif // PAYOFFS_HPP#ifndef TYPES_HPP 
+#define TYPES_HPP
+
+#include <vector>
+#include <string>
+
+using Trait = size_t;
+using Repertoire = std::vector<bool>;
+using PayoffVector = std::vector<double>;
+using AdjacencyMatrix = std::vector<std::vector<bool>>;
+
+enum Strategy {
+    RandomLearning,
+    PayoffBasedLearning,
+    VygotskianLearning
+};
+
+struct ParamCombination {
+    AdjacencyMatrix adjMatrix;
+    std::string adjMatrixBinary;
+    Strategy strategy;
+    double alpha;
+    int repl;
+};
+
+struct Result {
+    int n;
+    std::string adjMatrixBinary;
+    double alpha;
+    Strategy strategy;
+    int repl;
+    double expectedSteps;
+    double expectedPayoffPerStep;
+    double expectedTransitionsPerStep;
+};
+
+#endif // TYPES_HPP
+
+#ifndef UTILS_HPP
+#define UTILS_HPP
+
+#include <vector>
+#include <string> 
+#include "Types.hpp"
+
+void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector<double>>& matrix);
+
+std::string strategyToString(Strategy strategy);
+
+std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep, double expectedTransitionsPerStep);
+
+std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
+
+AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str);
+
+bool charToBool(char c);
+
+void printMatrix(const std::vector<std::vector<double>>& matrix);
+
+int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices);
+
+void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData);
+
+std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
+
+std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adjacencyMatrices, std::vector<Strategy>& strategies, std::vector<double>& alphas, int replications);
+
+#endif // UTILS_HPP#include "Debug.hpp"
+
+std::ostream& setPrecision(std::ostream& os, int precision) {
+    os.setf(std::ios::fixed);
+    os.precision(precision);
+    return os;
+}#include "ExpectedSteps.hpp"
 
 #include "Debug.hpp"
 #include "Learning.hpp"
@@ -45,38 +296,42 @@ std::vector<std::vector<double>> computeIMinusQ(
 }
 
 std::vector<std::vector<double>> buildTransitionMatrix(
+    const std::vector<Repertoire>& repertoiresList,
+    const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
     Strategy strategy,
-    const AdjacencyMatrix& adjMatrix,
+    const AdjacencyMatrix& adjacencyMatrix,
     const PayoffVector& payoffs,
-    const std::vector<double>& traitFrequencies
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
 ) {
-    std::vector<Repertoire> allStates = generateReachableRepertoires(adjMatrix);
-    size_t numStates = allStates.size();
-    
-    // Create a mapping from Repertoire to index
-    std::unordered_map<Repertoire, size_t, RepertoireHash> stateToIndex;
-    for (size_t i = 0; i < numStates; ++i) {
-        stateToIndex[allStates[i]] = i;
-    }
-    
+    int numStates = static_cast<int>(repertoiresList.size());
     std::vector<std::vector<double>> transitionMatrix(numStates, std::vector<double>(numStates, 0.0));
 
-    for (size_t i = 0; i < numStates; ++i) {
-        const Repertoire& currentState = allStates[i];
-        auto transitions = transitionFromState(strategy, currentState, adjMatrix, payoffs, traitFrequencies, allStates);
-        
-        double stayProb = 1.0;
-        for (const auto& [nextState, prob] : transitions) {
-            size_t j = stateToIndex[nextState];
-            transitionMatrix[i][j] = prob;
-            stayProb -= prob;
+    for (int i = 0; i < numStates; ++i) {
+        const Repertoire& repertoire = repertoiresList[i];
+        auto transitions = transitionFromState(strategy, repertoire, adjacencyMatrix, payoffs, traitFrequencies, allStates);
+        auto stayProb = stayProbability(transitions);
+
+        std::unordered_map<int, double> probMap;
+        probMap[i] = stayProb;
+
+        for (const auto& [nextRepertoire, prob] : transitions) {
+            int nextIndex = repertoireIndexMap.at(nextRepertoire);
+            probMap[nextIndex] += prob;
         }
-        
-        // Set the probability of staying in the current state
-        transitionMatrix[i][i] = stayProb;
+
+        std::vector<double> row(numStates, 0.0);
+        for (const auto& [idx, prob] : probMap) {
+            row[idx] = prob;
+        }
+        transitionMatrix[i] = row;
     }
 
     return transitionMatrix;
+}
+
+bool isAbsorbingState(const Repertoire& repertoire) {
+    return std::all_of(repertoire.begin(), repertoire.end(), [](bool learned) { return learned; });
 }
 
 std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> reorderTransitionMatrix(
@@ -85,10 +340,6 @@ std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> 
     const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
     Trait rootNode
 ) {
-    // Define the function to check if a state is absorbing
-    auto isAbsorbingState = [](const Repertoire& repertoire) {
-        return std::all_of(repertoire.begin(), repertoire.end(), [](bool learned) { return learned; });
-    };
 
     // Build a vector of repertoires indexed by state indices
     size_t numStates = transitionMatrix.size();
@@ -154,6 +405,9 @@ std::vector<double> computeExpectedPayoffs(const std::vector<std::vector<double>
     // Solve the system (I - Q) * expectedPayoffs = payoffVector
     std::vector<double> expectedPayoffs;
     expectedPayoffs = solveLinearSystem(iMinusQ, payoffVector);
+    if (std::any_of(expectedPayoffs.begin(), expectedPayoffs.end(), [](double val) { return std::isnan(val) || std::isinf(val); })) {
+        DEBUG_PRINT(1, "NaN or Inf found in expectedPayoffs");
+    }
     return expectedPayoffs;
 }
 
@@ -164,6 +418,10 @@ double computeExpectedStepsFromMatrix(const std::vector<std::vector<double>>& iM
 
     // Solve the system (I - Q) * t = b
     std::vector<double> tSolution = solveLinearSystem(iMinusQ, bVector);
+    
+    if (std::any_of(tSolution.begin(), tSolution.end(), [](double val) { return std::isnan(val) || std::isinf(val); })) {
+        DEBUG_PRINT(1, "NaN or Inf found in tSolution");
+    }
 
     double expectedSteps = tSolution[initialStateNewIndex];
     DEBUG_PRINT(1, "Expected steps:");
@@ -191,22 +449,68 @@ void adjustTraitFrequencies(std::vector<double>& traitFrequencies, double adjust
     }
 }
 
+double computeExpectedTransitionsPerStep(
+    const std::vector<std::vector<double>>& fundamentalMatrix,
+    const std::vector<std::vector<double>>& reorderedTransitionMatrix,
+    int initialStateNewIndex,
+    int numTransientStates,
+    double expectedSteps
+) {
+    // Check for division by zero
+    if (expectedSteps == 0.0) {
+        return 0.0;
+    }
+
+    // Compute occupancy probabilities for transient states
+    std::vector<double> occupancy_probs(numTransientStates);
+    const std::vector<double>& occupancy_counts = fundamentalMatrix[initialStateNewIndex];
+
+    for (int i = 0; i < numTransientStates; ++i) {
+        occupancy_probs[i] = occupancy_counts[i] / expectedSteps;
+    }
+
+    // Extract self-transition probabilities from the diagonal of Q
+    std::vector<double> selfTransitionProbs(numTransientStates);
+    for (int i = 0; i < numTransientStates; ++i) {
+        selfTransitionProbs[i] = reorderedTransitionMatrix[i][i];
+    }
+
+    // Compute expected self-transition probability
+    double expectedSelfTransitionProb = 0.0;
+    for (int i = 0; i < numTransientStates; ++i) {
+        expectedSelfTransitionProb += occupancy_probs[i] * selfTransitionProbs[i];
+    }
+
+    // Expected number of transitions per step
+    double expectedTransitionsPerStep = 1.0 - expectedSelfTransitionProb;
+
+    return expectedTransitionsPerStep;
+}
+
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
     double alpha,
     std::mt19937& gen,
-    double& expectedSteps,
+    double& expectedSteps,                             
     double& expectedPayoffPerStep,
-    std::vector<std::vector<double>>& transitionMatrix
+    double& expectedTransitionsPerStep,                     
+    std::vector<std::vector<double>>& transitionMatrix 
 ) {
     try {
         Trait rootNode = 0;
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
         PayoffVector payoffs = generatePayoffs(distances, alpha, gen);
-
+        // print payoffs
+        DEBUG_PRINT(2, "Payoffs:");
+        if(DEBUG_LEVEL >= 2) {
+            for (size_t i = 0; i < payoffs.size(); ++i) {
+                std::cout << "Trait " << i << ": " << payoffs[i] << '\n';
+            }
+        }
         size_t n = adjacencyMatrix.size();
-        std::vector<double> traitFrequencies(n, 1.0 / static_cast<double>(n));
+        std::vector<double> traitFrequencies(n, 1.0);
+        traitFrequencies[0] = 1.0;
 
         const int MAX_ITERATIONS = 100;
         const double EPSILON = 1e-4;
@@ -215,87 +519,91 @@ bool computeExpectedSteps(
 
         DEBUG_PRINT(1, "Starting iterative fixed-point method for trait frequencies");
 
-        std::vector<Repertoire> allStates = generateReachableRepertoires(adjacencyMatrix);
-
+        auto allStates = generateAllRepertoires(adjacencyMatrix);
         do {
             DEBUG_PRINT(1, "Iteration " << iteration + 1);
 
             std::vector<double> prevFrequencies = traitFrequencies;
+            bool success = false;
+            int adjustmentAttempts = 0;
+            const int MAX_ADJUSTMENT_ATTEMPTS = 10;
+            double adjustmentFactor = 0.95;
 
-            // Build transition matrix
-            transitionMatrix = buildTransitionMatrix(strategy, adjacencyMatrix, payoffs, traitFrequencies);
+            while (!success && adjustmentAttempts < MAX_ADJUSTMENT_ATTEMPTS) {
+                try {
+                    std::vector<Repertoire> repertoiresList = generateReachableRepertoires(strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates);
+                    std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
-            // Identify transient and absorbing states
-            std::vector<bool> isAbsorbing(transitionMatrix.size(), true);
-            for (size_t i = 0; i < transitionMatrix.size(); ++i) {
-                if (transitionMatrix[i][i] < 1.0) {
-                    isAbsorbing[i] = false;
-                }
-            }
-
-            size_t numTransientStates = static_cast<size_t>(std::count(isAbsorbing.begin(), isAbsorbing.end(), false));
-            
-            if (numTransientStates == 0) {
-                expectedSteps = 0.0;
-                expectedPayoffPerStep = std::accumulate(payoffs.begin(), payoffs.end(), 0.0);
-                return true;
-            }
-
-            // Reorder matrix to put transient states first
-            std::vector<std::vector<double>> reorderedTransitionMatrix;
-            std::vector<size_t> stateMapping;
-            for (size_t i = 0; i < isAbsorbing.size(); ++i) {
-                if (!isAbsorbing[i]) {
-                    stateMapping.push_back(i);
-                }
-            }
-            for (size_t i = 0; i < isAbsorbing.size(); ++i) {
-                if (isAbsorbing[i]) {
-                    stateMapping.push_back(i);
-                }
-            }
-
-            reorderedTransitionMatrix.reserve(stateMapping.size());
-            for (size_t i : stateMapping) {
-                std::vector<double> row;
-                row.reserve(stateMapping.size());
-                for (size_t j : stateMapping) {
-                    row.push_back(transitionMatrix[i][j]);
-                }
-                reorderedTransitionMatrix.push_back(std::move(row));
-            }
-
-            std::vector<std::vector<double>> iMinusQ = computeIMinusQ(reorderedTransitionMatrix, static_cast<int>(numTransientStates));
-
-            // Compute fundamental matrix
-            std::vector<std::vector<double>> fundamentalMatrix(numTransientStates, std::vector<double>(numTransientStates));
-            for (size_t i = 0; i < numTransientStates; ++i) {
-                std::vector<double> e_i(numTransientStates, 0.0);
-                e_i[i] = 1.0;
-                std::vector<double> column = solveLinearSystem(iMinusQ, e_i);
-                for (size_t j = 0; j < numTransientStates; ++j) {
-                    fundamentalMatrix[j][i] = column[j];
-                }
-            }
-
-            // Compute new trait frequencies
-            double totalTransientTime = 0.0;
-            for (const auto& row : fundamentalMatrix) {
-                totalTransientTime += std::accumulate(row.begin(), row.end(), 0.0);
-            }
-
-            for (size_t j = 1; j < n; ++j) {
-                double timeTraitKnown = 0.0;
-                for (size_t r = 0; r < numTransientStates; ++r) {
-                    if (allStates[stateMapping[r]][j]) {
-                        timeTraitKnown += fundamentalMatrix[0][r];
+                    for (size_t i = 0; i < repertoiresList.size(); ++i) {
+                        repertoiresWithIndices.emplace_back(repertoiresList[i], static_cast<int>(i));
                     }
+
+                    std::unordered_map<Repertoire, int, RepertoireHash> repertoireIndexMap;
+                    for (const auto& [repertoire, index] : repertoiresWithIndices) {
+                        repertoireIndexMap[repertoire] = index;
+                    }
+
+                    transitionMatrix = buildTransitionMatrix(repertoiresList, repertoireIndexMap, strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates);
+                    auto [reorderedTransitionMatrix, oldToNewIndexMap, numTransientStates] = reorderTransitionMatrix(transitionMatrix, repertoiresWithIndices, repertoireIndexMap, rootNode);
+
+                    DEBUG_PRINT(2, "Reordered transition matrix:");
+                    if(DEBUG_LEVEL >= 2) printMatrix(reorderedTransitionMatrix);
+                    if (numTransientStates == 0) {
+                        expectedSteps = 0.0;
+                        expectedPayoffPerStep = std::accumulate(payoffs.begin(), payoffs.end(), 0.0);
+                        return true;
+                    }
+
+                    std::vector<std::vector<double>> iMinusQ = computeIMinusQ(reorderedTransitionMatrix, numTransientStates);
+                    std::vector<std::vector<double>> fundamentalMatrix(numTransientStates, std::vector<double>(numTransientStates));
+
+                    for (int i = 0; i < numTransientStates; ++i) {
+                        std::vector<double> e_i(numTransientStates, 0.0);
+                        e_i[i] = 1.0;
+                        std::vector<double> column = solveLinearSystem(iMinusQ, e_i);
+
+                        for (int j = 0; j < numTransientStates; ++j) {
+                            fundamentalMatrix[j][i] = column[j];
+                        }
+                    }
+
+                    double totalTransientTime = 0.0;
+                    for (const auto& row : fundamentalMatrix) {
+                        totalTransientTime += std::accumulate(row.begin(), row.end(), 0.0);
+                    }
+                    
+                    //For each trait, loop through all repertoire states. 
+                    //Use the fundamental matrix to get the expected time spent in each transient state.
+                    //Time spent in transient states contributes to the trait frequency for all traits in that state.  
+                    for (size_t j = 1; j < n; ++j) {
+                        double timeTraitKnown = 0.0;
+                        for (size_t r = 0; r < repertoiresList.size(); ++r) {
+                            if (repertoiresList[r][j]) {
+                                int newIndex = oldToNewIndexMap[r];
+                                if (newIndex < numTransientStates) {
+                                    timeTraitKnown += fundamentalMatrix[0][newIndex];
+                                }
+                            }
+                        }
+                        traitFrequencies[j] = timeTraitKnown / totalTransientTime;
+                    }
+
+                    // Normalize trait frequencies
+                    double sum = std::accumulate(traitFrequencies.begin() + 1, traitFrequencies.end(), 0.0);
+                    for (size_t j = 1; j < n; ++j) {
+                        traitFrequencies[j] /= sum;
+                    }
+
+                    success = true;
+                } catch (const std::runtime_error& e) {
+                    ++adjustmentAttempts;
+                    adjustTraitFrequencies(traitFrequencies, adjustmentFactor);
+                    DEBUG_PRINT(1, "Singular matrix encountered, adjusting trait frequencies");
                 }
-                traitFrequencies[j] = timeTraitKnown / totalTransientTime;
             }
-            double sum = std::accumulate(traitFrequencies.begin() + 1, traitFrequencies.end(), 0.0);
-            for (size_t j = 1; j < n; ++j) {
-                traitFrequencies[j] /= sum;
+
+            if (!success) {
+                throw std::runtime_error("Unable to compute expected steps due to singular matrix, even after adjustments");
             }
 
             maxDifference = 0.0;
@@ -311,7 +619,7 @@ bool computeExpectedSteps(
             }
             DEBUG_PRINT(1, "Max difference: " << maxDifference);
 
-            ++iteration;
+            iteration++;
         } while (maxDifference > EPSILON && iteration < MAX_ITERATIONS);
 
         if (iteration == MAX_ITERATIONS) {
@@ -320,48 +628,77 @@ bool computeExpectedSteps(
             DEBUG_PRINT(1, "Converged after " << iteration << " iterations");
         }
 
-        // Compute final expected steps and payoff
-        transitionMatrix = buildTransitionMatrix(strategy, adjacencyMatrix, payoffs, traitFrequencies);
+        std::vector<Repertoire> finalRepertoiresList = generateReachableRepertoires(strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates);
+        std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
 
-        std::vector<bool> isAbsorbing(transitionMatrix.size(), true);
-        for (size_t i = 0; i < transitionMatrix.size(); ++i) {
-            if (transitionMatrix[i][i] < 1.0) {
-                isAbsorbing[i] = false;
-            }
+        for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
+            finalRepertoireIndexMap[finalRepertoiresList[i]] = static_cast<int>(i);
         }
 
-        size_t numTransientStates = static_cast<size_t>(std::count(isAbsorbing.begin(), isAbsorbing.end(), false));
+        std::vector<std::pair<Repertoire, int>> finalRepertoiresWithIndices;
+        for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
+            finalRepertoiresWithIndices.emplace_back(finalRepertoiresList[i], static_cast<int>(i));
+        }
 
-        if (numTransientStates == 0) {
+        transitionMatrix = buildTransitionMatrix(finalRepertoiresList, finalRepertoireIndexMap, strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates);
+
+        auto [finalReorderedTransitionMatrix, finalOldToNewIndexMap, finalNumTransientStates] = reorderTransitionMatrix(
+            transitionMatrix, finalRepertoiresWithIndices, finalRepertoireIndexMap, rootNode
+        );
+
+        if (finalNumTransientStates == 0) {
             expectedSteps = 0.0;
             expectedPayoffPerStep = std::accumulate(payoffs.begin(), payoffs.end(), 0.0);
             return true;
         }
 
-        std::vector<std::vector<double>> iMinusQ = computeIMinusQ(transitionMatrix, static_cast<int>(numTransientStates));
+        std::vector<std::vector<double>> finalIMinusQ = computeIMinusQ(finalReorderedTransitionMatrix, finalNumTransientStates);
         
-        // Compute expected steps
-        std::vector<double> ones(numTransientStates, 1.0);
-        std::vector<double> expectedStepsVector = solveLinearSystem(iMinusQ, ones);
-        expectedSteps = expectedStepsVector[0];  // Initial state is always the first transient state
+        int initialStateIndex = finalRepertoireIndexMap[Repertoire(n, false)];
+        Repertoire initialRepertoire(n, false);
+        initialRepertoire[rootNode] = true;
+        initialStateIndex = finalRepertoireIndexMap[initialRepertoire];
+        int initialStateNewIndex = finalOldToNewIndexMap[initialStateIndex];
 
-        // Compute expected payoff per step
-        std::vector<double> statePayoffs(allStates.size(), 0.0);
-        for (size_t i = 0; i < allStates.size(); ++i) {
-            for (size_t j = 0; j < n; ++j) {
-                if (allStates[i][j]) {
+        expectedSteps = computeExpectedStepsFromMatrix(finalIMinusQ, initialStateNewIndex);
+
+        //Recompute fundamental matrix for expected transitions per step
+        std::vector<std::vector<double>> fundamentalMatrix(finalNumTransientStates, std::vector<double>(finalNumTransientStates));
+
+        for (int i = 0; i < finalNumTransientStates; ++i) {
+            std::vector<double> e_i(finalNumTransientStates, 0.0);
+            e_i[i] = 1.0;
+            std::vector<double> column = solveLinearSystem(finalIMinusQ, e_i);
+
+            for (int j = 0; j < finalNumTransientStates; ++j) {
+                fundamentalMatrix[j][i] = column[j];
+            }
+        }
+
+        expectedTransitionsPerStep = computeExpectedTransitionsPerStep(fundamentalMatrix, finalReorderedTransitionMatrix, initialStateNewIndex, finalNumTransientStates, expectedSteps);
+
+        std::vector<double> statePayoffs(finalRepertoiresList.size(), 0.0);
+        for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
+            const auto& repertoire = finalRepertoiresList[i];
+            for (size_t j = 0; j < repertoire.size(); ++j) {
+                if (repertoire[j]) {
                     statePayoffs[i] += payoffs[j];
                 }
             }
         }
 
-        std::vector<double> transientStatePayoffs(numTransientStates);
-        for (size_t i = 0; i < numTransientStates; ++i) {
-            transientStatePayoffs[i] = statePayoffs[i];
+        std::vector<double> reorderedStatePayoffs(statePayoffs.size());
+        for (size_t i = 0; i < statePayoffs.size(); ++i) {
+            reorderedStatePayoffs[finalOldToNewIndexMap[i]] = statePayoffs[i];
         }
 
-        std::vector<double> expectedPayoffs = solveLinearSystem(iMinusQ, transientStatePayoffs);
-        double totalExpectedPayoff = expectedPayoffs[0];  // Initial state is always the first transient state
+        std::vector<double> payoffVector(finalNumTransientStates);
+        for (int i = 0; i < finalNumTransientStates; ++i) {
+            payoffVector[i] = reorderedStatePayoffs[i];
+        }
+
+        std::vector<double> expectedPayoffs = computeExpectedPayoffs(finalIMinusQ, payoffVector);
+        double totalExpectedPayoff = expectedPayoffs[initialStateNewIndex];
         expectedPayoffPerStep = totalExpectedPayoff / expectedSteps;
 
         return true;
@@ -417,15 +754,12 @@ std::vector<Trait> parentTraits(const AdjacencyMatrix& adjMatrix, Trait trait) {
 }
 
 #include "Learning.hpp"
-
 #include "Graph.hpp"
 #include <numeric>
 #include <stdexcept>
 #include <algorithm>
 #include <queue>
 #include <unordered_set>
-#include <cmath>
-
 
 std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix) {
     std::vector<bool> learnable(repertoire.size());
@@ -447,7 +781,8 @@ std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatr
     return learnable;
 }
 
-double computeDelta(const Repertoire& r, const Repertoire& s) { // count the number of traits that are present in target state s but not in current state r
+double computeDelta(const Repertoire& r, const Repertoire& s) {
+    // count the number of traits that are present in target state s but not in current state r
     return std::inner_product(s.begin(), s.end(), r.begin(), 0.0,
         std::plus<>(), [](bool s_i, bool r_i) { return (s_i && !r_i) ? 1 : 0; });
 }
@@ -456,7 +791,11 @@ double phi(double delta) {
     return std::pow(2.0, 1.0 - delta);
 }
 
-std::vector<double> vygotskianBaseWeights(const Repertoire& repertoire, const std::vector<double>& traitFrequencies, const std::vector<Repertoire>& allStates) {
+std::vector<double> vygotskianBaseWeights(
+    const Repertoire& repertoire,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+) {
     std::vector<double> w_star(repertoire.size(), 0.0);
     std::vector<double> stateWeights(allStates.size(), 0.0);
 
@@ -483,7 +822,13 @@ std::vector<double> vygotskianBaseWeights(const Repertoire& repertoire, const st
     return w_star;
 }
 
-std::vector<double> baseWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, const std::vector<Repertoire>& allStates) {
+std::vector<double> baseWeights(
+    Strategy strategy,
+    const Repertoire& repertoire,
+    const PayoffVector& payoffs,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates  
+) {
     switch (strategy) {
     case RandomLearning:
         return traitFrequencies;
@@ -500,12 +845,19 @@ std::vector<double> baseWeights(Strategy strategy, const Repertoire& repertoire,
     }
 }
 
-std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, const std::vector<Repertoire>& allStates) {
+
+std::vector<double> normalizedWeights(
+    Strategy strategy,
+    const Repertoire& repertoire,
+    const PayoffVector& payoffs,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+)  {
     std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, allStates);
 
     std::vector<double> w_unlearned(repertoire.size());
     for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        w_unlearned[trait] = repertoire[trait] ? 0.0 : w_star[trait]; //weight is 0 if trait is already learned
+        w_unlearned[trait] = repertoire[trait] ? 0.0 : w_star[trait];
     }
 
     double total = std::accumulate(w_unlearned.begin(), w_unlearned.end(), 0.0);
@@ -520,14 +872,25 @@ std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& reper
     return w_unlearned;
 }
 
+
+
 Repertoire learnTrait(const Repertoire& repertoire, Trait trait) {
     Repertoire newRepertoire = repertoire;
     newRepertoire[trait] = true;
     return newRepertoire;
 }
 
-std::vector<std::pair<Repertoire, double>> transitionFromState(Strategy strategy, const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, const std::vector<Repertoire>& allStates) {
-    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, allStates);
+std::vector<std::pair<Repertoire, double>> transitionFromState(
+    Strategy strategy,
+    const Repertoire& repertoire, 
+    const AdjacencyMatrix& adjMatrix, 
+    const PayoffVector& payoffs, 
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+) {
+
+    std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
+    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, newStates);
     std::vector<bool> learnable = learnability(repertoire, adjMatrix);
 
     std::vector<std::pair<Repertoire, double>> transitions;
@@ -541,8 +904,7 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(Strategy strategy
     return transitions;
 }
 
-double stayProbability(Strategy strategy, const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, const std::vector<Repertoire>& allStates) {
-    auto transitions = transitionFromState(strategy, repertoire, adjMatrix, payoffs, traitFrequencies, allStates);
+double stayProbability(std::vector<std::pair<Repertoire, double>> transitions) {
 
     double totalTransitionProbability = std::accumulate(
         transitions.begin(), transitions.end(), 0.0,
@@ -554,7 +916,45 @@ double stayProbability(Strategy strategy, const Repertoire& repertoire, const Ad
     return 1.0 - totalTransitionProbability;
 }
 
-std::vector<Repertoire> generateReachableRepertoires(const AdjacencyMatrix& adjMatrix) {
+std::vector<Repertoire> generateReachableRepertoires(
+    Strategy strategy, 
+    const AdjacencyMatrix& adjMatrix, 
+    const PayoffVector& payoffs, 
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+) {
+    size_t n = adjMatrix.size();
+    Repertoire initialRepertoire(n, false);
+    initialRepertoire[0] = true; // root trait is always learned
+
+    std::queue<Repertoire> queue;
+    std::unordered_set<Repertoire, RepertoireHash> visited;
+    std::vector<Repertoire> result;
+
+    queue.push(initialRepertoire);
+
+    while (!queue.empty()) {
+        Repertoire r = queue.front();
+        queue.pop();
+
+        if (visited.find(r) == visited.end()) {
+            visited.insert(r);
+            result.push_back(r);
+
+            auto transitions = transitionFromState(strategy, r, adjMatrix, payoffs, traitFrequencies, allStates);
+            for (const auto& transition : transitions) {
+                const Repertoire& r_prime = transition.first;
+                if (visited.find(r_prime) == visited.end()) {
+                    queue.push(r_prime);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix) {
     size_t n = adjMatrix.size();
     Repertoire initialRepertoire(n, false);
     initialRepertoire[0] = true; // root trait is always learned
@@ -582,6 +982,23 @@ std::vector<Repertoire> generateReachableRepertoires(const AdjacencyMatrix& adjM
                     }
                 }
             }
+        }
+    }
+
+    return result;
+}
+
+size_t countLearnedTraits(const Repertoire& r) {
+    return std::count(r.begin(), r.end(), true);
+}
+
+std::vector<Repertoire> retrieveBetterRepertoires(const std::vector<Repertoire>& repertoires, const Repertoire& singleRepertoire) {
+    std::vector<Repertoire> result;
+    size_t singleRepertoireLearnedTraits = countLearnedTraits(singleRepertoire);
+
+    for (const Repertoire& r : repertoires) {
+        if (countLearnedTraits(r) > singleRepertoireLearnedTraits) {
+            result.push_back(r);
         }
     }
 
@@ -687,9 +1104,10 @@ void processRepl(
     // Compute expected steps
     double expectedSteps = 0.0;
     double expectedPayoffPerStep = 0.0;
+    double expectedTransitionsPerStep = 0.0;
     std::vector<std::vector<double>> transitionMatrix;
 
-    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, transitionMatrix)) {
+    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
         // Increment failure count
         ++failureCounts[idx];
         return;
@@ -708,7 +1126,7 @@ void processRepl(
     }
 
     // Store results directly into the pre-allocated vector
-    flatResults[idx] = Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep};
+    flatResults[idx] = Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep};
 }
 
 int main(int argc, char* argv[]) {
@@ -716,7 +1134,7 @@ int main(int argc, char* argv[]) {
     bool saveTransitionMatrices = false;
     int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
     int n = numNodes;
-    int replications = 10;
+    int replications = 1;
     try {
         // Define alphas and strategies
         std::vector<double> alphas = {1.0};
@@ -778,7 +1196,7 @@ int main(int argc, char* argv[]) {
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
     
         // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
     
@@ -790,7 +1208,8 @@ int main(int argc, char* argv[]) {
                 result.strategy,
                 result.repl,
                 result.expectedSteps,
-                result.expectedPayoffPerStep
+                result.expectedPayoffPerStep,
+                result.expectedTransitionsPerStep
             );
             csvData.push_back(formattedResult);
         }
@@ -853,7 +1272,6 @@ std::string strategyToString(Strategy strategy) {
             return "RandomLearning";
         case PayoffBasedLearning:
             return "PayoffBasedLearning";
-
         case VygotskianLearning:
             return "VygotskianLearning";
         default:
@@ -861,9 +1279,9 @@ std::string strategyToString(Strategy strategy) {
     }
 }
 
-std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep) {
+std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep, double expectedTransitionsPerStep) {
     std::ostringstream oss;
-    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << repl << ',' << std::fixed << std::setprecision(4) << expectedSteps << ',' << expectedPayoffPerStep;
+    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << repl << ',' << std::fixed << std::setprecision(4) << expectedSteps << ',' << expectedPayoffPerStep << ',' << expectedTransitionsPerStep;
     return oss.str();
 }
 
@@ -1010,203 +1428,4 @@ std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adj
         }
     }
     return combinations;
-};#ifndef DEBUG_HPP
-#define DEBUG_HPP
-
-#define DEBUG_LEVEL 2  // Set to 0 to disable debug output, 1 to enable, 2 to also print the full matrices
-#define DEBUG_PRINT(level, x) if (DEBUG_LEVEL >= level) { std::cout << x << '\n'; }
-
-#endif //DEBUG_HPP
-#ifndef EXPECTEDSTEPS_HPP
-#define EXPECTEDSTEPS_HPP
-
-#include "Types.hpp"
-#include "Learning.hpp"
-
-#include <random>
-#include <vector>
-#include <unordered_map>
-#include <tuple>
-
-// Helper function to compute (I - Q) matrix
-std::vector<std::vector<double>> computeIMinusQ(
-    const std::vector<std::vector<double>>& reorderedTransitionMatrix,
-    int numTransientStates
-);
-
-// Function to build the transition matrix
-std::vector<std::vector<double>> buildTransitionMatrix(
-    const std::vector<Repertoire>& repertoiresList,
-    const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
-    Strategy strategy,
-    const AdjacencyMatrix& adjacencyMatrix,
-    const PayoffVector& payoffs
-);
-
-// Function to reorder the transition matrix, separating transient and absorbing states
-std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> reorderTransitionMatrix(
-    const std::vector<std::vector<double>>& transitionMatrix,
-    const std::vector<std::pair<Repertoire, int>>& repertoiresWithIndices,
-    const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
-    Trait rootNode
-);
-
-// Function to compute expected steps from the (I - Q) matrix
-double computeExpectedStepsFromMatrix(
-    const std::vector<std::vector<double>>& iMinusQ,
-    int initialStateNewIndex
-);
-
-// Function to compute expected payoffs from the (I - Q) matrix and payoff vector
-std::vector<double> computeExpectedPayoffs(
-    const std::vector<std::vector<double>>& iMinusQ,
-    const std::vector<double>& payoffVector
-);
-
-// Main function to compute expected steps and expected payoff per step
-bool computeExpectedSteps(
-    const AdjacencyMatrix& adjacencyMatrix,
-    Strategy strategy,
-    double alpha,
-    std::mt19937& gen,
-    double& expectedSteps,                             // Output parameter for expected steps
-    double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
-    std::vector<std::vector<double>>& transitionMatrix // Output parameter for the transition matrix
-);
-
-#endif // EXPECTEDSTEPS_HPP
-#ifndef GRAPH_HPP 
-#define GRAPH_HPP
-
-#include "Types.hpp" 
-
-std::vector<int> computeDistances(const AdjacencyMatrix& adjMatrix, Trait root);
-
-std::vector<Trait> parentTraits(const AdjacencyMatrix& adjMatrix, Trait trait);
-
-#endif // GRAPH_HPP#ifndef LEARNING_HPP
-#define LEARNING_HPP
-
-#include "Types.hpp"
-#include <vector>
-#include <string>
-
-std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix);
-
-double computeDelta(const Repertoire& r, const Repertoire& s); // count the number of traits that are present in target state s but not in current state r
-
-double phi(double delta); // Vygotskian learning function, maximum when delta = 1, falls of by a factor of 2 for each additional trait
-
-std::vector<double> vygotskianBaseWeights(const Repertoire& repertoire, const std::vector<double>& traitFrequencies, const std::vector<Repertoire>& allStates);
-
-std::vector<double> baseWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, const std::vector<Repertoire>& allStates);
-
-std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, const std::vector<Repertoire>& allStates);
-
-Repertoire learnTrait(const Repertoire& repertoire, Trait trait);
-
-std::vector<std::pair<Repertoire, double>> transitionFromState(
-    Strategy strategy,
-    const Repertoire& repertoire,
-    const AdjacencyMatrix& adjMatrix,
-    const PayoffVector& payoffs,
-    const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates
-);
-
-double stayProbability(Strategy strategy, const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies);
-
-struct RepertoireHash {
-    std::size_t operator()(const Repertoire& repertoire) const {
-        return std::hash<std::string>{}(std::string(repertoire.begin(), repertoire.end()));
-    }
 };
-
-std::vector<Repertoire> generateReachableRepertoires(const AdjacencyMatrix& adjMatrix);
-
-
-
-
-#endif // LEARNING_HPP#ifndef LINEAR_ALGEBRA_HPP
-#define LINEAR_ALGEBRA_HPP
-
-#include <vector>
-
-std::vector<double> solveLinearSystem(const std::vector<std::vector<double>>& A, const std::vector<double>& b);
-
-#endif // LINEAR_ALGEBRA_HPP#ifndef PAYOFFS_HPP
-#define PAYOFFS_HPP
-
-#include "Types.hpp"
-#include <vector>
-#include <random>
-
-PayoffVector generatePayoffs(const std::vector<int>& distances, double alpha, std::mt19937& gen);
-
-#endif // PAYOFFS_HPP#ifndef TYPES_HPP 
-#define TYPES_HPP
-
-#include <vector>
-#include <string>
-
-using Trait = size_t;
-using Repertoire = std::vector<bool>;
-using PayoffVector = std::vector<double>;
-using AdjacencyMatrix = std::vector<std::vector<bool>>;
-
-enum Strategy {
-    RandomLearning,
-    PayoffBasedLearning,
-    VygotskianLearning
-};
-
-struct ParamCombination {
-    AdjacencyMatrix adjMatrix;
-    std::string adjMatrixBinary;
-    Strategy strategy;
-    double alpha;
-    int repl;
-};
-
-struct Result {
-    int n;
-    std::string adjMatrixBinary;
-    double alpha;
-    Strategy strategy;
-    int repl;
-    double expectedSteps;
-    double expectedPayoffPerStep;
-};
-
-#endif // TYPES_HPP
-
-#ifndef UTILS_HPP
-#define UTILS_HPP
-
-#include <vector>
-#include <string> 
-#include "Types.hpp"
-
-void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector<double>>& matrix);
-
-std::string strategyToString(Strategy strategy);
-
-std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep);
-
-std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
-
-AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str);
-
-bool charToBool(char c);
-
-void printMatrix(const std::vector<std::vector<double>>& matrix);
-
-int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices);
-
-void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData);
-
-std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
-
-std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adjacencyMatrices, std::vector<Strategy>& strategies, std::vector<double>& alphas, int replications);
-
-#endif // UTILS_HPP

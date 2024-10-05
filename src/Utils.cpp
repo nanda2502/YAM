@@ -185,3 +185,11 @@ std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adj
     }
     return combinations;
 };
+
+std::string stateToString(const Repertoire& state) {
+    std::string binaryString;
+    for (bool value : state) {
+        binaryString += (value ? '1' : '0');
+    }
+    return binaryString;
+}

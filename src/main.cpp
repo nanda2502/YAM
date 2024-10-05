@@ -64,11 +64,11 @@ int main(int argc, char* argv[]) {
     bool saveTransitionMatrices = false;
     int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
     int n = numNodes;
-    int replications = 1;
+    int replications = 30;
     try {
         // Define alphas and strategies
         std::vector<double> alphas = {1.0};
-        std::vector<Strategy> strategies = {Strategy::RandomLearning, Strategy::PayoffBasedLearning, Strategy::VygotskianLearning};
+        std::vector<Strategy> strategies = {Strategy::RandomLearning, Strategy::PayoffBasedLearning, Strategy::ProximalLearning, Strategy::PrestigeBasedLearning, Strategy::ConformityBasedLearning};
     
         // Prepare output directory
         std::string outputDir = "../output";
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
         // Read adjacency matrices
         std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
     
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * 10 << " runs." << '\n';
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications << " runs." << '\n';
     
         // Prepare the combinations
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);

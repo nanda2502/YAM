@@ -1,11 +1,16 @@
 #include "Learning.hpp"
 #include "Graph.hpp"
+#include "Types.hpp"
 #include <numeric>
 #include <stdexcept>
 #include <algorithm>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
+
+#ifndef PAYOFF_SENSITIVITY
+#define PAYOFF_SENSITIVITY 1.0
+#endif
 
 std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix) {
     std::vector<bool> learnable(repertoire.size());
@@ -55,11 +60,15 @@ double computeDelta(const Repertoire& r, const Repertoire& s) {
         std::plus<>(), [](bool s_i, bool r_i) { return (s_i && !r_i) ? 1 : 0; });
 }
 
-double phi(double delta) {
+double phi_proximal(double delta) {
     return std::pow(2.0, 1.0 - delta);
 }
 
-std::vector<double> vygotskianBaseWeights(
+double phi_prestige(double delta) {
+    return std::pow(2.0, delta - 1.0);
+}
+
+std::vector<double> proximalBaseWeights(
     const Repertoire& repertoire,
     const std::vector<double>& traitFrequencies,
     const std::vector<Repertoire>& allStates
@@ -67,20 +76,68 @@ std::vector<double> vygotskianBaseWeights(
     std::vector<double> w_star(repertoire.size(), 0.0);
     auto stateFrequencies = computeStateFrequencies(traitFrequencies, allStates);
     // Compute trait contributions
-    for (size_t j = 0; j < repertoire.size(); ++j) {
-        if (!repertoire[j]) {  // Only consider unlearned traits
+    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+        if (!repertoire[trait]) {  // Only consider unlearned traits
             for (const auto& state : allStates) {
-                if (state[j]) {  // If the state has trait j learned
+                if (state[trait]) {  // If the state has trait j learned
                     double delta = computeDelta(repertoire, state);
                     if (delta > 0) {
                         int N_s = delta;  // Number of additional traits known in s but not in r
-                        w_star[j] += stateFrequencies.at(state) / N_s;
+                        w_star[trait] += stateFrequencies.at(state) * phi_proximal(delta) / N_s; 
                     }
                 }
             }
         }
     }
 
+    return w_star;
+}
+
+std::vector<double> prestigeBaseWeights(
+    const Repertoire& repertoire,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+) {
+    std::vector<double> w_star(repertoire.size(), 0.0);
+    auto stateFrequencies = computeStateFrequencies(traitFrequencies, allStates);
+    // Compute trait contributions
+    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+        if (!repertoire[trait]) {  // Only consider unlearned traits
+            for (const auto& state : allStates) {
+                if (state[trait]) {  // If the state has trait j learned
+                    double delta = computeDelta(repertoire, state);
+                    if (delta > 0) {
+                        int N_s = delta;  // Number of additional traits known in s but not in r
+                        w_star[trait] += stateFrequencies.at(state) * phi_prestige(delta) / N_s; 
+                    }
+                }
+            }
+        }
+    }
+    return w_star;
+}
+
+std::vector<double> conformityBaseWeights(
+    const Repertoire& repertoire,
+    const std::vector<double>& traitFrequencies,
+    const std::vector<Repertoire>& allStates
+) {
+    std::vector<double> w_star(repertoire.size(), 0.0);
+    auto stateFrequencies = computeStateFrequencies(traitFrequencies, allStates);
+    // Compute trait contributions
+    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+        if (!repertoire[trait]) {  // Only consider unlearned traits
+            for (const auto& state : allStates) {
+                if (state[trait]) {  // If the state has trait j learned
+                    double delta = computeDelta(repertoire, state);
+                    if (delta > 0) {
+                        int N_s = delta;  // Number of additional traits known in s but not in r
+                        w_star[trait] += stateFrequencies.at(state) / N_s; 
+                    }
+                }
+            }
+        }
+    }
     return w_star;
 }
 
@@ -91,17 +148,24 @@ std::vector<double> baseWeights(
     const std::vector<double>& traitFrequencies,
     const std::vector<Repertoire>& allStates  
 ) {
+    double sensitivity = PAYOFF_SENSITIVITY;
     switch (strategy) {
     case RandomLearning:
         return traitFrequencies;
     case PayoffBasedLearning:
         {
             std::vector<double> result(payoffs.size());
-            std::transform(payoffs.begin(), payoffs.end(), traitFrequencies.begin(), result.begin(), std::multiplies<>());
+            for (size_t i = 0; i < payoffs.size(); ++i) {
+                result[i] = traitFrequencies[i] * std::pow(payoffs[i], sensitivity);
+            }
             return result;
         }
-    case VygotskianLearning:
-        return vygotskianBaseWeights(repertoire, traitFrequencies, allStates);
+    case ProximalLearning:
+        return proximalBaseWeights(repertoire, traitFrequencies, allStates);
+    case PrestigeBasedLearning:
+        return prestigeBaseWeights(repertoire, traitFrequencies, allStates);
+    case ConformityBasedLearning:
+        return conformityBaseWeights(repertoire, traitFrequencies, allStates);
     default:
         throw std::runtime_error("Unknown strategy");
     }

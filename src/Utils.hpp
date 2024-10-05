@@ -1,6 +1,7 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
+#include <unordered_map>
 #include <vector>
 #include <string> 
 #include "Types.hpp"
@@ -28,5 +29,7 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
 std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adjacencyMatrices, std::vector<Strategy>& strategies, std::vector<double>& alphas, int replications);
 
 std::string stateToString(const Repertoire& state);
+
+void printStates(const std::vector<Repertoire>& repertoiresList, const std::unordered_map<int, int>& oldToNewIndexMap);
 
 #endif // UTILS_HPP

@@ -12,7 +12,9 @@ using AdjacencyMatrix = std::vector<std::vector<bool>>;
 enum Strategy {
     RandomLearning,
     PayoffBasedLearning,
-    VygotskianLearning
+    ProximalLearning,
+    PrestigeBasedLearning,
+    ConformityBasedLearning
 };
 
 struct ParamCombination {

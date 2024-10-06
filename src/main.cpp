@@ -23,7 +23,7 @@ void processRepl(
     const std::string &outputDir,
     std::vector<Result>& flatResults,
     size_t idx,
-    std::vector<std::atomic<int>>& failureCounts  // Add failureCounts vector
+    std::vector<std::atomic<int>>& failureCounts  
 ) {
     DEBUG_PRINT(1, "Replication:");
     if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';

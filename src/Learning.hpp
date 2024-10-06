@@ -6,7 +6,7 @@
 #include <string>
 #include <random>
 
-std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix);
+std::vector<bool> learnability(const Repertoire& repertoire, const Parents& parents);
 
 std::vector<double> baseWeights(
     Strategy strategy,
@@ -32,10 +32,10 @@ Repertoire learnTrait(const Repertoire& repertoire, Trait trait);
 std::vector<std::pair<Repertoire, double>> transitionFromState(
     Strategy strategy, 
     const Repertoire& repertoire, 
-    const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates
+    const std::vector<Repertoire>& allStates,
+    const Parents& parents
 );
 
 double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
@@ -51,10 +51,11 @@ std::vector<Repertoire> generateReachableRepertoires(
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates
+    const std::vector<Repertoire>& allStates,
+    const Parents& parents
 );
 
-std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix);
+std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix, const Parents& parents);
 
 size_t countLearnedTraits(const Repertoire& r);
 

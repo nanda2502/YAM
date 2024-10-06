@@ -1,5 +1,4 @@
 #include "Learning.hpp"
-#include "Graph.hpp"
 #include "Types.hpp"
 #include <numeric>
 #include <stdexcept>
@@ -12,14 +11,14 @@
 #define PAYOFF_SENSITIVITY 1.0
 #endif
 
-std::vector<bool> learnability(const Repertoire& repertoire, const AdjacencyMatrix& adjMatrix) {
+std::vector<bool> learnability(const Repertoire& repertoire, const Parents& parents) {
     std::vector<bool> learnable(repertoire.size());
 
     for (size_t trait = 0; trait < repertoire.size(); ++trait) {
-        auto parents = parentTraits(adjMatrix, trait);
+        auto traitParents = parents[trait];
 
         // true if all parents are in the repertoire
-        bool parent_product = std::accumulate(parents.begin(), parents.end(), true,
+        bool parent_product = std::accumulate(traitParents.begin(), traitParents.end(), true,
             [&repertoire](bool acc, Trait parent) {
                 return acc && repertoire[parent];
             });
@@ -209,15 +208,15 @@ Repertoire learnTrait(const Repertoire& repertoire, Trait trait) {
 std::vector<std::pair<Repertoire, double>> transitionFromState(
     Strategy strategy,
     const Repertoire& repertoire, 
-    const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates
+    const std::vector<Repertoire>& allStates,
+    const Parents& parents
 ) {
 
     std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
     std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, newStates);
-    std::vector<bool> learnable = learnability(repertoire, adjMatrix);
+    std::vector<bool> learnable = learnability(repertoire, parents);
 
     std::vector<std::pair<Repertoire, double>> transitions;
 
@@ -247,7 +246,8 @@ std::vector<Repertoire> generateReachableRepertoires(
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates
+    const std::vector<Repertoire>& allStates,
+    const Parents& parents
 ) {
     size_t n = adjMatrix.size();
     Repertoire initialRepertoire(n, false);
@@ -267,7 +267,7 @@ std::vector<Repertoire> generateReachableRepertoires(
             visited.insert(r);
             result.push_back(r);
 
-            auto transitions = transitionFromState(strategy, r, adjMatrix, payoffs, traitFrequencies, allStates);
+            auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, allStates, parents);
             for (const auto& transition : transitions) {
                 const Repertoire& r_prime = transition.first;
                 if (visited.find(r_prime) == visited.end()) {
@@ -280,7 +280,7 @@ std::vector<Repertoire> generateReachableRepertoires(
     return result;
 }
 
-std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix) {
+std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix, const Parents& parents) {
     size_t n = adjMatrix.size();
     Repertoire initialRepertoire(n, false);
     initialRepertoire[0] = true; // root trait is always learned
@@ -299,7 +299,7 @@ std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix)
             visited.insert(r);
             result.push_back(r);
 
-            std::vector<bool> learnable = learnability(r, adjMatrix);
+            std::vector<bool> learnable = learnability(r, parents);
             for (Trait trait = 0; trait < n; ++trait) {
                 if (learnable[trait]) {
                     Repertoire r_new = learnTrait(r, trait);

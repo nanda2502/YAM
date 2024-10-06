@@ -19,10 +19,10 @@ std::vector<std::vector<double>> buildTransitionMatrix(
     const std::vector<Repertoire>& repertoiresList,
     const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
     Strategy strategy,
-    const AdjacencyMatrix& adjacencyMatrix,
     const PayoffVector& payoffs,
     const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates
+    const std::vector<Repertoire>& allStates,
+    const Parents& parents
 );
 
 bool isAbsorbingState(const Repertoire& repertoire, const std::vector<double>& traitFrequencies);
@@ -36,15 +36,17 @@ std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> 
     const std::vector<double>& traitFrequencies
 );
 
-// Ccompute expected steps from the (I - Q) matrix
+
 double computeExpectedStepsFromMatrix(
-    const std::vector<std::vector<double>>& iMinusQ,
+    const std::vector<std::vector<double>>& LU,
+    const std::vector<int>& p,
     int initialStateNewIndex
 );
 
-// Compute expected payoffs from the (I - Q) matrix and payoff vector
+// Solve the linear system using the payoff vector
 std::vector<double> computeExpectedPayoffs(
-    const std::vector<std::vector<double>>& iMinusQ,
+    const std::vector<std::vector<double>>& LU,
+    const std::vector<int>& p,
     const std::vector<double>& payoffVector
 );
 

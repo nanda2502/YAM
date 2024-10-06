@@ -8,6 +8,7 @@ using Trait = size_t;
 using Repertoire = std::vector<bool>;
 using PayoffVector = std::vector<double>;
 using AdjacencyMatrix = std::vector<std::vector<bool>>;
+using Parents = std::vector<std::vector<Trait>>;
 
 enum Strategy {
     RandomLearning,

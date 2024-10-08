@@ -116,47 +116,130 @@
     @@#. .*@@                                                                                     
       @@@@@@@                                                                                     
 ```
+# YAM (Yet Another Model)
 
+YAM is a computational model designed to simulate learning processes within structured environments. The model represents learning structures as directed graphs, where each node corresponds to a trait, and edges represent prerequisite relationships between traits. Agents (learners) progress through these structures by acquiring traits based on various learning strategies, which dictate how they select new traits to learn.
 
-## Build Instructions for Windows
+Key features of the model include:
 
-Download MSYS2 from [https://www.msys2.org/](https://www.msys2.org/)
+- **Learning Structures**: Traits and their prerequisite relationships are modeled using directed graphs, allowing for complex learning pathways and dependencies.
+- **Learning Strategies**: Different strategies, such as random learning, payoff-based learning, proximal learning, prestige-based learning, and conformity-based learning, influence how agents choose which traits to attempt next.
+- **Outcome Variables**: The model computes outcome variables like the expected success rate of learning attempts and the expected payoff per learning event, providing insights into the efficiency and benefits of different learning strategies.
 
-Launch the MSYS MinGW 64-bit shell and use the following commands to install the required packages:
+A detailed mathematical description of the model, including the theoretical underpinnings and computational methods, is available in the document **Mathematical Description of YAM.pdf** included in the repository.
 
-```bash
-pacman -Syu
-pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-zlib
-```
+## Build Instructions
 
-Navigate to the directory where you want to clone the repository and run the following command:
+### Windows
 
-```bash
-git clone https://github.com/nanda2502/YAM.git
-```
+To build and run YAM on Windows:
 
-Navigate to the YAM directory and run the following commands to set up the build environment:
+1. **Install MSYS2**
 
-```bash
-mkdir build
-cd build
-cmake -G "MinGW Makefiles" ..
-```
+   Download and install MSYS2 from [https://www.msys2.org/](https://www.msys2.org/).
 
-To build the project, run the following command:
+2. **Install Build Tools**
 
-```bash
-mingw32-make
-```
+   Open the **MSYS2 MinGW 64-bit** terminal (not the MSYS terminal) and update the package database:
 
-The executable will be generated in the `build` directory. You can run it with the following command: 
-    
-```bash
-./yam <number of nodes>
-```
+   ```bash
+   pacman -Syu
+   ```
 
-For example to run the program with all possible learning structures for 5 nodes, run the following command:
+   Close and reopen the terminal as prompted.
 
-```bash
-./yam 5
-```	
+   Install the required packages:
+
+   ```bash
+   pacman -S --needed base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-zlib
+   ```
+
+3. **Clone the Repository**
+
+   Navigate to your preferred directory and clone the repository:
+
+   ```bash
+   git clone https://github.com/nanda2502/YAM.git
+   ```
+
+4. **Build the Project**
+
+   ```bash
+   cd YAM
+   mkdir build
+   cd build
+   cmake -G "MinGW Makefiles" ..
+   make
+   ```
+
+5. **Run the Program**
+
+   The executable `yam.exe` will be generated in the `build` directory. Run it with:
+
+   ```bash
+   ./yam <number_of_nodes>
+   ```
+
+   For example, to run the program with 5 nodes:
+
+   ```bash
+   ./yam 5
+   ```
+
+### Linux and macOS
+
+To build and run YAM on Linux or macOS:
+
+1. **Install Build Tools**
+
+   Ensure you have the following installed:
+
+   - **C++ Compiler**: GCC or Clang
+   - **CMake**
+   - **Make**
+   - **Git**
+   - **Zlib Development Libraries**
+
+   On **Ubuntu/Debian**, you can install them with:
+
+   ```bash
+   sudo apt update
+   sudo apt install build-essential cmake git zlib1g-dev
+   ```
+
+   On **macOS**, using Homebrew:
+
+   ```bash
+   brew install cmake git zlib
+   ```
+
+2. **Clone the Repository**
+
+   ```bash
+   git clone https://github.com/nanda2502/YAM.git
+   ```
+
+3. **Build the Project**
+
+   ```bash
+   cd YAM
+   mkdir build
+   cd build
+   cmake ..
+   make
+   ```
+
+4. **Run the Program**
+
+   The executable `yam` will be generated in the `build` directory. Run it with:
+
+   ```bash
+   ./yam <number_of_nodes>
+   ```
+
+   For example, to run the program with 5 nodes:
+
+   ```bash
+   ./yam 5
+   ```
+

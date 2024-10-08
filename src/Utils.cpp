@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstdio>
+#include <unordered_map>
 #include <zlib.h>
 
 void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector<double>>& matrix) {
@@ -28,19 +29,25 @@ std::string strategyToString(Strategy strategy) {
             return "RandomLearning";
         case PayoffBasedLearning:
             return "PayoffBasedLearning";
+        case ProximalLearning:
+            return "ProximalLearning";
+        case PrestigeBasedLearning:
+            return "PrestigeBasedLearning";
+        case ConformityBasedLearning:
+            return "ConformityBasedLearning";
         default:
             throw std::invalid_argument("Unknown strategy");
     }
 }
 
-std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep) {
+std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep, double expectedTransitionsPerStep) {
     std::ostringstream oss;
-    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << repl << ',' << std::fixed << std::setprecision(4) << expectedSteps << ',' << expectedPayoffPerStep;
+    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << repl << ',' << std::fixed << std::setprecision(4) << expectedSteps << ',' << expectedPayoffPerStep << ',' << expectedTransitionsPerStep;
     return oss.str();
 }
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
-    std::string filePath = "../data/data_new/adj_mat_" + std::to_string(n) + ".csv";
+    std::string filePath = "../data/adj_mat_" + std::to_string(n) + ".csv";
     std::ifstream file(filePath);
     if (!file.is_open()) throw std::runtime_error("Could not open file " + filePath);
 
@@ -183,3 +190,24 @@ std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adj
     }
     return combinations;
 };
+
+std::string stateToString(const Repertoire& state) {
+    std::string binaryString;
+    for (bool value : state) {
+        binaryString += (value ? '1' : '0');
+    }
+    return binaryString;
+}
+
+void printStates(const std::vector<Repertoire>& repertoiresList, const std::unordered_map<int, int>& oldToNewIndexMap) {
+    // Generate reordered list of repertoires
+    std::vector<Repertoire> reorderedRepertoires(repertoiresList.size());
+    for (size_t i = 0; i < repertoiresList.size(); ++i) {
+        reorderedRepertoires[oldToNewIndexMap.at(i)] = repertoiresList[i];
+    }
+
+    // Print the states (repertoires)
+    for (const Repertoire& repertoire : reorderedRepertoires) {
+        std::cout << stateToString(repertoire) << '\n';
+    }
+}

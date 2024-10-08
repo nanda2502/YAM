@@ -23,7 +23,7 @@ void processRepl(
     const std::string &outputDir,
     std::vector<Result>& flatResults,
     size_t idx,
-    std::vector<std::atomic<int>>& failureCounts  // Add failureCounts vector
+    std::vector<std::atomic<int>>& failureCounts  
 ) {
     DEBUG_PRINT(1, "Replication:");
     if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
@@ -34,9 +34,10 @@ void processRepl(
     // Compute expected steps
     double expectedSteps = 0.0;
     double expectedPayoffPerStep = 0.0;
+    double expectedTransitionsPerStep = 0.0;
     std::vector<std::vector<double>> transitionMatrix;
 
-    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, transitionMatrix)) {
+    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
         // Increment failure count
         ++failureCounts[idx];
         return;
@@ -55,7 +56,7 @@ void processRepl(
     }
 
     // Store results directly into the pre-allocated vector
-    flatResults[idx] = Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep};
+    flatResults[idx] = Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep};
 }
 
 int main(int argc, char* argv[]) {
@@ -63,11 +64,17 @@ int main(int argc, char* argv[]) {
     bool saveTransitionMatrices = false;
     int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
     int n = numNodes;
-    int replications = 10;
+    int replications = 30;
     try {
         // Define alphas and strategies
-        std::vector<double> alphas = {0.0, 1.0, 2.0};
-        std::vector<Strategy> strategies = {Strategy::RandomLearning, Strategy::PayoffBasedLearning};
+        std::vector<double> alphas = {1.0};
+        std::vector<Strategy> strategies = {
+            Strategy::RandomLearning,
+            Strategy::PayoffBasedLearning, 
+            Strategy::ProximalLearning, 
+            Strategy::PrestigeBasedLearning, 
+            Strategy::ConformityBasedLearning
+        };
     
         // Prepare output directory
         std::string outputDir = "../output";
@@ -78,7 +85,7 @@ int main(int argc, char* argv[]) {
         // Read adjacency matrices
         std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
     
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * 10 << " runs." << '\n';
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications << " runs." << '\n';
     
         // Prepare the combinations
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);
@@ -125,7 +132,7 @@ int main(int argc, char* argv[]) {
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
     
         // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
     
@@ -137,7 +144,8 @@ int main(int argc, char* argv[]) {
                 result.strategy,
                 result.repl,
                 result.expectedSteps,
-                result.expectedPayoffPerStep
+                result.expectedPayoffPerStep,
+                result.expectedTransitionsPerStep
             );
             csvData.push_back(formattedResult);
         }

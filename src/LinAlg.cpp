@@ -5,13 +5,12 @@
 
 const double EPSILON = 1e-10;
 
-std::vector<double> solveLinearSystem(const std::vector<std::vector<double>>& a, const std::vector<double>& b) {
+std::pair<std::vector<std::vector<double>>, std::vector<int>> decomposeLU(const std::vector<std::vector<double>>& a) {
     int n = a.size();
     std::vector<std::vector<double>> LU = a;
     std::vector<int> P(n);
     for (int i = 0; i < n; i++) P[i] = i;
 
-    // Perform LU decomposition with partial pivoting
     for (int k = 0; k < n - 1; k++) {
         // Find the pivot row
         int pivot_row = k;
@@ -23,18 +22,15 @@ std::vector<double> solveLinearSystem(const std::vector<std::vector<double>>& a,
             }
         }
 
-        // If the pivot value is too small, the matrix is singular or nearly singular
         if (pivot_val < EPSILON) {
             throw std::runtime_error("Matrix is singular or nearly singular");
         }
 
-        // Swap the current row with the pivot row
         if (pivot_row != k) {
             std::swap(LU[k], LU[pivot_row]);
             std::swap(P[k], P[pivot_row]);
         }
 
-        // Perform the elimination process to form the LU decomposition
         for (int i = k + 1; i < n; i++) {
             LU[i][k] /= LU[k][k];
             for (int j = k + 1; j < n; j++) {
@@ -43,6 +39,12 @@ std::vector<double> solveLinearSystem(const std::vector<std::vector<double>>& a,
         }
     }
 
+    return {LU, P};
+}
+
+std::vector<double> solveUsingLU(const std::vector<std::vector<double>>& LU, const std::vector<int>& P, const std::vector<double>& b) {
+    int n = LU.size();
+    
     // Forward substitution to solve Ly = Pb
     std::vector<double> y(n);
     for (int i = 0; i < n; i++) {

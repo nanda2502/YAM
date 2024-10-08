@@ -24,202 +24,203 @@ library(cowplot)
 
 ```{r}
 
-calc_total_distance_from_root <- function(graph, root="1") {
-  all_paths <- list()
-  total_distance <- 0
-  
-  for (node in V(graph)$name) {
-    if (node != root) {
-      paths <- all_simple_paths(graph, from=root, to=node, mode="out")
-      all_paths[[node]] <- paths
-      for (path in paths) {
-        total_distance <- total_distance + (length(path) - 1)
-      }
-    }
-  }
-  return(total_distance)
-}
-
-plotRatioByDistance <- function(data, DV, DV_label) { 
-
-  result_df <- data.frame(TotalDistance=numeric(), Ratio=numeric(), alpha=factor(), stringsAsFactors=FALSE)
-  
-  for (alpha_value in unique(data$alpha)) {
-    data_sub <- subset(data, alpha == alpha_value)
+calc_total_distance_from_root <- function(data) {
+  unique_combinations <- data %>%
+    select(num_nodes, adj_mat) %>%
+    distinct()
+  for (i in seq_len(nrow(unique_combinations))) {
+    combination <- unique_combinations[i, ]
+    adj_string <- combination[[which(colnames(unique_combinations) == "adj_mat")]]
+    num_nodes <- combination[[which(colnames(unique_combinations) == "num_nodes")]]
     
-    unique_combinations <- data_sub %>%
-      select(num_nodes, adj_mat) %>%
-      distinct()
+    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
+    graph <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
+    V(graph )$name <- as.character(1:num_nodes)
+    all_paths <- list()
+    total_distance <- 0
     
-    for (i in seq_len(nrow(unique_combinations))) {
-      combination <- unique_combinations[i, ]
-      adj_string <- combination$adj_mat
-      num_nodes <- combination$num_nodes
-
-      adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
-      adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
-      g <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
-      V(g)$name <- as.character(1:num_nodes)
-      total_distance <- calc_total_distance_from_root(g, root="1")
-      
-      strategies_data <- subset(data_sub, adj_mat == adj_string & num_nodes == num_nodes)
-      
-      if (nrow(strategies_data) > 0) {
-        random_learning_steps <- strategies_data[strategies_data$strategy == "RandomLearning", DV]
-        payoff_based_steps <- strategies_data[strategies_data$strategy == "PayoffBasedLearning", DV]
-        
-        if (length(random_learning_steps) > 1 && length(payoff_based_steps) > 1) {
-          # Compute trimmed means
-          trimmed_mean_random <- mean(random_learning_steps, trim = 0.1)
-          trimmed_mean_payoff <- mean(payoff_based_steps, trim = 0.1)
-          
-          # Calculate the ratio
-          ratio <- trimmed_mean_payoff / trimmed_mean_random
-          
-          # Append to the result dataframe
-          result_df <- rbind(result_df, data.frame(TotalDistance=total_distance, Ratio=ratio, alpha=factor(alpha_value)))
+    for (node in V(graph)$name) {
+      if (node != "1") {
+        paths <- all_simple_paths(graph, from="1", to=node, mode="out")
+        all_paths[[node]] <- paths
+        for (path in paths) {
+          total_distance <- total_distance + (length(path) - 1)
         }
       }
     }
+    data[data$adj_mat == adj_string, "total_distance"] <- total_distance
   }
-  result_df <- result_df[result_df$Ratio < 3,]
-  plot <- ggplot(result_df, aes(x = TotalDistance, y = Ratio, color = alpha)) +
-    geom_point() +
-    geom_hline(yintercept = 1, color = "black", linetype = "dashed") +
+  data
+}
+
+
+plotDVByDistance <- function(data, DV, DV_label) {
+  average_data <- data %>%
+    group_by(adj_mat, strategy, total_distance) %>%
+    summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
+  
+  if (length(unique(data$num_nodes) > 1)) {
+    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
+  } else {
+    num_nodes <- data$num_nodes[1]
+  }
+
+  plot <- ggplot(average_data, aes(x = total_distance, y = avg_DV, color = as.factor(strategy))) +
+    geom_point(alpha = 0.8) +
     geom_smooth(method = "loess", se = FALSE) +
-    labs(title = paste0("Ratio of ", DV_label, " (PayoffBased / RandomLearning) by Distance"),
+    labs(title = paste0(DV_label, " by Distance"),
          subtitle = paste0("Number of Nodes: ", num_nodes),
          x = "Total Distance from Root",
-         y = "Ratio") +
+         y = DV_label) +
     theme_minimal() +
-    scale_color_discrete(name = "Alpha") + 
-    scale_y_continuous(
-      breaks = seq(0, max(result_df$Ratio) + 1, by = 1),
-      minor_breaks = seq(0, max(result_df$Ratio), by = 0.5)
-      )
+    scale_color_discrete(name = "Strategy") #+ 
+    # scale_y_continuous(
+    #   breaks = seq(0, max(average_data$avg_DV) + 1, by = 1),
+    #   minor_breaks = seq(0, max(average_data$avg_DV), by = 0.5)
+    # )
   
   print(plot)
-  return(plot) 
+  return(plot)
 }
 
-num_nodes <- 6
-filename <- paste0("./output/expected_steps_", num_nodes, ".csv.gz")
-data <- read.csv(gzfile(filename), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character")) %>%
-  filter(!is.nan(step_payoff))
+clean_file <- function(data) {
+  num_nodes <- data$num_nodes[1]
+  sum_nan <- sum(is.nan(data$step_payoff))
+  if (sum_nan > 0) {
+    print(paste0("Removing ", sum_nan, " observations that failed not converge."))
+  }
+  data <- data[!is.nan(data$step_payoff), ]
+  sum_short <- sum(data$steps < num_nodes - 1)
+  if (sum_short > 0) {
+    print(paste0("Removing ", sum_short, " observations that reached the absorbing state in an impossible time."))
+  }
+  data <- data[data$steps >= num_nodes - 1, ]
+}
 
-sum(is.nan(data$step_payoff))
+read_file <- function(num_nodes) {
+  data <- read.csv(gzfile(paste0("./output/expected_steps_", num_nodes, ".csv.gz")), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character"))
+  data$strategy <- factor(
+    data$strategy,
+    levels = c(
+    "RandomLearning",
+    "PayoffBasedLearning",
+    "ProximalLearning",
+    "PrestigeBasedLearning",
+    "ConformityBasedLearning"
+    ),
+    labels = c(
+      "Random Learning",
+      "Payoff-Based Learning",
+      "Proximal Learning",
+      "Prestige-Based Learning",
+      "Conformity-Based Learning"
+      )
+    )
+  return(data)
+}
 
-steps_plot <- plotRatioByDistance(data[data$alpha >= 0, ], "steps", "Expected Steps")
-payoff_plot <- plotRatioByDistance(data[data$alpha >= 0, ], "step_payoff", "Expected Payoff/Step")
+read_all <- function(numbers) {
+  all_data <- lapply(numbers, function(num_nodes) {
+    data <- read_file(num_nodes)
+    data <- clean_file(data)
+    data <- calc_total_distance_from_root(data)
+    return(data)
+  })
+  
+  all_data <- bind_rows(all_data)
+  
+  return(all_data)
+} 
 
-``` 
+num_nodes <- 5
+data <- read_file(num_nodes)
+data <- clean_file(data)
+colnames(data)
+data <- calc_total_distance_from_root(data)
+
+all_data <- read_all(2:8)
+
+steps_plot <- plotDVByDistance(all_data, "steps", "Expected Steps")
+payoff_plot <- plotDVByDistance(all_data, "step_payoff", "Expected Payoff per Step")
+transitions_plot <- plotDVByDistance(all_data, "step_transitions", "Expected Success Rate of Learning Attempts")
 
 
-# Plot the expected steps by strategy for each adjacency matrix
+summary(lm(steps ~ total_distance * strategy, data = data))
 
+ggplot(all_data[all_data$step_transitions == 1,], aes(x = strategy, y = step_payoff, color = strategy)) +
+  geom_jitter(position = position_jitter(width = 0.4, height = 0), alpha = 0.6) +
+  stat_summary(fun = mean, geom = "crossbar", width = 0.5, fatten = 2, position = position_dodge(0.9)) +
+  theme_minimal() +
+  labs(title = "Expected Payoff Per Step for Unconstrained Structures",
+       #subtitle = paste0("Number of Nodes: ", all_data$num_nodes[1]),
+       x = "Strategy",
+       y = "Payoff per Step") +
+  theme(legend.position = "none")
+```
+
+ 
+ 
 ```{r}
-# Load the data
-getwd()
-data <- read.csv(gzfile("./output/expected_steps_5.csv.gz"), stringsAsFactors = FALSE, colClasses = c(AdjacencyMatrix = "character"))
-
-# Filter data for Alpha == 1
-data_sub <- subset(data, alpha == 1.0)
-
-# Remove isomorphic duplicates
-data_sub_unique <- remove_duplicates(data_sub)
-
-plots_list <- list()
-
-unique_combinations <- unique(data_sub_unique[, c("AdjacencyMatrix", "NumNodes")])
-
-# Loop over each unique combination
-for (i in seq_len(nrow(unique_combinations))) {
-  combination <- unique_combinations[i, ]
+remove_duplicates <- function(node_range) {
+  for(num_nodes in node_range) {
+    filename <- paste0("./data/data_new/adj_mat_", num_nodes, ".csv")
+    data <- read.csv(filename, header = FALSE, stringsAsFactors = FALSE, colClasses = c("character"))
+    colnames(data) <- c("adj_mat")
   
-  adj_string <- combination$adj_mat
-  num_nodes <- combination$num_nodes
+    unique_graphs <- list()
+    unique_indices <- c()
+    for (i in seq_len(nrow(data))) {
+      adj_string <- data$adj_mat[i]
+      adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+      adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
+      g <- igraph::graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
+      is_duplicate <- any(sapply(unique_graphs, function(unique_g) igraph::isomorphic(unique_g, g, method = "vf2")))
+      
+      if (!is_duplicate) {
+        unique_graphs <- append(unique_graphs, list(g))
+        unique_indices <- c(unique_indices, i)  # correctly add unique index
+      }
+    }
   
-  # Convert the adjacency string to a numeric vector
-  adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
-  adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
-  
-  # Create a graph object
-  g <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
-  
-  # Assign names to nodes
-  V(g)$name <- as.character(1:num_nodes)
-  
-  # Create the graph plot using ggraph
-  graph_plot <- ggraph(g, layout = "tree") +
-    geom_edge_link(arrow = arrow(length = unit(4, 'mm'), type = "closed"), end_cap = circle(3, 'mm')) +
-    geom_node_point(size = 5) +
-    theme_void()
-  
-  # Get ExpectedSteps for different Strategies for the same AdjacencyMatrix and NumNodes
-  strategies_data <- subset(data_sub_unique, adj_mat == adj_string & num_nodes == num_nodes)
-  
-  # Check if strategies_data is not empty
-  if (nrow(strategies_data) > 0) {
-    # Prepare data for bar plot
-    bar_data <- aggregate(steps ~ strategy, data = strategies_data, FUN = mean)
-    
-    # Create bar plot
-    bar_plot <- ggplot(bar_data, aes(x = strategy, y = steps, fill = strategy)) +
-      geom_bar(stat = 'identity') +
-      ylim(0, max(bar_data$steps) + 1) +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
-    
-    # Arrange the graph and bar plot side by side
-    combined_plot <- grid.arrange(graph_plot, bar_plot, ncol = 2)
-    
-    # Store the combined plot
-    plots_list[[i]] <- combined_plot
+    write.table(data[unique_indices, ], file = paste0("./data/data_new/adj_mat_", num_nodes, ".csv"), sep = ",", row.names = FALSE, col.names = FALSE, quote = FALSE)
   }
 }
 
-
-for (i in seq_along(plots_list)) {
-  grid.newpage()
-  grid.draw(plots_list[[i]])
-}
-
-## plot 3x3 grid
-outplot <- grid.arrange(grobs = plots_list, ncol = 3, top = textGrob("Expected Steps until Absorption for α = 1.0 "))
+remove_duplicates(2:8)
 
 ```
 
 ```{r}
-# Function to remove isomorphic duplicates
-remove_duplicates <- function(data) {
-  unique_graphs <- list()
-  unique_indices <- c()
+data$adj_mat <- as.factor(data$adj_mat)
+data$steps_scaled <- scale(data$steps)
+library(brms)
+
+analyze_strategy_bayes <- function(strat) {
+  subset_data <- subset(data, strategy == strat)
+  model <- brm(steps_scaled ~ (1|adj_mat) + (1|repl), data = subset_data, 
+               family = gaussian(), cores = 4, iter = 2000)
+  print(paste("Analysis for strategy:", strat))
+  print(summary(model))
   
-  unique_combinations <- unique(data[, c("AdjacencyMatrix", "NumNodes")])
+  # Calculate ICC
+  post <- posterior_samples(model)
+  icc_adj_mat <- post$sd_adj_mat__Intercept^2 / 
+    (post$sd_adj_mat__Intercept^2 + post$sd_repl__Intercept^2 + post$sigma^2)
+  icc_repl <- post$sd_repl__Intercept^2 / 
+    (post$sd_adj_mat__Intercept^2 + post$sd_repl__Intercept^2 + post$sigma^2)
   
-  for (i in seq_len(nrow(unique_combinations))) {
-    adj_string <- unique_combinations$AdjacencyMatrix[i]
-    num_nodes <- unique_combinations$NumNodes[i]
-    
-    # Convert the adjacency string to a numeric vector
-    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
-    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
-    
-    # Create a graph object
-    g <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
-    
-    # Check if the graph is isomorphic to any of the already added unique graphs
-    is_duplicate <- any(sapply(unique_graphs, function(unique_g) isomorphic(unique_g, g)))
-    
-    if (!is_duplicate) {
-      unique_graphs <- append(unique_graphs, list(g))
-      unique_indices <- c(unique_indices, which(data$AdjacencyMatrix == adj_string & data$NumNodes == num_nodes))
-    }
-  }
+  print(paste("Mean ICC for adj_mat:", mean(icc_adj_mat)))
+  print(paste("Mean ICC for repl:", mean(icc_repl)))
   
-  return(data[unique_indices, ])
+  cat("\n\n")
 }
-``` 
+
+strategies <- levels(data$strategy)
+lapply(strategies, analyze_strategy_bayes)
+
+```
+
 
 ```{r}
 plot_graph_panel <- function(df, num_nodes) {
@@ -279,10 +280,16 @@ plot_graph_panel <- function(df, num_nodes) {
   
   # Optional: Print the combined plot to the R graphics device
   # Note: For a large number of plots, this may not display properly in RStudio's plot pane. It's recommended to view the saved PDF.
-  # print(combined_plot)
+  print(combined_plot)
 }
-
-
-plot <- plot_graph_panel(data, num_nodes)
+num_nodes <- 4
+data <- read_file(num_nodes)
+data <- clean_file(data)
+data <- remove_duplicates(data)
+plot <- plot_graph_panel(all_data[all_data$step_transitions == 1,], num_nodes)
 ```
+
+
+
+
 

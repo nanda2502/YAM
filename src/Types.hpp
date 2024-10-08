@@ -8,10 +8,14 @@ using Trait = size_t;
 using Repertoire = std::vector<bool>;
 using PayoffVector = std::vector<double>;
 using AdjacencyMatrix = std::vector<std::vector<bool>>;
+using Parents = std::vector<std::vector<Trait>>;
 
 enum Strategy {
     RandomLearning,
-    PayoffBasedLearning
+    PayoffBasedLearning,
+    ProximalLearning,
+    PrestigeBasedLearning,
+    ConformityBasedLearning
 };
 
 struct ParamCombination {
@@ -30,6 +34,7 @@ struct Result {
     int repl;
     double expectedSteps;
     double expectedPayoffPerStep;
+    double expectedTransitionsPerStep;
 };
 
 #endif // TYPES_HPP

@@ -162,7 +162,7 @@ To build and run YAM on Windows:
    Install the required packages:
 
    ```bash
-   pacman -S --needed base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-zlib
+   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-zlib
    ```
 
 3. **Clone the Repository**
@@ -180,7 +180,7 @@ To build and run YAM on Windows:
    mkdir build
    cd build
    cmake -G "MinGW Makefiles" ..
-   make
+   mingw32-make
    ```
 
 5. **Run the Program**

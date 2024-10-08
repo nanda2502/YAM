@@ -128,6 +128,17 @@ Key features of the model include:
 
 A detailed mathematical description of the model, including the theoretical underpinnings and computational methods, is available in the document **Mathematical Description of YAM.pdf** included in the repository.
 
+# Results
+
+The results of our simulations using the YAM model are summarized in the figures found in the `figures` directory. These results provide insights into the performance of different learning strategies across a variety of learning structures.
+
+For our analysis, we considered all possible structures with nodes ranging from 3 to 8. For each structure, we calculated the total distance of all paths between every node and the root, which serves as an indicator of how constrained a structure is.
+Here, we compare how the performance of different learning strategies in terms of learning success rate and cumulative payoff depends on total distance, i.e., the constrainedness of the learning structure. 
+
+![Success Rate](figures/success_rate.pdf)
+
+![Payoffs](figures/payoffs.pdf)
+
 ## Build Instructions
 
 ### Windows

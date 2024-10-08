@@ -67,7 +67,7 @@ plotDVByDistance <- function(data, DV, DV_label) {
   }
 
   plot <- ggplot(average_data, aes(x = total_distance, y = avg_DV, color = as.factor(strategy))) +
-    geom_jitter(width = 0.2, size = 1.5) +
+    geom_point(alpha = 0.8) +
     geom_smooth(method = "loess", se = FALSE) +
     labs(title = paste0(DV_label, " by Distance"),
          subtitle = paste0("Number of Nodes: ", num_nodes),
@@ -136,9 +136,10 @@ read_all <- function(numbers) {
 num_nodes <- 5
 data <- read_file(num_nodes)
 data <- clean_file(data)
+colnames(data)
 data <- calc_total_distance_from_root(data)
 
-all_data <- read_all(2:6)
+all_data <- read_all(2:8)
 
 steps_plot <- plotDVByDistance(all_data, "steps", "Expected Steps")
 payoff_plot <- plotDVByDistance(all_data, "step_payoff", "Expected Payoff per Step")
@@ -147,12 +148,12 @@ transitions_plot <- plotDVByDistance(all_data, "step_transitions", "Expected Suc
 
 summary(lm(steps ~ total_distance * strategy, data = data))
 
-ggplot(all_data[all_data$step_transitions == 1 & all_data$steps == 7,], aes(x = strategy, y = step_payoff, color = strategy)) +
-  geom_jitter(position = position_jitter(width = 0.2, height = 0), alpha = 0.6) +
+ggplot(all_data[all_data$step_transitions == 1,], aes(x = strategy, y = step_payoff, color = strategy)) +
+  geom_jitter(position = position_jitter(width = 0.4, height = 0), alpha = 0.6) +
   stat_summary(fun = mean, geom = "crossbar", width = 0.5, fatten = 2, position = position_dodge(0.9)) +
   theme_minimal() +
   labs(title = "Expected Payoff Per Step for Unconstrained Structures",
-       subtitle = paste0("Number of Nodes: ", data$num_nodes[1]),
+       #subtitle = paste0("Number of Nodes: ", all_data$num_nodes[1]),
        x = "Strategy",
        y = "Payoff per Step") +
   theme(legend.position = "none")
@@ -285,7 +286,7 @@ num_nodes <- 4
 data <- read_file(num_nodes)
 data <- clean_file(data)
 data <- remove_duplicates(data)
-plot <- plot_graph_panel(data, num_nodes)
+plot <- plot_graph_panel(all_data[all_data$step_transitions == 1,], num_nodes)
 ```
 
 

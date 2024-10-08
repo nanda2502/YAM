@@ -47,7 +47,7 @@ std::string formatResults(int n, const std::string& adjMatrixBinary, double alph
 }
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
-    std::string filePath = "../data/data_new/adj_mat_" + std::to_string(n) + ".csv";
+    std::string filePath = "../data/adj_mat_" + std::to_string(n) + ".csv";
     std::ifstream file(filePath);
     if (!file.is_open()) throw std::runtime_error("Could not open file " + filePath);
 

@@ -135,9 +135,9 @@ The results of our simulations using the YAM model are summarized in the figures
 For our analysis, we considered all possible structures with nodes ranging from 3 to 8. For each structure, we calculated the total distance of all paths between every node and the root, which serves as an indicator of how constrained a structure is.
 Here, we compare how the performance of different learning strategies in terms of learning success rate and cumulative payoff depends on total distance, i.e., the constrainedness of the learning structure. 
 
-![Success Rate](figures/success_rate.pdf)
+![Success Rate](figures/success_rate.jpg)
 
-![Payoffs](figures/payoffs.pdf)
+![Payoffs](figures/payoffs.jpg)
 
 ## Build Instructions
 

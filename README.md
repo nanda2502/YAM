@@ -118,7 +118,7 @@
 ```
 # YAM (Yet Another Model)
 
-YAM is a computational model designed to simulate learning processes within structured environments. The model represents learning structures as directed graphs, where each node corresponds to a trait, and edges represent prerequisite relationships between traits. Agents (learners) progress through these structures by acquiring traits based on various learning strategies, which dictate how they select new traits to learn.
+YAM is a computational model designed to simulate social learning processes within structured environments. The model represents learning structures as directed graphs, where each node corresponds to a trait, and edges represent prerequisite relationships between traits. Learners progress through these structures by acquiring traits based on various learning strategies, which dictate how they select new traits to learn.
 
 Key features of the model include:
 
@@ -126,7 +126,7 @@ Key features of the model include:
 - **Learning Strategies**: Different strategies, such as random learning, payoff-based learning, proximal learning, prestige-based learning, and conformity-based learning, influence how agents choose which traits to attempt next.
 - **Outcome Variables**: The model computes outcome variables like the expected success rate of learning attempts and the expected payoff per learning event, providing insights into the efficiency and benefits of different learning strategies.
 
-A detailed mathematical description of the model, including the theoretical underpinnings and computational methods, is available in the document **Mathematical Description of YAM.pdf** included in the repository.
+A more detailed description of the model is available in the document **Mathematical Description of YAM.pdf** included in the repository.
 
 # Results
 

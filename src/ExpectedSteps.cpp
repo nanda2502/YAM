@@ -324,6 +324,9 @@ bool computeExpectedSteps(
             }
         }
 
+        DEBUG_PRINT(2, "Preliminary Fundamental matrix:");
+        if(DEBUG_LEVEL >= 2) printMatrix(fundamentalMatrix);
+
         double totalTransientTime = 0.0;
         for (const auto& row : fundamentalMatrix) {
             totalTransientTime += std::accumulate(row.begin(), row.end(), 0.0);
@@ -347,6 +350,13 @@ bool computeExpectedSteps(
         double sum = std::accumulate(traitFrequencies.begin() + 1, traitFrequencies.end(), 0.0);
         for (size_t j = 1; j < n; ++j) {
             traitFrequencies[j] /= sum;
+        }
+
+        DEBUG_PRINT(2, "Updated trait frequencies:");
+        if(DEBUG_LEVEL >= 2) {
+            for (size_t i = 0; i < traitFrequencies.size(); ++i) {
+                std::cout << "Trait " << i << ": " << traitFrequencies[i] << '\n';
+            }
         }
 
         // Second pass: rebuild the transition matrix with updated trait frequencies
@@ -400,6 +410,9 @@ bool computeExpectedSteps(
                 finalFundamentalMatrix[j][i] = column[j];
             }
         }
+
+        DEBUG_PRINT(2, "Fundamental matrix:");
+        if(DEBUG_LEVEL >= 2) printMatrix(finalFundamentalMatrix);
 
         expectedTransitionsPerStep = computeExpectedTransitionsPerStep(finalFundamentalMatrix, finalReorderedTransitionMatrix, initialStateNewIndex, finalNumTransientStates, expectedSteps);
 

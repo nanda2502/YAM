@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     bool saveTransitionMatrices = false;
     int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
     int n = numNodes;
-    int replications = 30;
+    int replications = 1;
     try {
         // Define alphas and strategies
         std::vector<double> alphas = {1.0};
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
         std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t idx) {
             const ParamCombination& comb = combinations[idx];
             DEBUG_PRINT(1, "Adjacency Matrix:");
-            if(DEBUG_LEVEL >= 1) std::cout << comb.adjMatrixBinary << '\n';
+            if(DEBUG_LEVEL >= 1) std::cout << formatAdjMat(comb.adjMatrixBinary, n) << '\n';
             DEBUG_PRINT(1, "Strategy:");
             if(DEBUG_LEVEL >= 1) std::cout << strategyToString(comb.strategy) << '\n';
             DEBUG_PRINT(1, "Alpha:");

@@ -80,6 +80,20 @@ AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str) {
     return matrix;
 }
 
+std::string formatAdjMat(const std::string& adj_string, int n) {
+    std::string adj_mat = "";
+    int col_idx = 0;
+    for (size_t i = 0; i < adj_string.size(); i++) {
+        if (col_idx == n) {
+            adj_mat += '\n';
+            col_idx = 0;
+        }
+        adj_mat += adj_string[i];
+        col_idx++;
+    }
+    return adj_mat;
+}
+
 bool charToBool(char c) {
     if (c == '0') return false;
     if (c == '1') return true;

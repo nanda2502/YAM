@@ -37,7 +37,7 @@ void processRepl(
     double expectedTransitionsPerStep = 0.0;
     std::vector<std::vector<double>> transitionMatrix;
 
-    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
+    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, repl, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
         // Increment failure count
         ++failureCounts[idx];
         return;
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     bool saveTransitionMatrices = false;
     int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
     int n = numNodes;
-    int replications = 1;
+    int replications = 30;
     try {
         // Define alphas and strategies
         std::vector<double> alphas = {1.0};

@@ -8,7 +8,7 @@
 #include <unordered_set>
 
 #ifndef PAYOFF_SENSITIVITY
-#define PAYOFF_SENSITIVITY 1.0
+#define PAYOFF_SENSITIVITY 5.0
 #endif
 
 std::vector<bool> learnability(const Repertoire& repertoire, const Parents& parents) {

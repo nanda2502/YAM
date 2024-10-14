@@ -24,7 +24,11 @@ library(cowplot)
 
 ```{r}
 
-calc_total_distance_from_root <- function(data) {
+calc_avg_path_length <- function(graph) {
+  mean(distances(graph)[1, -1])
+}
+
+add_avg_path_length <- function(data) {
   unique_combinations <- data %>%
     select(num_nodes, adj_mat) %>%
     distinct()
@@ -37,27 +41,17 @@ calc_total_distance_from_root <- function(data) {
     adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
     graph <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
     V(graph )$name <- as.character(1:num_nodes)
-    all_paths <- list()
-    total_distance <- 0
     
-    for (node in V(graph)$name) {
-      if (node != "1") {
-        paths <- all_simple_paths(graph, from="1", to=node, mode="out")
-        all_paths[[node]] <- paths
-        for (path in paths) {
-          total_distance <- total_distance + (length(path) - 1)
-        }
-      }
-    }
-    data[data$adj_mat == adj_string, "total_distance"] <- total_distance
+    avg_path_length <- calc_avg_path_length(graph)
+
+    data[data$adj_mat == adj_string, "avg_path_length"] <- avg_path_length
   }
   data
 }
 
-
 plotDVByDistance <- function(data, DV, DV_label) {
   average_data <- data %>%
-    group_by(adj_mat, strategy, total_distance) %>%
+    group_by(adj_mat, strategy, avg_path_length) %>%
     summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
   
   if (length(unique(data$num_nodes) > 1)) {
@@ -66,12 +60,12 @@ plotDVByDistance <- function(data, DV, DV_label) {
     num_nodes <- data$num_nodes[1]
   }
 
-  plot <- ggplot(average_data, aes(x = total_distance, y = avg_DV, color = as.factor(strategy))) +
+  plot <- ggplot(average_data, aes(x = avg_path_length, y = avg_DV, color = as.factor(strategy))) +
     geom_point(alpha = 0.8) +
     geom_smooth(method = "loess", se = FALSE) +
-    labs(title = paste0(DV_label, " by Distance"),
+    labs(title = paste0(DV_label, " by Average Path Length"),
          subtitle = paste0("Number of Nodes: ", num_nodes),
-         x = "Total Distance from Root",
+         x = "Average Path Length",
          y = DV_label) +
     theme_minimal() +
     scale_color_discrete(name = "Strategy") #+ 
@@ -92,6 +86,7 @@ clean_file <- function(data) {
   }
   data <- data[!is.nan(data$step_payoff), ]
   sum_short <- sum(data$steps < num_nodes - 1)
+  return(data)
   if (sum_short > 0) {
     print(paste0("Removing ", sum_short, " observations that reached the absorbing state in an impossible time."))
   }
@@ -124,7 +119,7 @@ read_all <- function(numbers) {
   all_data <- lapply(numbers, function(num_nodes) {
     data <- read_file(num_nodes)
     data <- clean_file(data)
-    data <- calc_total_distance_from_root(data)
+    data <- add_avg_path_length(data)
     return(data)
   })
   
@@ -137,18 +132,16 @@ num_nodes <- 5
 data <- read_file(num_nodes)
 data <- clean_file(data)
 colnames(data)
-data <- calc_total_distance_from_root(data)
+data <- add_avg_path_length(data)
 
-all_data <- read_all(2:8)
+all_data <- read_all(2:6)
 
 steps_plot <- plotDVByDistance(all_data, "steps", "Expected Steps")
 payoff_plot <- plotDVByDistance(all_data, "step_payoff", "Expected Payoff per Step")
 transitions_plot <- plotDVByDistance(all_data, "step_transitions", "Expected Success Rate of Learning Attempts")
 
 
-summary(lm(steps ~ total_distance * strategy, data = data))
-
-ggplot(all_data[all_data$step_transitions == 1,], aes(x = strategy, y = step_payoff, color = strategy)) +
+ggplot(all_data[all_data$step_transitions == 1 & all_data$num_nodes > 3,], aes(x = strategy, y = step_payoff, color = strategy)) +
   geom_jitter(position = position_jitter(width = 0.4, height = 0), alpha = 0.6) +
   stat_summary(fun = mean, geom = "crossbar", width = 0.5, fatten = 2, position = position_dodge(0.9)) +
   theme_minimal() +
@@ -157,6 +150,8 @@ ggplot(all_data[all_data$step_transitions == 1,], aes(x = strategy, y = step_pay
        x = "Strategy",
        y = "Payoff per Step") +
   theme(legend.position = "none")
+
+summary(lmerTest::lmer(step_payoff ~ strategy + (1 | adj_mat), data = all_data[all_data$step_transitions == 1,]))
 ```
 
  
@@ -276,16 +271,15 @@ plot_graph_panel <- function(df, num_nodes) {
   pdf_height <- n_rows * 1.5 # Each plot is approximately 1.5 inches tall
   
   # Save to PDF
-  ggsave(filename = paste0("./output/all_graphs_", num_nodes, ".pdf"), plot = combined_plot, width = pdf_width, height = pdf_height, units = "in")
+  #ggsave(filename = paste0("./output/all_graphs_", num_nodes, ".pdf"), plot = combined_plot, width = pdf_width, height = pdf_height, units = "in")
   
   # Optional: Print the combined plot to the R graphics device
   # Note: For a large number of plots, this may not display properly in RStudio's plot pane. It's recommended to view the saved PDF.
   print(combined_plot)
 }
-num_nodes <- 4
-data <- read_file(num_nodes)
-data <- clean_file(data)
-data <- remove_duplicates(data)
+
+all_data <- read_all_data(2:8)
+
 plot <- plot_graph_panel(all_data[all_data$step_transitions == 1,], num_nodes)
 ```
 

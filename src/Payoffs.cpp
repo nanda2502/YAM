@@ -3,7 +3,7 @@
 
 
 PayoffVector generatePayoffs(const std::vector<int>& distances, double alpha, std::mt19937& gen) {
-    std::uniform_real_distribution<double> dist(0.0, 1.0);
+    std::uniform_real_distribution<double> dist(0.0, 5.0);
 
     PayoffVector payoffs(distances.size());
 

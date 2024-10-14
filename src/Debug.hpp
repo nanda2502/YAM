@@ -16,5 +16,4 @@ std::ostream& setPrecision(std::ostream& os, int precision);
         std::cout.precision(old_prec); \
     }
 
-
 #endif //DEBUG_HPP

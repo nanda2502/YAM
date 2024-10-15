@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     bool saveTransitionMatrices = false;
     int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
     int n = numNodes;
-    int replications = 1;
+    int replications = 30;
     try {
         // Define alphas and strategies
         std::vector<double> alphas = {1.0};

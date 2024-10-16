@@ -175,14 +175,9 @@ double computeExpectedPayoffOverNSteps(
 
     double totalExpectedPayoff = 0.0;
 
-    for (int step = 0; step < n; ++step) {
-        // Compute expected payoff at this step
-        double expectedPayoffThisStep = 0.0;
-        for (int i = 0; i < numStates; ++i) {
-            expectedPayoffThisStep += stateDistribution[i] * statePayoffs[i];
-        }
-        totalExpectedPayoff += expectedPayoffThisStep;
+    DEBUG_PRINT(1, "Starting Computation of Expected Payoff Over " << n << " Steps");
 
+    for (int step = 0; step < n; ++step) {
         // Update state distribution for the next step
         std::vector<double> nextStateDistribution(numStates, 0.0);
         for (int i = 0; i < numStates; ++i) {
@@ -191,8 +186,19 @@ double computeExpectedPayoffOverNSteps(
             }
         }
         stateDistribution = nextStateDistribution;
+
+        // Compute expected payoff at this step
+        // Start accumulating payoffs from step 1 and beyond
+        double expectedPayoffThisStep = 0.0;
+        for (int i = 0; i < numStates; ++i) {
+            expectedPayoffThisStep += stateDistribution[i] * statePayoffs[i];
+        }
+        totalExpectedPayoff += expectedPayoffThisStep;
+        DEBUG_PRINT(1, "Expected payoff at Step " << step << " : " << expectedPayoffThisStep);
     }
 
+    DEBUG_PRINT(1, "Total Expected Payoff: " << totalExpectedPayoff);
+    
     // Compute expected payoff per step
     double expectedPayoffPerStep = totalExpectedPayoff / n;
     return expectedPayoffPerStep;
@@ -248,6 +254,8 @@ double computeExpectedTransitionsPerStep(
 
     double totalExpectedTransitions = 0.0;
 
+    DEBUG_PRINT(1, "Starting Computation of Expected Transitions Over " << n << " Steps");
+
     for (int step = 0; step < n; ++step) {
         // Compute expected number of transitions at this step
         double expectedTransitionsThisStep = 0.0;
@@ -262,6 +270,7 @@ double computeExpectedTransitionsPerStep(
         }
 
         totalExpectedTransitions += expectedTransitionsThisStep;
+        DEBUG_PRINT(1, "Expected transitions at Step " << (step + 1) << " : " << expectedTransitionsThisStep);
 
         // Update state distribution for the next step
         std::vector<double> nextStateDistribution(numStates, 0.0);
@@ -273,6 +282,8 @@ double computeExpectedTransitionsPerStep(
         stateDistribution = nextStateDistribution;
     }
 
+    DEBUG_PRINT(1, "Total Expected Transitions: " << totalExpectedTransitions);
+    
     // Compute expected transitions per step
     double expectedTransitionsPerStep = totalExpectedTransitions / n;
     return expectedTransitionsPerStep;
@@ -283,7 +294,8 @@ bool computeExpectedSteps(
     Strategy strategy,
     double alpha,
     std::mt19937& gen,
-    int repl, 
+    int repl,
+    int num_steps, 
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
     double& expectedTransitionsPerStep,                     
@@ -295,10 +307,6 @@ bool computeExpectedSteps(
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
         PayoffVector payoffs = generatePayoffs(distances, alpha, gen);
 
-        // Round up on half of the replications, and down on the other half
-        double num_steps = ((repl % 2) == 0) 
-                    ? std::ceil(static_cast<double>(adjacencyMatrix.size()) / 2.0)
-                    : std::floor(static_cast<double>(adjacencyMatrix.size()) / 2.0);
         // print payoffs
         DEBUG_PRINT(2, "Payoffs:");
         if(DEBUG_LEVEL >= 2) {
@@ -385,7 +393,7 @@ bool computeExpectedSteps(
                 if (repertoiresList[repertoire][trait]) {
                     int newIndex = oldToNewIndexMap[repertoire];
                     if (newIndex < numTransientStates) {
-                        timeTraitKnown += fundamentalMatrix[newIndex][0]; // Corrected indexing
+                        timeTraitKnown += fundamentalMatrix[newIndex][0]; 
                     }
                 }
             }

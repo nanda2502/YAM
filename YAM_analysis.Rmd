@@ -78,11 +78,50 @@ plotDVByDistance <- function(data, DV, DV_label) {
   return(plot)
 }
 
+
+plotUnconstrained <- function(data, num_steps) {
+  unconstrained_matrices <- c(
+    "0100",
+    "011000000",
+    "0111000000000000",
+    "0111100000000000000000000",
+    "011111000000000000000000000000000000",
+    "0111111000000000000000000000000000000000000000000",
+    "0111111100000000000000000000000000000000000000000000000000000000"
+  )
+
+  if (length(unique(data$num_nodes) > 1)) {
+    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
+  } else {
+    num_nodes <- data$num_nodes[1]
+  }
+  
+  payoff_plot <- ggplot(data[data$adj_mat %in% unconstrained_matrices & data$step_payoff > 0,], aes(x = strategy, y = step_payoff, color = strategy)) +
+  geom_jitter(position = position_jitter(width = 0.4, height = 0), alpha = 0.1) +
+  stat_summary(fun = mean, geom = "crossbar", width = 0.5, fatten = 4, position = position_dodge(0.9)) +
+  theme_minimal() +
+  labs(title = "Expected Payoff Per Step for Unconstrained Structures",
+       subtitle = paste0("Number of Nodes: ", num_nodes),
+       x = "Strategy",
+       y = "Payoff per Step") +
+  theme(legend.position = "none") +
+  facet_wrap(~ step_factor, labeller = labeller(step_factor = function(value) paste0("Steps: Num Traits / ", value)))
+
+  print(payoff_plot)
+  return(payoff_plot)
+}
+
 clean_file <- function(data) {
+  sum_missing <- sum(data$adj_mat == "")
+  if (sum_missing > 0) {
+    print(paste0("Removing ", sum_missing, " observations with missing adjacency matrices."))
+  }
+  data <- data[data$adj_mat != "", ]
+  
   num_nodes <- data$num_nodes[1]
   sum_nan <- sum(is.nan(data$step_payoff))
   if (sum_nan > 0) {
-    print(paste0("Removing ", sum_nan, " observations that failed not converge."))
+    print(paste0("Removing ", sum_nan, " observations that failed to converge."))
   }
   data <- data[!is.nan(data$step_payoff), ]
   sum_short <- sum(data$steps < num_nodes - 1)
@@ -105,11 +144,11 @@ read_file <- function(num_nodes) {
     "ConformityBasedLearning"
     ),
     labels = c(
-      "Random Learning",
-      "Payoff-Based Learning",
-      "Proximal Learning",
-      "Prestige-Based Learning",
-      "Conformity-Based Learning"
+      "Random",
+      "Payoff",
+      "Proximal",
+      "Prestige",
+      "Conformity"
       )
     )
   return(data)
@@ -134,25 +173,39 @@ data <- clean_file(data)
 colnames(data)
 data <- add_avg_path_length(data)
 
-all_data <- read_all(2:6)
+all_data <- read_all(3:7)
+all_data1$step_factor <- 1
+all_data2$step_factor <- 2
+
+all_data_combined <- rbind(all_data1, all_data2)
 
 steps_plot <- plotDVByDistance(all_data, "steps", "Expected Steps")
 payoff_plot <- plotDVByDistance(all_data, "step_payoff", "Expected Payoff per Step")
 transitions_plot <- plotDVByDistance(all_data, "step_transitions", "Expected Success Rate of Learning Attempts")
 
+step2 <- plotUnconstrained(all_data2, "Number of Traits / 2")
+step15 <- plotUnconstrained(all_data15, "Number of Traits / 1.5")
+step1 <- plotUnconstrained(all_data1, "Number of Traits")
 
-ggplot(all_data[all_data$step_transitions == 1 & all_data$num_nodes > 3,], aes(x = strategy, y = step_payoff, color = strategy)) +
-  geom_jitter(position = position_jitter(width = 0.4, height = 0), alpha = 0.6) +
-  stat_summary(fun = mean, geom = "crossbar", width = 0.5, fatten = 2, position = position_dodge(0.9)) +
-  theme_minimal() +
-  labs(title = "Expected Payoff Per Step for Unconstrained Structures",
-       #subtitle = paste0("Number of Nodes: ", all_data$num_nodes[1]),
-       x = "Strategy",
-       y = "Payoff per Step") +
-  theme(legend.position = "none")
+allsteps <- plotUnconstrained(all_data_combined[all_data_combined$num_nodes == 4, ], "")
 
-summary(lmerTest::lmer(step_payoff ~ strategy + (1 | adj_mat), data = all_data[all_data$step_transitions == 1,]))
+
+
+  unconstrained_matrices <- c(
+    "0100",
+    "011000000",
+    "0111000000000000",
+    "0111100000000000000000000",
+    "011111000000000000000000000000000000",
+    "0111111000000000000000000000000000000000000000000",
+    "0111111100000000000000000000000000000000000000000000000000000000"
+  )
+
+data_unconstrained <- all_data_combined[all_data_combined$adj_mat %in% unconstrained_matrices,]
+dat6 <- all_data2[all_data2$num_nodes == 6 & all_data2$adj_mat %in% unconstrained_matrices,]
 ```
+
+
 
  
  

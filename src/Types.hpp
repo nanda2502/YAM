@@ -24,6 +24,7 @@ struct ParamCombination {
     Strategy strategy;
     double alpha;
     int repl;
+    double step_factor;
 };
 
 struct Result {
@@ -32,6 +33,7 @@ struct Result {
     double alpha;
     Strategy strategy;
     int repl;
+    double step_factor;
     double expectedSteps;
     double expectedPayoffPerStep;
     double expectedTransitionsPerStep;

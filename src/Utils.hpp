@@ -10,7 +10,17 @@ void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector
 
 std::string strategyToString(Strategy strategy);
 
-std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep, double expectedTransitionsPerStep);
+std::string formatResults(
+    int n, 
+    const std::string& adjMatrixBinary, 
+    double alpha, 
+    Strategy strategy, 
+    int repl,
+    double step_factor, 
+    double expectedSteps, 
+    double expectedPayoffPerStep, 
+    double expectedTransitionsPerStep
+);
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
 
@@ -28,9 +38,16 @@ void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<
 
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
 
-std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adjacencyMatrices, std::vector<Strategy>& strategies, std::vector<double>& alphas, int replications);
+std::vector<ParamCombination> makeCombinations(
+    std::vector<AdjacencyMatrix>& adjacencyMatrices, 
+    std::vector<Strategy>& strategies, 
+    std::vector<double>& alphas, int replications, 
+    std::vector<double>& step_factors
+);
 
 std::string stateToString(const Repertoire& state);
+
+void printVector(const std::vector<double>& vec);
 
 void printStates(const std::vector<Repertoire>& repertoiresList, const std::unordered_map<int, int>& oldToNewIndexMap);
 

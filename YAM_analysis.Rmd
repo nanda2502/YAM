@@ -96,19 +96,41 @@ plotUnconstrained <- function(data, num_steps) {
     num_nodes <- data$num_nodes[1]
   }
   
-  payoff_plot <- ggplot(data[data$adj_mat %in% unconstrained_matrices & data$step_payoff > 0,], aes(x = strategy, y = step_payoff, color = strategy)) +
-  geom_jitter(position = position_jitter(width = 0.4, height = 0), alpha = 0.1) +
-  stat_summary(fun = mean, geom = "crossbar", width = 0.5, fatten = 4, position = position_dodge(0.9)) +
+payoff_plot <- ggplot(data[data$adj_mat %in% unconstrained_matrices & data$step_payoff > 0,],
+                       aes(x = step_factor, y = step_payoff, color = strategy, group = strategy)) +
+  geom_line() +
   theme_minimal() +
   labs(title = "Expected Payoff Per Step for Unconstrained Structures",
        subtitle = paste0("Number of Nodes: ", num_nodes),
-       x = "Strategy",
+       x = "Step Factor",
        y = "Payoff per Step") +
-  theme(legend.position = "none") +
-  facet_wrap(~ step_factor, labeller = labeller(step_factor = function(value) paste0("Steps: Num Traits / ", value)))
+  scale_x_continuous() +
+  theme(legend.position = "right")
 
   print(payoff_plot)
   return(payoff_plot)
+}
+
+plot_strategy_effect <- function(df, strategy_name) {
+  df_strategy = df[df$strategy == strategy_name, c("step_factor", "step_payoff", "avg_path_length")]
+  df_random = df[df$strategy == "random", c("step_factor", "step_payoff")]
+  
+  means_strategy = tapply(df_strategy$step_payoff, df_strategy$step_factor, mean)
+  path_lengths = tapply(df_strategy$avg_path_length, df_strategy$step_factor, mean)
+  means_random = tapply(df_random$step_payoff, df_random$step_factor, mean)
+  
+  step_factors = as.numeric(names(means_strategy))
+  ratio = means_strategy / means_random
+  
+  plot_data = data.frame(step_factor = step_factors, avg_path_length = path_lengths, ratio = ratio)
+  
+  plot <- ggplot(plot_data, aes(x = step_factor, y = avg_path_length, color = ratio)) +
+    geom_point() +
+    scale_color_gradient(low = "blue", high = "red") +
+    labs(title = paste("Strategy Effect:", strategy_name), x = "Step Factor", y = "Average Path Length", color = "Payoff Ratio (Strategy/Random)") +
+    theme_minimal()
+
+  return(plot)
 }
 
 clean_file <- function(data) {
@@ -165,7 +187,20 @@ read_all <- function(numbers) {
   all_data <- bind_rows(all_data)
   
   return(all_data)
-} 
+}
+
+average_file <- function(all_data) {
+  result <- all_data %>%
+    group_by(num_nodes, adj_mat, alpha, strategy, step_factor) %>%
+    summarise(
+      steps = mean(steps, na.rm = TRUE),
+      step_payoff = mean(step_payoff, na.rm = TRUE),
+      step_transitions = mean(step_transitions, na.rm = TRUE),
+      avg_path_length = mean(avg_path_length, na.rm = TRUE),
+      .groups = 'drop'
+    )
+  return(result)
+}
 
 num_nodes <- 5
 data <- read_file(num_nodes)
@@ -173,11 +208,9 @@ data <- clean_file(data)
 colnames(data)
 data <- add_avg_path_length(data)
 
-all_data <- read_all(3:7)
-all_data1$step_factor <- 1
-all_data2$step_factor <- 2
+all_data <- read_all(3:6)
+all_data_avg <- average_file(all_data)
 
-all_data_combined <- rbind(all_data1, all_data2)
 
 steps_plot <- plotDVByDistance(all_data, "steps", "Expected Steps")
 payoff_plot <- plotDVByDistance(all_data, "step_payoff", "Expected Payoff per Step")
@@ -187,19 +220,20 @@ step2 <- plotUnconstrained(all_data2, "Number of Traits / 2")
 step15 <- plotUnconstrained(all_data15, "Number of Traits / 1.5")
 step1 <- plotUnconstrained(all_data1, "Number of Traits")
 
-allsteps <- plotUnconstrained(all_data_combined[all_data_combined$num_nodes == 4, ], "")
+allsteps <- plotUnconstrained(all_data_avg, "")
+
+plot_strategy_effect(all_data_avg, "Payoff")
 
 
-
-  unconstrained_matrices <- c(
-    "0100",
-    "011000000",
-    "0111000000000000",
-    "0111100000000000000000000",
-    "011111000000000000000000000000000000",
-    "0111111000000000000000000000000000000000000000000",
-    "0111111100000000000000000000000000000000000000000000000000000000"
-  )
+unconstrained_matrices <- c(
+  "0100",
+  "011000000",
+  "0111000000000000",
+  "0111100000000000000000000",
+  "011111000000000000000000000000000000",
+  "0111111000000000000000000000000000000000000000000",
+  "0111111100000000000000000000000000000000000000000000000000000000"
+)
 
 data_unconstrained <- all_data_combined[all_data_combined$adj_mat %in% unconstrained_matrices,]
 dat6 <- all_data2[all_data2$num_nodes == 6 & all_data2$adj_mat %in% unconstrained_matrices,]

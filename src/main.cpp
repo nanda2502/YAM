@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
         // Read adjacency matrices
         std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
     
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications << " runs." << '\n';
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * step_factors.size() << " runs." << '\n';
     
         // Prepare the combinations
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, step_factors);

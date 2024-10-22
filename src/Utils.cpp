@@ -46,7 +46,6 @@ std::string formatResults(
     double alpha, 
     Strategy strategy, 
     int repl,
-    double step_factor, 
     double expectedSteps, 
     double expectedPayoffPerStep, 
     double expectedTransitionsPerStep
@@ -57,7 +56,6 @@ std::string formatResults(
     alpha << ',' << 
     strategyToString(strategy) << ',' << 
     repl << ',' << 
-    step_factor << ',' <<
     std::fixed << std::setprecision(4) << expectedSteps << ',' << 
     expectedPayoffPerStep << ',' << 
     expectedTransitionsPerStep;
@@ -209,11 +207,12 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
 }
 
 std::vector<ParamCombination> makeCombinations(
-    std::vector<AdjacencyMatrix>& adjacencyMatrices, 
-    std::vector<Strategy>& strategies, 
-    std::vector<double>& alphas,
+    const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
+    const std::vector<Strategy>& strategies, 
+    const std::vector<double>& alphas,
     int replications, 
-    std::vector<double>& step_factors
+    const std::vector<int>& stepVector,
+    const std::vector<std::vector<size_t>>& shuffleSequences 
 ) {
     std::vector<ParamCombination> combinations;
     for (const auto& adjMatrix : adjacencyMatrices) {
@@ -221,8 +220,10 @@ std::vector<ParamCombination> makeCombinations(
         for (const auto& strategy : strategies) {
             for (const auto& alpha : alphas) {
                 for (int repl = 0; repl < replications; ++repl) {
-                    for (const auto& step_factor : step_factors) {
-                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, step_factor});
+                    for (const auto& steps : stepVector) {
+                        for (const auto& shuffleSequence : shuffleSequences) {
+                            combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, steps, shuffleSequence});
+                        }
                     }
                 }
             }

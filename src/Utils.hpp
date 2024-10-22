@@ -16,7 +16,6 @@ std::string formatResults(
     double alpha, 
     Strategy strategy, 
     int repl,
-    double step_factor, 
     double expectedSteps, 
     double expectedPayoffPerStep, 
     double expectedTransitionsPerStep
@@ -39,10 +38,12 @@ void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
 
 std::vector<ParamCombination> makeCombinations(
-    std::vector<AdjacencyMatrix>& adjacencyMatrices, 
-    std::vector<Strategy>& strategies, 
-    std::vector<double>& alphas, int replications, 
-    std::vector<double>& step_factors
+    const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
+    const std::vector<Strategy>& strategies, 
+    const std::vector<double>& alphas, 
+    int replications, 
+    const std::vector<int>& stepVector,
+    const std::vector<std::vector<size_t>>& shuffleSequences
 );
 
 std::string stateToString(const Repertoire& state);

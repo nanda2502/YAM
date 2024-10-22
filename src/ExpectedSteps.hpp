@@ -64,8 +64,7 @@ bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
     double alpha,
-    std::mt19937& gen,
-    int repl,
+    const std::vector<size_t>& shuffleSequence,
     int num_steps,
     double& expectedSteps,                             // Output parameter for expected steps
     double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step

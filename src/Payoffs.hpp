@@ -5,6 +5,6 @@
 #include <vector>
 #include <random>
 
-PayoffVector generatePayoffs(const std::vector<int>& distances, double alpha, std::mt19937& gen);
+PayoffVector generatePayoffs(const std::vector<int>& distances, double alpha, const std::vector<size_t>& shuffleSequence);
 
 #endif // PAYOFFS_HPP

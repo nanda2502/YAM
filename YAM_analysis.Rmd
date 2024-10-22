@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Loading libraries
+
 ```{r}
 library(igraph)
 library(combinat)
@@ -18,9 +20,10 @@ library(ggraph)
 library(dplyr)
 library(grid)
 library(cowplot)
+library(lattice)
 ``` 
 
-
+## Data preparation functions
 
 ```{r}
 
@@ -49,88 +52,49 @@ add_avg_path_length <- function(data) {
   data
 }
 
-plotDVByDistance <- function(data, DV, DV_label) {
-  average_data <- data %>%
-    group_by(adj_mat, strategy, avg_path_length) %>%
-    summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
-  
-  if (length(unique(data$num_nodes) > 1)) {
-    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
-  } else {
-    num_nodes <- data$num_nodes[1]
-  }
 
-  plot <- ggplot(average_data, aes(x = avg_path_length, y = avg_DV, color = as.factor(strategy))) +
-    geom_point(alpha = 0.8) +
-    geom_smooth(method = "loess", se = FALSE) +
-    labs(title = paste0(DV_label, " by Average Path Length"),
-         subtitle = paste0("Number of Nodes: ", num_nodes),
-         x = "Average Path Length",
-         y = DV_label) +
-    theme_minimal() +
-    scale_color_discrete(name = "Strategy") #+ 
-    # scale_y_continuous(
-    #   breaks = seq(0, max(average_data$avg_DV) + 1, by = 1),
-    #   minor_breaks = seq(0, max(average_data$avg_DV), by = 0.5)
-    # )
-  
-  print(plot)
-  return(plot)
-}
+calculate_path_lengths_to_root <- function(graph, root) {
+  total_distance <- 0
 
-
-plotUnconstrained <- function(data, num_steps) {
-  unconstrained_matrices <- c(
-    "0100",
-    "011000000",
-    "0111000000000000",
-    "0111100000000000000000000",
-    "011111000000000000000000000000000000",
-    "0111111000000000000000000000000000000000000000000",
-    "0111111100000000000000000000000000000000000000000000000000000000"
-  )
-
-  if (length(unique(data$num_nodes) > 1)) {
-    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
-  } else {
-    num_nodes <- data$num_nodes[1]
+  for(node in V(graph)) {
+    if(node != root) { # Avoid considering the root itself
+      all_paths <- all_simple_paths(graph, from = node, to = root, mode = "out")
+      for(path in all_paths) {
+        # Sum the length of nodes in each path minus 1 to get the number of edges
+        total_distance <- total_distance + (length(path) - 1)
+      }
+    }
   }
   
-payoff_plot <- ggplot(data[data$adj_mat %in% unconstrained_matrices & data$step_payoff > 0,],
-                       aes(x = step_factor, y = step_payoff, color = strategy, group = strategy)) +
-  geom_line() +
-  theme_minimal() +
-  labs(title = "Expected Payoff Per Step for Unconstrained Structures",
-       subtitle = paste0("Number of Nodes: ", num_nodes),
-       x = "Step Factor",
-       y = "Payoff per Step") +
-  scale_x_continuous() +
-  theme(legend.position = "right")
-
-  print(payoff_plot)
-  return(payoff_plot)
+  return(total_distance)
 }
 
-plot_strategy_effect <- function(df, strategy_name) {
-  df_strategy = df[df$strategy == strategy_name, c("step_factor", "step_payoff", "avg_path_length")]
-  df_random = df[df$strategy == "random", c("step_factor", "step_payoff")]
+add_total_distance <- function(data) {
+  unique_combinations <- data %>%
+    select(num_nodes, adj_mat) %>%
+    distinct()
   
-  means_strategy = tapply(df_strategy$step_payoff, df_strategy$step_factor, mean)
-  path_lengths = tapply(df_strategy$avg_path_length, df_strategy$step_factor, mean)
-  means_random = tapply(df_random$step_payoff, df_random$step_factor, mean)
+  for (i in seq_len(nrow(unique_combinations))) {
+    combination <- unique_combinations[i, ]
+    adj_string <- combination[[which(colnames(unique_combinations) == "adj_mat")]]
+    num_nodes <- combination[[which(colnames(unique_combinations) == "num_nodes")]]
+    
+    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
+    
+    rev_adjacency_matrix <- t(adjacency_matrix)
+    graph <- graph_from_adjacency_matrix(rev_adjacency_matrix, mode = "directed")
+    V(graph)$name <- as.character(1:num_nodes)
+    
+    
+    
+    root_node <- 1
+    total_distance <- calculate_path_lengths_to_root(graph, root_node)
+    
+    data[data$adj_mat == adj_string, "total_distance"] <- total_distance
+  }
   
-  step_factors = as.numeric(names(means_strategy))
-  ratio = means_strategy / means_random
-  
-  plot_data = data.frame(step_factor = step_factors, avg_path_length = path_lengths, ratio = ratio)
-  
-  plot <- ggplot(plot_data, aes(x = step_factor, y = avg_path_length, color = ratio)) +
-    geom_point() +
-    scale_color_gradient(low = "blue", high = "red") +
-    labs(title = paste("Strategy Effect:", strategy_name), x = "Step Factor", y = "Average Path Length", color = "Payoff Ratio (Strategy/Random)") +
-    theme_minimal()
-
-  return(plot)
+  return(data)
 }
 
 clean_file <- function(data) {
@@ -148,10 +112,6 @@ clean_file <- function(data) {
   data <- data[!is.nan(data$step_payoff), ]
   sum_short <- sum(data$steps < num_nodes - 1)
   return(data)
-  if (sum_short > 0) {
-    print(paste0("Removing ", sum_short, " observations that reached the absorbing state in an impossible time."))
-  }
-  data <- data[data$steps >= num_nodes - 1, ]
 }
 
 read_file <- function(num_nodes) {
@@ -176,10 +136,22 @@ read_file <- function(num_nodes) {
   return(data)
 }
 
+average_over_replications <- function(data) {
+  outcome_vars <- c("step_payoff", "step_transitions")
+  grouping_vars <- c("num_nodes", "alpha", "strategy", "adj_mat", "steps")
+  
+  data <- data %>%
+    group_by(across(all_of(grouping_vars))) %>%
+    summarise(across(all_of(outcome_vars), ~ mean(.x, na.rm = TRUE)), .groups = 'drop')
+  
+  return(data)
+}
+
 read_all <- function(numbers) {
   all_data <- lapply(numbers, function(num_nodes) {
     data <- read_file(num_nodes)
     data <- clean_file(data)
+    data <- average_over_replications(data)
     data <- add_avg_path_length(data)
     return(data)
   })
@@ -189,40 +161,335 @@ read_all <- function(numbers) {
   return(all_data)
 }
 
-average_file <- function(all_data) {
-  result <- all_data %>%
-    group_by(num_nodes, adj_mat, alpha, strategy, step_factor) %>%
-    summarise(
-      steps = mean(steps, na.rm = TRUE),
-      step_payoff = mean(step_payoff, na.rm = TRUE),
-      step_transitions = mean(step_transitions, na.rm = TRUE),
-      avg_path_length = mean(avg_path_length, na.rm = TRUE),
-      .groups = 'drop'
-    )
+average_over_lambda <- function(data) {
+  outcome_vars <- c("step_payoff", "step_transitions")
+  other_vars_to_retain <- c("num_nodes", "alpha", "avg_path_length")
+  
+  lambda_values <- seq(0.1, 20, by = 0.1)
+
+  subsets <- lapply(lambda_values, function(lambda) {
+    data <- data %>%
+      mutate(weight = dpois(steps, lambda))
+    
+    weighted_averages <- data %>%
+      group_by(adj_mat, strategy) %>%
+      summarize(
+        across(all_of(outcome_vars), ~ sum(. * weight) / sum(weight)),
+        across(all_of(other_vars_to_retain), first),
+        lambda = lambda,
+        .groups = 'drop'
+      )
+
+    return(weighted_averages)
+  })
+  
+  result <- do.call(rbind, subsets)
+
   return(result)
 }
 
-num_nodes <- 5
-data <- read_file(num_nodes)
-data <- clean_file(data)
-colnames(data)
-data <- add_avg_path_length(data)
+add_ratios <- function(data) {
+  data$rel_payoff <- rep(NA, nrow(data))
+  data$rel_success <- rep(NA, nrow(data))
+  for (i in 1:nrow(data)) {
+    if (data$strategy[[i]] == "Random") {
+      data$rel_payoff[[i]] <- 1
+      data$rel_success[[i]] <- 1
+      next
+    }
+    
+    current_lambda <- data$lambda[[i]]
+    current_adj_mat <- data$adj_mat[[i]]
+    payoff <- data$step_payoff[[i]]
+    success <- data$step_transitions[[i]]
+    random_payoff <- data[data$lambda == current_lambda & data$adj_mat == current_adj_mat & data$strategy == "Random", "step_payoff"]
+    random_success <- data[data$lambda == current_lambda & data$adj_mat == current_adj_mat & data$strategy == "Random", "step_transitions"]
+    data$rel_payoff <- payoff / random_payoff
+    data$rel_success <- success / random_success
+  }
+  
+  return(data)
+}
 
-all_data <- read_all(3:6)
-all_data_avg <- average_file(all_data)
+#this should do the same as the one above, but faster
+add_ratios <- function(data) {
+  data <- data %>%
+    group_by(lambda, adj_mat) %>%
+    mutate(random_payoff = ifelse(strategy == "Random", step_payoff, NA),
+           random_success = ifelse(strategy == "Random", step_transitions, NA)) %>%
+    mutate(random_payoff = max(random_payoff, na.rm = TRUE),
+           random_success = max(random_success, na.rm = TRUE)) %>%
+    mutate(rel_payoff = ifelse(strategy == "Random", 1, step_payoff / random_payoff),
+           rel_success = ifelse(strategy == "Random", 1, step_transitions / random_success)) %>%
+    ungroup() %>%
+    select(-random_payoff, -random_success)  # Optional: remove the helper columns if not needed
+
+  # Replace Inf and NaN from divisions by zero or NA calculations with NA
+  data$rel_payoff[!is.finite(data$rel_payoff)] <- NA
+  data$rel_success[!is.finite(data$rel_success)] <- NA
+
+  return(data)
+}
+```
+
+## Plotting functions 
+
+```{r}
+
+plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value) {
+  average_data <- data %>%
+    filter(lambda == lambda_value) %>%
+    group_by(adj_mat, strategy, !!sym(IV)) %>%
+    summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
+  
+  if (length(unique(data$num_nodes)) > 1) {
+    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
+  } else {
+    num_nodes <- data$num_nodes[1]
+  }
+
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "as.factor(strategy)")) +
+    geom_point(alpha = 0.2) +
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(
+      title = paste0(DV_label, " by ", IV_label),
+      subtitle = paste0("Number of nodes: ", data$num_nodes[[1]],  ", Expected number of learning opportunities λ = ", lambda_value),
+      x = IV_label,
+      y = DV_label
+    ) +
+    theme_minimal() +
+    scale_color_discrete(name = "Strategy")
+  
+  print(plot)
+  return(plot)
+}
 
 
-steps_plot <- plotDVByDistance(all_data, "steps", "Expected Steps")
-payoff_plot <- plotDVByDistance(all_data, "step_payoff", "Expected Payoff per Step")
-transitions_plot <- plotDVByDistance(all_data, "step_transitions", "Expected Success Rate of Learning Attempts")
+plotUnconstrained <- function(data, num_steps) {
+  unconstrained_matrices <- c(
+    "0100",
+    "011000000",
+    "0111000000000000",
+    "0111100000000000000000000",
+    "011111000000000000000000000000000000",
+    "0111111000000000000000000000000000000000000000000",
+    "0111111100000000000000000000000000000000000000000000000000000000"
+  )
 
-step2 <- plotUnconstrained(all_data2, "Number of Traits / 2")
-step15 <- plotUnconstrained(all_data15, "Number of Traits / 1.5")
-step1 <- plotUnconstrained(all_data1, "Number of Traits")
+  if (length(unique(data$num_nodes) > 1)) {
+    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
+  } else {
+    num_nodes <- data$num_nodes[1]
+  }
+  
+  filtered_data <- data[data$adj_mat %in% unconstrained_matrices & data$step_payoff > 0,]
+  
+  payoff_plot <- ggplot(filtered_data, aes(x = lambda, y = step_payoff, color = strategy, group = strategy)) +
+    geom_point(alpha = 0.1) + 
+    geom_smooth(method = "lm", se = FALSE) + 
+    theme_minimal() +
+    labs(title = "Expected Payoff Per Step for Unconstrained Structures",
+         subtitle = paste0("Number of Nodes: ", num_nodes),
+         x = "Lambda",
+         y = "Payoff per Step") +
+    theme(legend.position = "right")
+
+  print(payoff_plot)
+  return(payoff_plot)
+}
+
+
+level_plot <- function(data, strategy, outcome, outcome_label, Y, Y_label, scale_settings,
+                       lambda_resolution = 400, Y_resolution = 400) {
+
+  # Filter data by strategy
+  data <- data[data$strategy == strategy, ]
+  
+  # Define regular grid over lambda and the specified Y variable
+  lambda_seq <- seq(min(data$lambda), max(data$lambda), length.out = lambda_resolution)
+  Y_seq <- seq(min(data[[Y]]), max(data[[Y]]), length.out = Y_resolution)
+  
+  # Perform interpolation using akima's interp function
+  interp_result <- akima::interp(
+    x = data$lambda, 
+    y = data[[Y]], 
+    z = data[[outcome]],
+    xo = lambda_seq, 
+    yo = Y_seq, 
+    linear = FALSE,
+    duplicate = "mean"  # Handles duplicate (x, y) points
+  )
+  
+  # Prepare data for plotting
+  levelplot_data <- expand.grid(lambda = interp_result$x, Y_value = interp_result$y)
+  levelplot_data[[outcome]] <- as.vector(interp_result$z)
+  
+  lambda_min <- min(interp_result$x)
+  lambda_max <- max(interp_result$x)
+  Y_min <- min(interp_result$y)
+  Y_max <- max(interp_result$y)
+  
+  # Truncate edges by removing rows where lambda or Y are at their min/max
+  truncated_data <- levelplot_data %>%
+    filter(lambda != lambda_min & lambda != lambda_max & 
+             Y_value != Y_min & Y_value != Y_max)
+
+  plot <- ggplot(truncated_data, aes(x = lambda, y = Y_value)) +
+    geom_tile(aes(fill = !!sym(outcome))) +
+    scale_settings +
+    labs(
+      x = "Lambda", 
+      y = Y_label,
+      fill = "Outcome Value",
+      title = paste("Ratio of", outcome_label, "for", strategy, "/ Random")
+    ) +
+    theme_minimal()
+  
+  # Check if a contour at z = 1 is feasible
+  z_min <- min(truncated_data[[outcome]], na.rm = TRUE)
+  z_max <- max(truncated_data[[outcome]], na.rm = TRUE)
+  
+  if (z_min <= 1 && z_max >= 1) {
+    # Add contour if outcome values around 1 exist
+    plot <- plot + geom_contour(aes(z = !!sym(outcome)), color = "white", linewidth = 1.5, breaks = 1, linetype = "solid")
+  }
+  
+  return(plot)
+}
+
+
+get_consistent_scale <- function(all_data, outcome) {
+  global_min <- min(all_data[[outcome]], na.rm = TRUE) - 2
+  global_max <- max(all_data[[outcome]], na.rm = TRUE) + 2
+
+    scale_fill_viridis_c(limits = c(global_min, global_max), option = "viridis", na.value = "transparent")
+}
+
+level_plot <- function(data, strategy, outcome, outcome_label, Y, Y_label, scale_settings,
+                       lambda_resolution = 400, Y_resolution = 400) {
+
+  library(ggplot2)
+  library(mgcv)
+  library(akima)
+  
+  # Filter data by strategy
+  data <- data[data$strategy == strategy, ]
+  
+  # Remove any rows with missing values in relevant columns
+  data <- na.omit(data[, c("lambda", Y, outcome)])
+  
+  # Rename Y variable to 'Y_value' to prevent conflicts
+  data$Y_value <- data[[Y]]
+  
+  # Define regular grid over lambda and the specified Y variable for GAM smoothing
+  lambda_seq <- seq(min(data$lambda), max(data$lambda), length.out = lambda_resolution)
+  Y_seq <- seq(min(data$Y_value), max(data$Y_value), length.out = Y_resolution)
+  
+  # Create grid for predictions
+  grid <- expand.grid(lambda = lambda_seq, Y_value = Y_seq)
+  
+  # Fit a GAM with thin plate splines for smoothing
+  gam_formula <- as.formula(paste(outcome, "~ te(lambda, Y_value)"))
+  gam_model <- gam(gam_formula, data = data)
+  
+  # Predict values on the grid (smoothed surface)
+  grid[[outcome]] <- predict(gam_model, newdata = grid, type = "response")
+  
+  # Prepare data for plotting - Smoothed level plot
+  plot <- ggplot(grid, aes(x = lambda, y = Y_value)) +
+    geom_tile(aes(fill = .data[[outcome]])) +
+    scale_settings +
+    labs(
+      x = "Lambda", 
+      y = Y_label,
+      fill = "Outcome Value",
+      title = paste("Ratio of", outcome_label, "for", strategy, "/ Random")
+    ) +
+    theme_minimal()
+
+  # Use akima to interpolate original data for contour lines
+  if (nrow(data) > 3) {  # Ensure there are enough data points for interpolation
+    interp_result <- with(data, akima::interp(
+      x = lambda, y = Y_value, z = data[[outcome]],
+      xo = lambda_seq, yo = Y_seq, 
+      duplicate = "mean"
+    ))
+
+    # Check if interpolation range includes z = 1
+    z_min <- min(interp_result$z, na.rm = TRUE)
+    z_max <- max(interp_result$z, na.rm = TRUE)
+
+    if (z_min <= 1 && z_max >= 1) {
+      # Extract contour lines at z = 1 from interpolation
+      contour_data <- contourLines(interp_result$x, interp_result$y, interp_result$z, levels = 1)
+      if (length(contour_data) > 0) {
+        contour_df <- do.call(rbind, lapply(contour_data, function(cont) {
+          data.frame(lambda = cont$x, Y_value = cont$y)
+        }))
+        
+        plot <- plot + geom_path(
+          data = contour_df,
+          aes(x = lambda, y = Y_value),
+          color = "white", # Customize as needed
+          size = 0.7
+        )
+      }
+    }
+  }
+
+  return(plot)
+}
+
+
+```
+
+## Analysis
+
+```{r}
+all_data <- read_all(3:8)
+all_data_avg <- average_over_lambda(all_data)
+data <- add_ratios(all_data_avg)
+
+saveRDS(data, "data_processed.rds")
+data <- readRDS("data_processed.rds")
+
 
 allsteps <- plotUnconstrained(all_data_avg, "")
 
-plot_strategy_effect(all_data_avg, "Payoff")
+payoff_settings <- get_consistent_scale(data, "rel_payoff")
+a <- level_plot(data, "Payoff", "rel_payoff",  "Payoff per Step", "avg_path_length", "Average Path Length", payoff_settings)
+b <- level_plot(data, "Proximal", "rel_payoff", "Payoff per Step", "avg_path_length", "Average Path Length", payoff_settings)
+
+success_settings <- get_consistent_scale(data, "rel_success")
+c <- level_plot(data, "Payoff", "rel_success", "Success Rate", "avg_path_length", "Average Path Length", success_settings)
+d <- level_plot(data, "Proximal", "rel_success", "Success Rate", "avg_path_length", "Average Path Length", success_settings)
+
+grid.arrange(a, b, c, d, ncol = 2)
+
+payoff_plot_pl <- plotDVbyIV(
+  data,
+  "step_payoff", "Expected Payoff per Step",
+  "avg_path_length",  "Average Path Length",
+  lambda_value = 10
+)
+
+plots <- list()
+for (i in 3:8) {
+  plots[[i]] <- plotDVbyIV(data[data$num_nodes == i,], "step_payoff", "Expected Payoff per Step", "avg_path_length",  "Average Path Length", lambda_value = 10)
+}
+
+panel <- plot_grid(plotlist = plots[4:8], ncol = 2)
+
+transitions_plot_pl <- plotDVbyIV(
+  data,
+  "step_transitions", "Expected Success Rate of Learning Attempts",
+  "avg_path_length",  "Average Path Length",
+  lambda_value = 2
+)
+
+
+
+hist(data[data$strategy == "Payoff" & data$lambda == 2 & data$avg_path_length > 1.3 & data$avg_path_length < 1.5, "step_payoff"][[1]], breaks = 30, main = "Expected Payoff per Step for Lambda = 2\nand average path length 1.3 - 1.5", xlab = "Expected Payoff per Step")
 
 
 unconstrained_matrices <- c(
@@ -239,14 +506,12 @@ data_unconstrained <- all_data_combined[all_data_combined$adj_mat %in% unconstra
 dat6 <- all_data2[all_data2$num_nodes == 6 & all_data2$adj_mat %in% unconstrained_matrices,]
 ```
 
-
-
- 
+## Isomorphism Handling
  
 ```{r}
 remove_duplicates <- function(node_range) {
   for(num_nodes in node_range) {
-    filename <- paste0("./data/data_new/adj_mat_", num_nodes, ".csv")
+    filename <- paste0("./data/adj_mat_", num_nodes, ".csv")
     data <- read.csv(filename, header = FALSE, stringsAsFactors = FALSE, colClasses = c("character"))
     colnames(data) <- c("adj_mat")
   
@@ -265,11 +530,11 @@ remove_duplicates <- function(node_range) {
       }
     }
   
-    write.table(data[unique_indices, ], file = paste0("./data/data_new/adj_mat_", num_nodes, ".csv"), sep = ",", row.names = FALSE, col.names = FALSE, quote = FALSE)
+    write.table(data[unique_indices, ], file = paste0("./data/adj_mat_new", num_nodes, ".csv"), sep = ",", row.names = FALSE, col.names = FALSE, quote = FALSE)
   }
 }
 
-remove_duplicates(2:8)
+remove_duplicates(8)
 
 ```
 
@@ -305,69 +570,50 @@ lapply(strategies, analyze_strategy_bayes)
 
 
 ```{r}
-plot_graph_panel <- function(df, num_nodes) {
-  # Extract unique adjacency matrices
+plot_graph_panel <- function(df) {
   unique_adj_matrices <- df %>% 
     distinct(adj_mat, num_nodes)
   
   plot_list <- list()
   
-  # Loop through unique adjacency matrices to create graph plots
   for (i in 1:nrow(unique_adj_matrices)) {
     adj_string <- unique_adj_matrices$adj_mat[i]
     num_nodes <- unique_adj_matrices$num_nodes[i]
     
-    # Convert the adjacency string to a numeric vector
     adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
     adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
     
-    # Create a graph object
     g <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
-    
-    # Assign names to nodes
     V(g)$name <- as.character(1:num_nodes)
     
-    # Create the graph plot using ggraph
     graph_plot <- ggraph(g, layout = "tree") +
       geom_edge_link(arrow = arrow(length = unit(2, 'mm'), type = "closed"), end_cap = circle(2, 'mm')) +
       geom_node_point(size = 2) +
       theme_void() +
       theme(
-        plot.margin = unit(c(1,1,1,1), "pt"), # Slight margin to separate plots
-        panel.border = element_rect(color = "black", fill = NA, size = 0.25) # Thin black border
+        plot.margin = unit(c(1,1,1,1), "pt"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.25)
       )
     
-    # Store the plot
     plot_list[[i]] <- graph_plot
   }
   
-  # Calculate the number of plots
   n_plots <- length(plot_list)
-  
-  # Determine the number of columns and rows for the grid layout
-  # Adjust n_cols and n_rows according to your preferences
   n_cols <- ceiling(sqrt(n_plots))
   n_rows <- ceiling(n_plots / n_cols)
   
-  # Arrange the plots using cowplot's plot_grid function
   combined_plot <- plot_grid(plotlist = plot_list, ncol = n_cols, nrow = n_rows, align = 'none')
   
-  # Save the combined plot to a PDF file with specified dimensions
-  # Adjust the width and height according to the number of columns and rows
-  pdf_width <- n_cols * 1.5  # Each plot is approximately 1.5 inches wide
-  pdf_height <- n_rows * 1.5 # Each plot is approximately 1.5 inches tall
-  
-  # Save to PDF
-  #ggsave(filename = paste0("./output/all_graphs_", num_nodes, ".pdf"), plot = combined_plot, width = pdf_width, height = pdf_height, units = "in")
-  
-  # Optional: Print the combined plot to the R graphics device
-  # Note: For a large number of plots, this may not display properly in RStudio's plot pane. It's recommended to view the saved PDF.
+  pdf_width <- n_cols * 1.5
+  pdf_height <- n_rows * 1.5
+
   print(combined_plot)
+  combined_plot
 }
 
 all_data <- read_all_data(2:8)
 
-plot <- plot_graph_panel(all_data[all_data$step_transitions == 1,], num_nodes)
+plot <- plot_graph_panel(head(data[data$num_nodes == 8 & data$lambda == 10 & data$strategy == "Payoff" & data$step_payoff > 4 & data$avg_path_length < 1.6 & data$avg_path_length > 1.2,], 20))
 ```
 
 

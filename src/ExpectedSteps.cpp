@@ -293,8 +293,7 @@ bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
     double alpha,
-    std::mt19937& gen,
-    int repl,
+    const std::vector<size_t>& shuffleSequence,
     int num_steps, 
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
@@ -305,7 +304,7 @@ bool computeExpectedSteps(
         // Initialization
         Trait rootNode = 0;
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
-        PayoffVector payoffs = generatePayoffs(distances, alpha, gen);
+        PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence);
 
         // print payoffs
         DEBUG_PRINT(2, "Payoffs:");
@@ -419,6 +418,7 @@ bool computeExpectedSteps(
                 std::cout << "Trait " << i << ": " << traitFrequencies[i] << '\n';
             }
         }
+
 
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");

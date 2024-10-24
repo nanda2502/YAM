@@ -34,4 +34,6 @@ std::string stateToString(const Repertoire& state);
 
 void printStates(const std::vector<Repertoire>& repertoiresList, const std::unordered_map<int, int>& oldToNewIndexMap);
 
+void printStatesWithIndices(const std::vector<std::pair<Repertoire, int>>& finalRepertoiresWithIndices);
+
 #endif // UTILS_HPP

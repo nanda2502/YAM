@@ -373,7 +373,13 @@ bool computeExpectedSteps(
             finalRepertoiresWithIndices.emplace_back(finalRepertoiresList[i], static_cast<int>(i));
         }
 
+        DEBUG_PRINT(1, "Repertoires:")
+        if(DEBUG_LEVEL >= 1) printStatesWithIndices(finalRepertoiresWithIndices);
+
         transitionMatrix = buildTransitionMatrix(finalRepertoiresList, finalRepertoireIndexMap, strategy, payoffs, traitFrequencies, allStates, parents);
+
+        DEBUG_PRINT(2, "Final transition matrix:");
+        if(DEBUG_LEVEL >= 2) printMatrix(transitionMatrix);
 
         auto [finalReorderedTransitionMatrix, finalOldToNewIndexMap, finalNumTransientStates] = reorderTransitionMatrix(
             transitionMatrix, finalRepertoiresWithIndices, finalRepertoireIndexMap, rootNode, traitFrequencies

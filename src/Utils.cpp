@@ -81,7 +81,7 @@ AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str) {
 }
 
 std::string formatAdjMat(const std::string& adj_string, int n) {
-    std::string adj_mat = "";
+    std::string adj_mat;
     int col_idx = 0;
     for (size_t i = 0; i < adj_string.size(); i++) {
         if (col_idx == n) {
@@ -223,5 +223,14 @@ void printStates(const std::vector<Repertoire>& repertoiresList, const std::unor
     // Print the states (repertoires)
     for (const Repertoire& repertoire : reorderedRepertoires) {
         std::cout << stateToString(repertoire) << '\n';
+    }
+}
+
+void printStatesWithIndices(const std::vector<std::pair<Repertoire, int>>& finalRepertoiresWithIndices) {
+    for (const auto& item : finalRepertoiresWithIndices) {
+        const Repertoire& repertoire = item.first;
+        int index = item.second;
+        
+        std::cout << "Index: " << index << ", State: " << stateToString(repertoire) << '\n';
     }
 }

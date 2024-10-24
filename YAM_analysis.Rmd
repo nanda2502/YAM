@@ -20,7 +20,7 @@ library(grid)
 library(cowplot)
 ``` 
 
-
+## Functions
 
 ```{r}
 
@@ -160,7 +160,52 @@ ggplot(all_data[all_data$step_transitions == 1 & all_data$num_nodes > 3,], aes(x
 summary(lmerTest::lmer(step_payoff ~ strategy + (1 | adj_mat), data = all_data[all_data$step_transitions == 1,]))
 ```
 
- 
+## Meta Graphs
+
+```{r}
+plot_graph <- function(graph, repertoire) {
+  if (vcount(graph) != length(repertoire)) stop("Mismatch between nodes and repertoire length.")
+  node_colors <- ifelse(repertoire == 1, "black", "white")
+  ggraph(graph, layout = "tree") +
+    geom_edge_link() +
+    geom_node_point(aes(color = node_colors), size = 5) +
+    scale_color_manual(values = c("black", "white")) +
+    theme_void() +
+    theme(legend.position = "none")
+}
+adj_matrix <- matrix(
+  c(0, 1, 0, 0, 0, 1,
+    0, 0, 1, 0, 1, 0,
+    0, 0, 0, 1, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0),
+  nrow = 6,
+  byrow = TRUE
+)
+
+
+repertoires <- list(
+  c(1, 0, 0, 0, 0, 0),
+  c(1, 1, 0, 0, 0, 0),
+  c(1, 0, 0, 0, 0, 1),
+  c(1, 1, 1, 0, 0, 0),
+  c(1, 1, 0, 0, 1, 0),
+  c(1, 1, 0, 0, 0, 1),
+  c(1, 1, 1, 1, 0, 0),
+  c(1, 1, 1, 0, 1, 0),
+  c(1, 1, 1, 0, 0, 1),
+  c(1, 1, 0, 0, 1, 1),
+  c(1, 1, 1, 1, 1, 0),
+  c(1, 1, 1, 1, 0, 1),
+  c(1, 1, 1, 0, 1, 1),
+  c(1, 1, 1, 1, 1, 1)
+)
+
+```
+
+
+## Isomorphism handling
  
 ```{r}
 remove_duplicates <- function(node_range) {
@@ -222,6 +267,7 @@ lapply(strategies, analyze_strategy_bayes)
 
 ```
 
+## Graph panel
 
 ```{r}
 plot_graph_panel <- function(df, num_nodes) {

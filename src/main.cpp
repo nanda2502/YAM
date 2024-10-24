@@ -1,13 +1,12 @@
-#include <atomic>
 #include <iostream>
 #include <algorithm>
+#include <execution>
 #include <vector>
 #include <string>
 #include <sstream>
 #include <filesystem>
 #include <random>
 #include <iomanip>
-
 
 #include "Debug.hpp"
 #include "Utils.hpp"
@@ -30,6 +29,8 @@ void processRepl(
 ) {
     DEBUG_PRINT(1, "Replication:");
     if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
+    DEBUG_PRINT(1, "Strategy:")
+    if (DEBUG_LEVEL >= 1) std::cout << strategyToString(strategy) << '\n';
 
     std::mt19937 gen(repl);
 
@@ -57,7 +58,7 @@ void processRepl(
     // Accumulate results
     AccumulatedResult& accumResult = accumulatedResults[idx];
     accumResult.count++;
-    accumResult.totalExpectedSteps += expectedSteps;
+    accumResult.totalExpectedPayoffPerStep += expectedPayoffPerStep;
     accumResult.totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
 }
 
@@ -115,11 +116,15 @@ int main(int argc, char* argv[]) {
 
         // Accumulate results for each parameter combination excluding shuffle sequence
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
+        // Preallocate failure counts vector
         std::vector<std::atomic<int>> failureCounts(combinations.size());
-
-        // Parallelize the loop with OpenMP
-        #pragma omp parallel for
-        for (size_t idx = 0; idx < combinations.size(); ++idx) {
+    
+        // Create indices for processing
+        std::vector<size_t> indices(combinations.size());
+        std::iota(indices.begin(), indices.end(), 0);
+    
+        // Process all combinations in parallel
+        std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t idx) {
             const ParamCombination& comb = combinations[idx];
             processRepl(
                 comb.repl,
@@ -132,9 +137,9 @@ int main(int argc, char* argv[]) {
                 outputDir,
                 accumulatedResults,
                 idx,
-                failureCounts
+                failureCounts  
             );
-        }
+        });
     
         // Compute total failures
         int totalFailures = std::accumulate(failureCounts.begin(), failureCounts.end(), 0, [](int sum, const std::atomic<int>& val) {
@@ -145,7 +150,7 @@ int main(int argc, char* argv[]) {
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
 
         // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,expected_steps,transitions_per_step";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -161,8 +166,8 @@ int main(int argc, char* argv[]) {
                     comb.strategy,
                     comb.repl,
                     comb.steps, // Use comb.steps directly since expectedSteps maps to num_steps
-                    accumResult.totalExpectedSteps / accumResult.count,
-                    accumResult.totalExpectedTransitionsPerStep / accumResult.count
+                    accumResult.totalExpectedPayoffPerStep, 
+                    accumResult.totalExpectedTransitionsPerStep 
                 );
                 csvData.push_back(formattedResult);
             }

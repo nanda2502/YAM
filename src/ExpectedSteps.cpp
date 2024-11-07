@@ -289,6 +289,16 @@ double computeExpectedTransitionsPerStep(
     return expectedTransitionsPerStep;
 }
 
+void adjustFrequencies(std::vector<double>& traitFrequencies, int numDemonstrators) {
+    for (double& freq : traitFrequencies) {
+
+        double adjusted = std::floor(freq * numDemonstrators) / numDemonstrators;
+        
+        freq = adjusted;
+    }
+}
+
+
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
@@ -418,7 +428,16 @@ bool computeExpectedSteps(
                 std::cout << "Trait " << i << ": " << traitFrequencies[i] << '\n';
             }
         }
+        // Adjust trait frequencies based on the number of available demonstrators
+        int numDemonstrators = 10;
+        adjustFrequencies(traitFrequencies, numDemonstrators);
 
+        DEBUG_PRINT(1, "Adjusted trait frequencies for " << numDemonstrators << " demonstrators:");
+        if(DEBUG_LEVEL >= 1) {
+            for (size_t i = 0; i < traitFrequencies.size(); ++i) {
+                std::cout << "Trait " << i << ": " << traitFrequencies[i] << '\n';
+            }
+        }
 
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");

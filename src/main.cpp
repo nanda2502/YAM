@@ -97,21 +97,25 @@ int main(int argc, char* argv[]) {
         // Read adjacency matrices
         std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
 
-        // Generate all possible permutations for n - 1 elements
         std::vector<size_t> perm(n - 1);
         std::iota(perm.begin(), perm.end(), 0);
-        size_t sequenceCount = factorial(n - 1);
-        std::vector<std::vector<size_t>> shuffleSequences;
-        shuffleSequences.reserve(sequenceCount);  // Reserve space in advance
 
+        size_t sequenceCount = factorial(n - 1);
+        int numSequences = std::min(static_cast<size_t>(replications), sequenceCount);
+
+        std::vector<std::vector<size_t>> shuffleSequences;
+        shuffleSequences.reserve(numSequences);
+
+        int count = 0;
         do {
             shuffleSequences.push_back(perm);
-        } while (std::next_permutation(perm.begin(), perm.end())); 
+            ++count;
+        } while (std::next_permutation(perm.begin(), perm.end()) && count < numSequences);
     
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size() * shuffleSequences.size() << " runs." << '\n';
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size()  << " runs." << '\n';
     
         // Prepare the combinations
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector, shuffleSequences);
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, stepVector, shuffleSequences);
     
         std::vector<Result> flatResults(combinations.size());
         // Preallocate failure counts vector

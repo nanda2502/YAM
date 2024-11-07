@@ -164,7 +164,7 @@ read_all <- function(numbers) {
 
 average_over_lambda <- function(data) {
   outcome_vars <- c("step_payoff", "step_transitions")
-  other_vars_to_retain <- c("num_nodes", "alpha", "avg_path_length")
+  other_vars_to_retain <- c("num_nodes", "avg_path_length")
   
   lambda_values <- seq(0.1, 20, by = 0.1)
 
@@ -233,230 +233,7 @@ add_ratios <- function(data) {
 }
 ```
 
-## SQLite Data preparation functions
 
-```{r}
-add_avg_path_length_SQL <- function(conn) {
-  # Read distinct num_nodes and adj_mat combinations from the database
-  unique_combinations <- dbGetQuery(conn, "
-    SELECT DISTINCT num_nodes, adj_mat FROM expected_steps
-  ")
-
-  # Iterate over each unique combination
-  for (i in seq_len(nrow(unique_combinations))) {
-    combination <- unique_combinations[i, ]
-    adj_string <- combination$adj_mat
-    num_nodes <- combination$num_nodes
-    
-    # Convert adjacency matrix from string to numeric matrix
-    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
-    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
-    graph <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
-    V(graph)$name <- as.character(1:num_nodes)
-    
-    avg_path_length <- calc_avg_path_length(graph)
-    
-    dbExecute(conn, "
-      UPDATE expected_steps
-      SET avg_path_length = ?
-      WHERE adj_mat = ?
-    ", params = list(avg_path_length, adj_string))
-  }
-}
-
-clean_file_SQL <- function(conn) {
-  sum_missing <- dbGetQuery(conn, "SELECT COUNT(*) FROM expected_steps WHERE adj_mat = ''")[[1]]
-  if (sum_missing > 0) {
-    print(paste0("Removing ", sum_missing, " observations with missing adjacency matrices."))
-    dbExecute(conn, "DELETE FROM expected_steps WHERE adj_mat = ''")
-  }
-  
-  num_nodes <- dbGetQuery(conn, "SELECT DISTINCT num_nodes FROM expected_steps LIMIT 1")$num_nodes[1]
-  sum_nan <- dbGetQuery(conn, "SELECT COUNT(*) FROM expected_steps WHERE step_payoff IS NULL OR step_payoff != step_payoff")[[1]]
-  if (sum_nan > 0) {
-    print(paste0("Removing ", sum_nan, " observations that failed to converge."))
-    dbExecute(conn, "DELETE FROM expected_steps WHERE step_payoff IS NULL OR step_payoff != step_payoff")
-  }
-  
-  sum_short <- dbGetQuery(conn, paste0("SELECT COUNT(*) FROM expected_steps WHERE steps < ", num_nodes - 1))[[1]]
-}
-
-adjust_strategy_SQL <- function(conn) {
-  # Define the mappings of levels to labels
-  strategy_mappings <- c(
-    "RandomLearning" = "Random",
-    "PayoffBasedLearning" = "Payoff",
-    "ProximalLearning" = "Proximal",
-    "PrestigeBasedLearning" = "Prestige",
-    "ConformityBasedLearning" = "Conformity"
-  )
-  
-  for (original in names(strategy_mappings)) {
-    new_label <- strategy_mappings[[original]]
-    dbExecute(conn, "UPDATE expected_steps SET strategy = ? WHERE strategy = ?", params = list(new_label, original))
-  }
-}
-
-average_over_replications_SQL <- function(conn) {
-  
-  # Disable automatic checkpoints to handle large transactions
-  dbExecute(conn, "PRAGMA wal_autocheckpoint=0")
-  
-  # Create the new aggregated table if it doesn't already exist
-  dbExecute(conn, "
-    CREATE TABLE IF NOT EXISTS expected_steps_aggregated (
-      num_nodes INTEGER,
-      alpha REAL,
-      strategy TEXT,
-      adj_mat TEXT,
-      steps INTEGER,
-      step_payoff REAL,
-      step_transitions REAL
-    )
-  ")
-
-  # Possible distinct alphas
-  distinct_alphas <- c(0.0, 0.5)
-  # Possible distinct steps
-  distinct_steps <- 1:20
-
-  # Fetch distinct strategies and adj_mats from the database
-  strategies <- dbGetQuery(conn, "SELECT DISTINCT strategy FROM expected_steps")$strategy
-  adj_mats <- dbGetQuery(conn, "SELECT DISTINCT adj_mat FROM expected_steps")$adj_mat
-
-  # Get all combinations of parameters
-  combinations <- expand.grid(alpha = distinct_alphas, step = distinct_steps, strategy = strategies, adj_mat = adj_mats)
-
-  # Define a function that each worker will execute
-  worker_function <- function(combination) {
-    alpha <- combination$alpha
-    step <- combination$step
-    strategy <- combination$strategy
-    adj_mat <- combination$adj_mat
-
-    local_conn <- dbConnect(RSQLite::SQLite(), dbname = "./output/expected_steps.sqlite")
-    
-    dbExecute(local_conn, "BEGIN")
-    
-    # Insert aggregated data for the current combination
-    query <- sprintf("
-      INSERT INTO expected_steps_aggregated 
-      SELECT 
-        num_nodes,
-        alpha,
-        strategy,
-        adj_mat,
-        steps, 
-        AVG(step_payoff) AS step_payoff,
-        AVG(step_transitions) AS step_transitions
-      FROM expected_steps
-      WHERE steps = %d AND alpha = %.1f AND strategy = '%s' AND adj_mat = '%s'
-      GROUP BY num_nodes, alpha, strategy, adj_mat, steps
-      ", step, alpha, strategy, adj_mat)
-    
-    dbExecute(local_conn, query)
-    
-    # Commit the transaction
-    dbExecute(local_conn, "COMMIT")
-    dbExecute(local_conn, "PRAGMA wal_checkpoint(FULL)")
-    
-    dbDisconnect(local_conn)
-    return(TRUE)
-  }
-
-  # Set up cluster with a number of cores
-  num_cores <- detectCores() - 1
-  cl <- makeCluster(num_cores)
-  
-  # Export necessary variables and functions to the cluster
-  clusterExport(cl, c("combinations", "worker_function", "conn"))
-  
-  # Apply the worker function to combinations in parallel
-  parLapply(cl, seq_len(nrow(combinations)), function(i) worker_function(combinations[i, ]))
-
-  # Stop the cluster
-  stopCluster(cl)
-  
-  # Drop the old table and rename the new aggregated table to take its place
-  dbExecute(conn, "DROP TABLE expected_steps")
-  dbExecute(conn, "ALTER TABLE expected_steps_aggregated RENAME TO expected_steps")
-}
-
-
-average_over_lambda_SQL <- function(conn) {
-  # Create the new table with the desired structure
-  dbExecute(conn, "
-    CREATE TABLE IF NOT EXISTS averaged_results (
-      adj_mat TEXT,
-      strategy TEXT,
-      alpha REAL,
-      num_nodes INTEGER,
-      avg_path_length REAL,
-      step_payoff REAL,
-      step_transitions REAL,
-      lambda REAL
-    );
-  ")
-
-  # Clear the table if it exists
-  dbExecute(conn, "DELETE FROM averaged_results")
-
-  lambda_values <- seq(0.1, 20, by = 0.1)
-
-  for (lambda in lambda_values) {
-    # Create a weighted table using the Poisson distribution for steps
-    dbExecute(conn, paste0("
-      CREATE TEMPORARY TABLE temp_weighted AS
-      SELECT
-        adj_mat,
-        strategy,
-        alpha,
-        num_nodes,
-        avg_path_length,
-        steps,
-        step_payoff * dpois(steps, ", lambda, ") AS weighted_step_payoff,
-        step_transitions * dpois(steps, ", lambda, ") AS weighted_step_transitions,
-        dpois(steps, ", lambda, ") AS weight
-      FROM expected_steps;
-    "))
-
-    # Compute weighted averages and insert into the new results table
-    dbExecute(conn, "
-      INSERT INTO averaged_results
-      SELECT
-        adj_mat,
-        strategy,
-        alpha,
-        num_nodes,
-        avg_path_length,
-        SUM(weighted_step_payoff) / SUM(weight) AS step_payoff,
-        SUM(weighted_step_transitions) / SUM(weight) AS step_transitions,
-        ? AS lambda
-      FROM 
-        temp_weighted
-      GROUP BY 
-        adj_mat, strategy, alpha, num_nodes, avg_path_length
-    ", params = list(lambda))
-
-    # Drop the temporary table
-    dbExecute(conn, "DROP TABLE IF EXISTS temp_weighted")
-  }
-
-  # Replace the original table with the aggregated results
-  dbExecute(conn, "DROP TABLE IF EXISTS expected_steps")
-  dbExecute(conn, "ALTER TABLE averaged_results RENAME TO expected_steps")
-}
-
-read_all_SQL <- function(conn) {
-  adjust_strategy_SQL(conn)
-  clean_file_SQL(conn)
-  average_over_replications_SQL(conn)
-  add_avg_path_length_SQL(conn)
-  average_over_lambda_SQL(conn)
-  print("Completed all database operations")
-}
-
-```
 
 
 
@@ -465,7 +242,7 @@ read_all_SQL <- function(conn) {
 
 ```{r}
 
-plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value) {
+plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
   average_data <- data %>%
     filter(lambda == lambda_value) %>%
     group_by(adj_mat, strategy, !!sym(IV)) %>%
@@ -477,17 +254,22 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value) {
     num_nodes <- data$num_nodes[1]
   }
 
-  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "as.factor(strategy)")) +
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy")) +
     geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
     labs(
       title = paste0(DV_label, " by ", IV_label),
-      subtitle = paste0("Number of nodes: ", data$num_nodes[[1]],  ", Expected number of learning opportunities λ = ", lambda_value),
+      subtitle = paste0("Number of nodes: ", num_nodes,  ", Expected number of learning opportunities λ = ", lambda_value),
       x = IV_label,
       y = DV_label
     ) +
-    theme_minimal() +
-    scale_color_discrete(name = "Strategy")
+    theme_minimal() 
+  
+  if (!is.null(strategy_colors)) {
+    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+  } else {
+    plot <- plot + scale_color_discrete(name = "Strategy")
+  }
   
   print(plot)
   return(plot)
@@ -675,96 +457,13 @@ level_plot <- function(data, strategy, outcome, outcome_label, Y, Y_label, scale
 ## Analysis
 
 ```{r}
+all_data <- read_all(3:8)
+data <- average_over_lambda(data)
 
-num_nodes <- 8
-adjacency_matrices <- read.csv("./data/adj_mat_8.csv", header = FALSE, colClasses = "character")[,1]
-alphas <- c(0.0, 0.5)
-strategies <- c("RandomLearning", "PayoffBasedLearning", "ProximalLearning", "PrestigeBasedLearning", "ConformityBasedLearning")
-repl <- 0
-steps <- 1:20
-step_payoffs <- 0
-step_transitions <- 0
-
-
-combinations <- expand.grid(
-  num_nodes, 
-  adjacency_matrices,
-  alphas,
-  strategies,
-  repl,
-  steps,
-  step_payoffs,
-  step_transitions
-)
-
-
-colnames(combinations) <- c("num_nodes", "adj_mat", "alpha", "strategy", "repl", "steps", "step_payoff", "step_transitions")
-
-
-con <- gzfile("./output/expected_steps_8.csv.gz", open = "rt")
-line_count <- 0
-
-readLines(con, n = 1, warn = FALSE)
-
-while (length(line <- readLines(con, n = 1, warn = FALSE)) > 0) {
-  line_count <- line_count + 1
-  if (line_count %% 10000 == 0) {
-    print(paste("Processed", line_count, "lines"))
-  }
-  parts <- unlist(strsplit(line, ","))
-  adj_mat <- parts[2]
-  alpha <- as.numeric(parts[3])
-  strategy <- parts[4]
-  step <- as.numeric(parts[6])
-  payoff <- as.numeric(parts[7])
-  success <- as.numeric(parts[8])
-  
-  combination_idx <- which(combinations$adj_mat == adj_mat &
-                           combinations$alpha == alpha &
-                           combinations$strategy == strategy &
-                           combinations$steps == step)
-
-  if (length(combination_idx) > 0) {
-    combinations$step_payoff[combination_idx] <- combinations$step_payoff[combination_idx] + payoff / 5040
-    combinations$step_transitions[combination_idx] <- combinations$step_transitions[combination_idx] + success / 5040
-  }
-}
-close(con)
-
-
-
-
-
-
-conn <- dbConnect(SQLite(), dbname = "./output/expected_steps.sqlite")
-
-query <- "
-SELECT DISTINCT strategy
-FROM (
-  SELECT strategy
-  FROM expected_steps
-  LIMIT 10000
-)
-"
-
-unique_strategies <- dbGetQuery(conn, query)
-
-adjust_strategy_SQL(conn)
-clean_file_SQL(conn)
-average_over_replications_SQL(conn)
-add_avg_path_length_SQL(conn)
-average_over_lambda_SQL(conn)
-
-read_all_SQL(conn)
-
-dbDisconnect(conn)
-
-all_data <- read_all(7)
-all_data_avg <- average_over_lambda(all_data)
-data <- add_ratios(all_data_avg)
+data <- add_ratios(data)
 
 saveRDS(data, "data_processed.rds")
-data <- readRDS("data_processed.rds")
+data <- readRDS("data_processed_allcombs.rds")
 
 
 allsteps <- plotUnconstrained(all_data_avg, "")
@@ -779,44 +478,120 @@ d <- level_plot(data, "Proximal", "rel_success", "Success Rate", "avg_path_lengt
 
 grid.arrange(a, b, c, d, ncol = 2)
 
-payoff_plot_pl <- plotDVbyIV(
-  data,
-  "step_payoff", "Expected Payoff per Step",
-  "avg_path_length",  "Average Path Length",
-  lambda_value = 2
+payoff_harsh <- plotDVbyIV_binned(
+  data[data$alpha == 0 & data$strategy != "Similarity",],
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Constraints on Learning Order",
+  lambda_value = 2,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
-plots <- list()
-for (i in 3:8) {
-  plots[[i]] <- plotDVbyIV(data[data$num_nodes == i,], "step_payoff", "Expected Payoff per Step", "avg_path_length",  "Average Path Length", lambda_value = 10)
+payoff_easy <- plotDVbyIV_binned(
+  data[data$alpha == 0 & data$strategy != "Similarity",],
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Constraints on Learning Order",
+  lambda_value = 10,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+)
+
+grid.arrange(payoff_harsh, payoff_easy)
+
+plotDVbyIV_binned <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
+  library(dplyr)
+  library(ggplot2)
+  
+  
+  average_data <- data %>%
+    filter(lambda == lambda_value) %>%
+    group_by(adj_mat, strategy) %>%
+    summarize(avg_IV = mean(!!sym(IV), na.rm = TRUE),
+              avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
+  
+  min_iv <- min(average_data$avg_IV, na.rm = TRUE)
+  max_iv <- max(average_data$avg_IV, na.rm = TRUE)
+
+  # Create bins for the first range (min to min + 0.5)
+  bin_centers1 <- seq(min_iv + 0.125, min_iv + 0.5, by = 0.125)
+  bin_edges1 <- data.frame(
+    bin_start = bin_centers1 - 0.125,
+    bin_end = bin_centers1 + 0.125,
+    bin_center = bin_centers1
+  )
+
+  # Create bins for the rest of the range (min + 0.5 to max_iv)
+  bin_centers2 <- seq(min_iv + 0.625, max_iv, by = 0.5)
+  bin_edges2 <- data.frame(
+    bin_start = bin_centers2 - 0.25,
+    bin_end = bin_centers2 + 0.25,
+    bin_center = bin_centers2
+  )
+  
+  # Combine both bin edges
+  bin_edges <- rbind(bin_edges1, bin_edges2)
+
+  binned_data_list <- lapply(unique(average_data$strategy), function(strategy) {
+    strategy_data <- average_data %>% filter(strategy == !!strategy)
+    binned_data <- lapply(1:nrow(bin_edges), function(i) {
+      bin_start <- bin_edges$bin_start[i]
+      bin_end <- bin_edges$bin_end[i]
+      bin_center <- bin_edges$bin_center[i]
+      bin_data <- strategy_data %>%
+        filter(avg_IV >= bin_start & avg_IV < bin_end)
+      if (nrow(bin_data) > 0) {
+        data.frame(
+          strategy = strategy,
+          bin_center = bin_center,
+          binned_avg_DV = mean(bin_data$avg_DV, na.rm = TRUE)
+        )
+      } else {
+        NULL
+      }
+    })
+    do.call(rbind, binned_data)
+  })
+  
+  binned_data <- do.call(rbind, binned_data_list)
+  
+  min_dv <- min(binned_data$binned_avg_DV, na.rm = TRUE)
+  max_dv <- max(binned_data$binned_avg_DV, na.rm = TRUE)
+  binned_data$binned_avg_DV <- (binned_data$binned_avg_DV - min_dv) / (max_dv - min_dv)
+
+  if (length(unique(data$num_nodes)) > 1) {
+    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
+  } else {
+    num_nodes <- data$num_nodes[1]
+  }
+  
+  if (lambda_value == 2) {
+    title_string <- "Harsh Environment"
+  } else {
+    title_string <- "Easy Environment"
+  }
+  
+  plot <- ggplot(binned_data, aes(x = bin_center, y = binned_avg_DV, color = strategy, shape = strategy, fill = strategy)) +
+    geom_point(size = 2) +
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(
+      title = title_string,
+      x = IV_label,
+      y = DV_label
+    ) +
+    theme_minimal() + 
+    ylim(0, 1)
+
+  if (!is.null(strategy_colors)) {
+    plot <- plot + scale_fill_manual(name = "Strategy", values = strategy_colors)
+    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+  } else {
+    plot <- plot + scale_fill_discrete(name = "Strategy")
+    plot <- plot + scale_color_discrete(name = "Strategy")
+  }
+
+  plot <- plot + scale_shape_manual(name = "Strategy", values = 21:25) # Assign different shapes
+
+  print(plot)
+  return(plot)
 }
-
-panel <- plot_grid(plotlist = plots[4:8], ncol = 2)
-
-transitions_plot_pl <- plotDVbyIV(
-  data,
-  "step_transitions", "Expected Success Rate of Learning Attempts",
-  "avg_path_length",  "Average Path Length",
-  lambda_value = 2
-)
-
-
-
-hist(data[data$strategy == "Payoff" & data$lambda == 2 & data$avg_path_length > 1.3 & data$avg_path_length < 1.5, "step_payoff"][[1]], breaks = 30, main = "Expected Payoff per Step for Lambda = 2\nand average path length 1.3 - 1.5", xlab = "Expected Payoff per Step")
-
-
-unconstrained_matrices <- c(
-  "0100",
-  "011000000",
-  "0111000000000000",
-  "0111100000000000000000000",
-  "011111000000000000000000000000000000",
-  "0111111000000000000000000000000000000000000000000",
-  "0111111100000000000000000000000000000000000000000000000000000000"
-)
-
-data_unconstrained <- all_data_combined[all_data_combined$adj_mat %in% unconstrained_matrices,]
-dat6 <- all_data2[all_data2$num_nodes == 6 & all_data2$adj_mat %in% unconstrained_matrices,]
 ```
 
 ## Isomorphism Handling

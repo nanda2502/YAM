@@ -1,5 +1,7 @@
 #include "Learning.hpp"
+#include "Debug.hpp"
 #include "Types.hpp"
+#include "Utils.hpp"
 #include <numeric>
 #include <stdexcept>
 #include <algorithm>
@@ -140,6 +142,11 @@ std::vector<double> conformityBaseWeights(
     return w_star;
 }
 
+double S_curve(double x) {
+    // between 0 and 1;
+    return 1/(1+std::exp(-15 * (x-0.5)));
+}
+
 std::vector<double> baseWeights(
     Strategy strategy,
     const Repertoire& repertoire,
@@ -164,7 +171,13 @@ std::vector<double> baseWeights(
     case PrestigeBasedLearning:
         return prestigeBaseWeights(repertoire, traitFrequencies, allStates);
     case ConformityBasedLearning:
-        return conformityBaseWeights(repertoire, traitFrequencies, allStates);
+        {
+        std::vector<double> result(traitFrequencies.size());
+        std::transform(traitFrequencies.begin(), traitFrequencies.end(), result.begin(),S_curve);
+        if (DEBUG_LEVEL >= 2) printVector(result); 
+
+        return result;
+        }
     default:
         throw std::runtime_error("Unknown strategy");
     }

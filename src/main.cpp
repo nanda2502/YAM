@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
         // Define parameters
         std::vector<int> stepVector(20);
         std::iota(stepVector.begin(), stepVector.end(), 1);
-        std::vector<double> alphas = {0.0, 0.5};
+        std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
             Strategy::RandomLearning,
             Strategy::PayoffBasedLearning,

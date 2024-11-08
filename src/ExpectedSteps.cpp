@@ -5,6 +5,7 @@
 #include "Graph.hpp"
 #include "Payoffs.hpp"
 #include "LinAlg.hpp"
+#include "Types.hpp"
 #include "Utils.hpp"
 
 #include <algorithm>
@@ -302,6 +303,7 @@ bool computeExpectedSteps(
 ) {
     try {
         // Initialization
+        Strategy baseStrategy = RandomLearning;
         Trait rootNode = 0;
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
         PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence);
@@ -328,7 +330,7 @@ bool computeExpectedSteps(
         auto allStates = generateAllRepertoires(adjacencyMatrix, parents);
 
         // Generate repertoires based on initial traitFrequencies
-        std::vector<Repertoire> repertoiresList = generateReachableRepertoires(strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents);
+        std::vector<Repertoire> repertoiresList = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         for (size_t i = 0; i < repertoiresList.size(); ++i) {
@@ -342,7 +344,7 @@ bool computeExpectedSteps(
 
         // Build initial transition matrix
         std::vector<std::vector<double>> preliminaryTransitionMatrix = buildTransitionMatrix(
-            repertoiresList, repertoireIndexMap, strategy, payoffs, traitFrequencies, allStates, parents
+            repertoiresList, repertoireIndexMap, baseStrategy, payoffs, traitFrequencies, allStates, parents
         );
 
         auto [reorderedTransitionMatrix, oldToNewIndexMap, numTransientStates] = reorderTransitionMatrix(
@@ -392,7 +394,7 @@ bool computeExpectedSteps(
                 if (repertoiresList[repertoire][trait]) {
                     int newIndex = oldToNewIndexMap[repertoire];
                     if (newIndex < numTransientStates) {
-                        timeTraitKnown += fundamentalMatrix[newIndex][0]; 
+                        timeTraitKnown += fundamentalMatrix[0][newIndex]; 
                     }
                 }
             }

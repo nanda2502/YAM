@@ -21,7 +21,6 @@ library(dplyr)
 library(grid)
 library(cowplot)
 library(lattice)
-library(RSQLite)
 ``` 
 
 ## Data preparation functions
@@ -134,8 +133,6 @@ read_file <- function(num_nodes) {
       "Conformity"
       )
     )
-  colnames(data) <- c("num_nodes", "adj_mat", "alpha",
-                      "strategy", "repl", "steps", "step_payoff", "step_transitions")
   return(data)
 }
 
@@ -153,10 +150,10 @@ average_over_replications <- function(data) {
 read_all <- function(numbers) {
   all_data <- lapply(numbers, function(num_nodes) {
     data <- read_file(num_nodes)
-    data <- average_over_replications(data)
     data <- clean_file(data)
+    data <- average_over_replications(data)
     data <- add_avg_path_length(data)
-    data <- average_over_lambda(data)
+    print(paste0("Finished processing data for ", num_nodes, " nodes."))
     return(data)
   })
   
@@ -172,9 +169,9 @@ average_over_lambda <- function(data) {
   lambda_values <- seq(0.1, 20, by = 0.1)
 
   subsets <- lapply(lambda_values, function(lambda) {
-
     data <- data %>%
       mutate(weight = dpois(steps, lambda))
+    
     weighted_averages <- data %>%
       group_by(adj_mat, strategy, alpha) %>%
       summarize(
@@ -236,13 +233,18 @@ add_ratios <- function(data) {
 }
 ```
 
+
+
+
+
+
 ## Plotting functions 
 
 ```{r}
 
-plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_subset, alpha_subset) {
+plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
   average_data <- data %>%
-    filter(lambda == lambda_subset,alpha == alpha_subset) %>%
+    filter(lambda == lambda_value) %>%
     group_by(adj_mat, strategy, !!sym(IV)) %>%
     summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
   
@@ -252,17 +254,22 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_subset, alpha_su
     num_nodes <- data$num_nodes[1]
   }
 
-  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "as.factor(strategy)")) +
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy")) +
     geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
     labs(
       title = paste0(DV_label, " by ", IV_label),
-      subtitle = paste0("Number of nodes: ", data$num_nodes[[1]],  ", Expected number of learning opportunities λ = ", lambda_subset, ", Depth bonus: ", alpha_subset),
+      subtitle = paste0("Number of nodes: ", num_nodes,  ", Expected number of learning opportunities λ = ", lambda_value),
       x = IV_label,
       y = DV_label
     ) +
-    theme_minimal() +
-    scale_color_discrete(name = "Strategy")
+    theme_minimal() 
+  
+  if (!is.null(strategy_colors)) {
+    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+  } else {
+    plot <- plot + scale_color_discrete(name = "Strategy")
+  }
   
   print(plot)
   return(plot)
@@ -450,13 +457,15 @@ level_plot <- function(data, strategy, outcome, outcome_label, Y, Y_label, scale
 ## Analysis
 
 ```{r}
-
-
 data <- read_all(3:8)
-data <- add_ratios(all_data_avg)
+data <- average_over_lambda(data)
+confdata <- data
+#data <- add_ratios(data)
 
-saveRDS(data, "data_processed_allcombs.rds")
-data <- readRDS("data_processed.rds")
+saveRDS(data, "data_processed_allcombs_new.rds")
+data <- readRDS("data_processed_allcombs_new.rds")
+data <- data[!data$strategy == "Conformity",]
+data <- rbind(data, confdata)
 
 
 allsteps <- plotUnconstrained(all_data_avg, "")
@@ -471,52 +480,125 @@ d <- level_plot(data, "Proximal", "rel_success", "Success Rate", "avg_path_lengt
 
 grid.arrange(a, b, c, d, ncol = 2)
 
-payoff_plot_pl <- plotDVbyIV(
-  data,
-  "step_payoff", "Expected Payoff per Step",
-  "avg_path_length",  "Average Path Length",
-  lambda_value = 2
-)
-
-plots <- list()
-for (i in 3:8) {
-  plots[[i]] <- plotDVbyIV(data[data$num_nodes == i,], "step_payoff", "Expected Payoff per Step", "avg_path_length",  "Average Path Length", lambda_value = 10)
-}
-
-panel <- plot_grid(plotlist = plots[4:8], ncol = 2)
-
-transitions_plot_pl <- plotDVbyIV(
-  data,
-  "step_transitions", "Expected Success Rate of Learning Attempts",
-  "avg_path_length",  "Average Path Length",
+payoff_harsh <- plotDVbyIV_binned(
+  data[data$alpha == 0 & data$strategy != "Similarity",],
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Constraints on Learning Order",
   lambda_value = 2,
-  alpha_value = 0
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
-
-
-hist(data[data$strategy == "Payoff" & data$lambda == 2 & data$avg_path_length > 1.3 & data$avg_path_length < 1.5, "step_payoff"][[1]], breaks = 30, main = "Expected Payoff per Step for Lambda = 2\nand average path length 1.3 - 1.5", xlab = "Expected Payoff per Step")
-
-
-unconstrained_matrices <- c(
-  "0100",
-  "011000000",
-  "0111000000000000",
-  "0111100000000000000000000",
-  "011111000000000000000000000000000000",
-  "0111111000000000000000000000000000000000000000000",
-  "0111111100000000000000000000000000000000000000000000000000000000"
+payoff_easy <- plotDVbyIV_binned(
+  data[data$alpha == 0 & data$strategy != "Similarity",],
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Constraints on Learning Order",
+  lambda_value = 10,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
-data_unconstrained <- all_data_combined[all_data_combined$adj_mat %in% unconstrained_matrices,]
-dat6 <- all_data2[all_data2$num_nodes == 6 & all_data2$adj_mat %in% unconstrained_matrices,]
+grid.arrange(payoff_harsh, payoff_easy)
+
+plotDVbyIV_binned <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
+  library(dplyr)
+  library(ggplot2)
+  
+  
+  average_data <- data %>%
+    filter(lambda == lambda_value) %>%
+    group_by(adj_mat, strategy) %>%
+    summarize(avg_IV = mean(!!sym(IV), na.rm = TRUE),
+              avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
+  
+  min_iv <- min(average_data$avg_IV, na.rm = TRUE)
+  max_iv <- max(average_data$avg_IV, na.rm = TRUE)
+
+  bin_centers1 <- seq(min_iv + 0.125, min_iv + 0.5, by = 0.125)
+  bin_edges1 <- data.frame(
+    bin_start = bin_centers1 - 0.125,
+    bin_end = bin_centers1 + 0.125,
+    bin_center = bin_centers1
+  )
+
+  # Create bins for the rest of the range (min + 0.5 to max_iv)
+  bin_centers2 <- seq(min_iv + 0.625, max_iv, by = 0.5)
+  bin_edges2 <- data.frame(
+    bin_start = bin_centers2 - 0.25,
+    bin_end = bin_centers2 + 0.25,
+    bin_center = bin_centers2
+  )
+  
+  # Combine both bin edges
+  bin_edges <- rbind(bin_edges1, bin_edges2)
+
+  binned_data_list <- lapply(unique(average_data$strategy), function(strategy) {
+    strategy_data <- average_data %>% filter(strategy == !!strategy)
+    binned_data <- lapply(1:nrow(bin_edges), function(i) {
+      bin_start <- bin_edges$bin_start[i]
+      bin_end <- bin_edges$bin_end[i]
+      bin_center <- bin_edges$bin_center[i]
+      bin_data <- strategy_data %>%
+        filter(avg_IV >= bin_start & avg_IV < bin_end)
+      if (nrow(bin_data) > 0) {
+        data.frame(
+          strategy = strategy,
+          bin_center = bin_center,
+          binned_avg_DV = mean(bin_data$avg_DV, na.rm = TRUE)
+        )
+      } else {
+        NULL
+      }
+    })
+    do.call(rbind, binned_data)
+  })
+  
+  binned_data <- do.call(rbind, binned_data_list)
+  
+  min_dv <- min(binned_data$binned_avg_DV, na.rm = TRUE)
+  max_dv <- max(binned_data$binned_avg_DV, na.rm = TRUE)
+  binned_data$binned_avg_DV <- (binned_data$binned_avg_DV - min_dv) / (max_dv - min_dv)
+
+  if (length(unique(data$num_nodes)) > 1) {
+    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
+  } else {
+    num_nodes <- data$num_nodes[1]
+  }
+  
+  if (lambda_value == 2) {
+    title_string <- "Harsh Environment"
+  } else {
+    title_string <- "Easy Environment"
+  }
+  
+  plot <- ggplot(binned_data, aes(x = bin_center, y = binned_avg_DV, color = strategy, shape = strategy, fill = strategy)) +
+    geom_point(size = 2) +
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(
+      title = title_string,
+      x = IV_label,
+      y = DV_label
+    ) +
+    theme_minimal() + 
+    ylim(0, 1)
+
+  if (!is.null(strategy_colors)) {
+    plot <- plot + scale_fill_manual(name = "Strategy", values = strategy_colors)
+    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+  } else {
+    plot <- plot + scale_fill_discrete(name = "Strategy")
+    plot <- plot + scale_color_discrete(name = "Strategy")
+  }
+
+  plot <- plot + scale_shape_manual(name = "Strategy", values = 21:25) # Assign different shapes
+
+  print(plot)
+  return(plot)
+}
 ```
 
 ## Isomorphism Handling
  
 ```{r}
 remove_duplicates <- function(node_range) {
-  count_processed <- 0
   for(num_nodes in node_range) {
     filename <- paste0("./data/adj_mat_", num_nodes, ".csv")
     data <- read.csv(filename, header = FALSE, stringsAsFactors = FALSE, colClasses = c("character"))
@@ -525,10 +607,6 @@ remove_duplicates <- function(node_range) {
     unique_graphs <- list()
     unique_indices <- c()
     for (i in seq_len(nrow(data))) {
-      if (count_processed %% 100 == 0) {
-        print(paste("Processed", count_processed, "out of", nrow(data), "observations for", num_nodes, "nodes"))
-      })
-      
       adj_string <- data$adj_mat[i]
       adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
       adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
@@ -539,7 +617,6 @@ remove_duplicates <- function(node_range) {
         unique_graphs <- append(unique_graphs, list(g))
         unique_indices <- c(unique_indices, i)  # correctly add unique index
       }
-      count_processed <- count_processed + 1
     }
   
     write.table(data[unique_indices, ], file = paste0("./data/adj_mat_new", num_nodes, ".csv"), sep = ",", row.names = FALSE, col.names = FALSE, quote = FALSE)
@@ -627,8 +704,3 @@ all_data <- read_all_data(2:8)
 
 plot <- plot_graph_panel(head(data[data$num_nodes == 8 & data$lambda == 10 & data$strategy == "Payoff" & data$step_payoff > 4 & data$avg_path_length < 1.6 & data$avg_path_length > 1.2,], 20))
 ```
-
-
-
-
-

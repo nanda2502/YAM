@@ -16,7 +16,7 @@ void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector
 
     for (const auto& row : matrix) {
         for (size_t i = 0; i < row.size(); ++i) {
-            file << std::fixed << std::setprecision(2) << row[i];
+            file << std::fixed << std::setprecision(4) << row[i];
             if (i < row.size() - 1) file << ',';
         }
         file << '\n';
@@ -120,7 +120,7 @@ bool charToBool(char c) {
 void printMatrix(const std::vector<std::vector<double>>& matrix) {
     for (const auto& row : matrix) {
         for (const auto& element : row) {
-            std::cout << std::setw(10) << std::fixed << std::setprecision(2) << element << " ";
+            std::cout << std::setw(10) << std::fixed << std::setprecision(4) << element << " ";
         }
         std::cout << '\n';
     }

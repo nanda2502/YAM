@@ -46,7 +46,7 @@ void processRepl(
 
     if (saveTransitionMatrices) {
         std::ostringstream alphaStrStream;
-        alphaStrStream << std::fixed << std::setprecision(2) << alpha;
+        alphaStrStream << std::fixed << std::setprecision(4) << alpha;
         std::string alphaStr = alphaStrStream.str();
 
         std::string strategyStr = strategyToString(strategy);
@@ -76,6 +76,7 @@ int main(int argc, char* argv[]) {
     int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
     int n = numNodes;
     int replications = 1;
+    std::cout << std::fixed << std::setprecision(4);
     try {
         // Define parameters
         std::vector<int> stepVector(20);

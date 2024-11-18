@@ -4,7 +4,6 @@
 #include "Types.hpp"
 #include "Learning.hpp"
 
-#include <random>
 #include <vector>
 #include <unordered_map>
 #include <tuple>
@@ -18,11 +17,7 @@ std::vector<std::vector<double>> computeIMinusQ(
 std::vector<std::vector<double>> buildTransitionMatrix(
     const std::vector<Repertoire>& repertoiresList,
     const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
-    Strategy strategy,
-    const PayoffVector& payoffs,
-    const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates,
-    const Parents& parents
+    std::vector<std::vector<std::pair<Repertoire, double>>>  allTransitions
 );
 
 bool isAbsorbingState(const Repertoire& repertoire, const std::vector<double>& traitFrequencies);

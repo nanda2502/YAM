@@ -1,7 +1,5 @@
 #include "Payoffs.hpp"
 
-
-
 PayoffVector generateRawPayoffs(const std::vector<int>& distances, const std::vector<size_t>& shuffleSequence) {
     constexpr double mean = 1.0;
     size_t n = distances.size();

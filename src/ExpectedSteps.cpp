@@ -49,18 +49,13 @@ std::vector<std::vector<double>> computeIMinusQ(
 std::vector<std::vector<double>> buildTransitionMatrix(
     const std::vector<Repertoire>& repertoiresList,
     const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
-    Strategy strategy,
-    const PayoffVector& payoffs,
-    const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates,
-    const Parents& parents
+    std::vector<std::vector<std::pair<Repertoire, double>>>  allTransitions
 ) {
     int numStates = static_cast<int>(repertoiresList.size());
     std::vector<std::vector<double>> transitionMatrix(numStates, std::vector<double>(numStates, 0.0));
 
     for (int i = 0; i < numStates; ++i) {
-        const Repertoire& repertoire = repertoiresList[i];
-        auto transitions = transitionFromState(strategy, repertoire, payoffs, traitFrequencies, allStates, parents);
+        auto transitions = allTransitions[i];
         auto stayProb = stayProbability(transitions);
 
         std::unordered_map<int, double> probMap;
@@ -330,7 +325,7 @@ bool computeExpectedSteps(
         auto allStates = generateAllRepertoires(adjacencyMatrix, parents);
 
         // Generate repertoires based on initial traitFrequencies
-        std::vector<Repertoire> repertoiresList = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents);
+        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         for (size_t i = 0; i < repertoiresList.size(); ++i) {
@@ -344,7 +339,7 @@ bool computeExpectedSteps(
 
         // Build initial transition matrix
         std::vector<std::vector<double>> preliminaryTransitionMatrix = buildTransitionMatrix(
-            repertoiresList, repertoireIndexMap, baseStrategy, payoffs, traitFrequencies, allStates, parents
+            repertoiresList, repertoireIndexMap, allTransitions
         );
 
         auto [reorderedTransitionMatrix, oldToNewIndexMap, numTransientStates] = reorderTransitionMatrix(
@@ -421,10 +416,25 @@ bool computeExpectedSteps(
             }
         }
 
+        std::vector<double> stateFrequencies(numTransientStates, 0.0);
+
+        // Calculate the frequency of visiting each transient state
+        for (int i = 0; i < numTransientStates; ++i) {
+            stateFrequencies[i] = std::accumulate(fundamentalMatrix[i].begin(), fundamentalMatrix[i].end(), 0.0) / totalTransientTime;
+        }
+
+        // Print the vector of state frequencies
+        DEBUG_PRINT(2, "State Frequencies:");
+        if (DEBUG_LEVEL >= 2) {
+            for (const auto& freq : stateFrequencies) {
+                std::cout << freq << " ";
+            }
+            std::cout << '\n';
+        }
 
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
-        std::vector<Repertoire> finalRepertoiresList = generateReachableRepertoires(
+        auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
             strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents
         );
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
@@ -435,7 +445,7 @@ bool computeExpectedSteps(
 
         // Build final transition matrix without reordering
         transitionMatrix = buildTransitionMatrix(
-            finalRepertoiresList, finalRepertoireIndexMap, strategy, payoffs, traitFrequencies, allStates, parents
+            finalRepertoiresList, finalRepertoireIndexMap, finalAllTransitions
         );
 
         if (transitionMatrix.empty()) {

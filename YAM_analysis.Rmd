@@ -21,7 +21,7 @@ library(dplyr)
 library(grid)
 library(cowplot)
 library(lattice)
-``` 
+```
 
 ## Data preparation functions
 
@@ -233,12 +233,7 @@ add_ratios <- function(data) {
 }
 ```
 
-
-
-
-
-
-## Plotting functions 
+## Plotting functions
 
 ```{r}
 
@@ -462,23 +457,10 @@ data <- average_over_lambda(data)
 confdata <- data
 #data <- add_ratios(data)
 
-saveRDS(data, "data_processed_allcombs_new.rds")
+saveRDS(data, "data_processed_newconf.rds")
 data <- readRDS("data_processed_allcombs_new.rds")
 data <- data[!data$strategy == "Conformity",]
 data <- rbind(data, confdata)
-
-
-allsteps <- plotUnconstrained(all_data_avg, "")
-
-payoff_settings <- get_consistent_scale(data, "rel_payoff")
-a <- level_plot(data, "Payoff", "rel_payoff",  "Payoff per Step", "avg_path_length", "Average Path Length", payoff_settings)
-b <- level_plot(data, "Proximal", "rel_payoff", "Payoff per Step", "avg_path_length", "Average Path Length", payoff_settings)
-
-success_settings <- get_consistent_scale(data, "rel_success")
-c <- level_plot(data, "Payoff", "rel_success", "Success Rate", "avg_path_length", "Average Path Length", success_settings)
-d <- level_plot(data, "Proximal", "rel_success", "Success Rate", "avg_path_length", "Average Path Length", success_settings)
-
-grid.arrange(a, b, c, d, ncol = 2)
 
 payoff_harsh <- plotDVbyIV_binned(
   data[data$alpha == 0 & data$strategy != "Similarity",],
@@ -499,10 +481,7 @@ payoff_easy <- plotDVbyIV_binned(
 grid.arrange(payoff_harsh, payoff_easy)
 
 plotDVbyIV_binned <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
-  library(dplyr)
-  library(ggplot2)
-  
-  
+
   average_data <- data %>%
     filter(lambda == lambda_value) %>%
     group_by(adj_mat, strategy) %>%
@@ -512,23 +491,15 @@ plotDVbyIV_binned <- function(data, DV, DV_label, IV, IV_label, lambda_value, st
   min_iv <- min(average_data$avg_IV, na.rm = TRUE)
   max_iv <- max(average_data$avg_IV, na.rm = TRUE)
 
-  bin_centers1 <- seq(min_iv + 0.125, min_iv + 0.5, by = 0.125)
-  bin_edges1 <- data.frame(
-    bin_start = bin_centers1 - 0.125,
-    bin_end = bin_centers1 + 0.125,
-    bin_center = bin_centers1
+  bin_centers <- seq(min_iv + 0.25, max_iv, by = 0.5)
+  bin_edges <- data.frame(
+    bin_start = bin_centers - 0.25,
+    bin_end = bin_centers + 0.25,
+    bin_center = bin_centers
   )
 
-  # Create bins for the rest of the range (min + 0.5 to max_iv)
-  bin_centers2 <- seq(min_iv + 0.625, max_iv, by = 0.5)
-  bin_edges2 <- data.frame(
-    bin_start = bin_centers2 - 0.25,
-    bin_end = bin_centers2 + 0.25,
-    bin_center = bin_centers2
-  )
-  
-  # Combine both bin edges
-  bin_edges <- rbind(bin_edges1, bin_edges2)
+  bin_edges <- rbind(c(1,1.01,1),bin_edges)
+  bin_edges[2,1] <- 1.01
 
   binned_data_list <- lapply(unique(average_data$strategy), function(strategy) {
     strategy_data <- average_data %>% filter(strategy == !!strategy)
@@ -564,14 +535,14 @@ plotDVbyIV_binned <- function(data, DV, DV_label, IV, IV_label, lambda_value, st
   }
   
   if (lambda_value == 2) {
-    title_string <- "Harsh Environment"
+    title_string <- "Fast Learning"
   } else {
-    title_string <- "Easy Environment"
+    title_string <- "Slow Learning"
   }
-  
+
   plot <- ggplot(binned_data, aes(x = bin_center, y = binned_avg_DV, color = strategy, shape = strategy, fill = strategy)) +
     geom_point(size = 2) +
-    geom_smooth(method = "loess", se = FALSE) +
+    geom_smooth(method = "gam", se = FALSE) +
     labs(
       title = title_string,
       x = IV_label,
@@ -596,7 +567,7 @@ plotDVbyIV_binned <- function(data, DV, DV_label, IV, IV_label, lambda_value, st
 ```
 
 ## Isomorphism Handling
- 
+
 ```{r}
 remove_duplicates <- function(node_range) {
   for(num_nodes in node_range) {
@@ -656,7 +627,6 @@ strategies <- levels(data$strategy)
 lapply(strategies, analyze_strategy_bayes)
 
 ```
-
 
 ```{r}
 plot_graph_panel <- function(df) {

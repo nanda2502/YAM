@@ -1,7 +1,6 @@
 #include "Learning.hpp"
 #include "Debug.hpp"
 #include "Types.hpp"
-#include "Utils.hpp"
 #include <numeric>
 #include <stdexcept>
 #include <algorithm>
@@ -118,34 +117,30 @@ std::vector<double> prestigeBaseWeights(
     return w_star;
 }
 
+double S_curve(double x, double total) {
+    // between 0 and 1;
+    return 1/(1+std::exp(-15 * ((x/total)-0.5)));
+}
+
+
 std::vector<double> conformityBaseWeights(
-    const Repertoire& repertoire,
     const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates
+    const Repertoire& repertoire
 ) {
-    std::vector<double> w_star(repertoire.size(), 0.0);
-    auto stateFrequencies = computeStateFrequencies(traitFrequencies, allStates);
-    // Compute trait contributions
-    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        if (!repertoire[trait]) {  // Only consider unlearned traits
-            for (const auto& state : allStates) {
-                if (state[trait]) {  // If the state has trait j learned
-                    double delta = computeDelta(repertoire, state);
-                    if (delta > 0) {
-                        int N_s = delta;  // Number of additional traits known in s but not in r
-                        w_star[trait] += stateFrequencies.at(state) / N_s; 
-                    }
-                }
-            }
-        }
+    double total = 0.0;
+
+    //Only count unlearned traits, so that the normalization works
+    for (size_t i = 0; i < traitFrequencies.size(); i++) {
+        total += repertoire[i] ? 0.0 : traitFrequencies[i];
     }
+
+    std::vector<double> w_star(traitFrequencies.size());
+    
+    std::transform(traitFrequencies.begin(), traitFrequencies.end(), w_star.begin(), [total](double f) {return S_curve(f, total);});
+
     return w_star;
 }
 
-double S_curve(double x) {
-    // between 0 and 1;
-    return 1/(1+std::exp(-15 * (x-0.5)));
-}
 
 std::vector<double> baseWeights(
     Strategy strategy,
@@ -161,9 +156,10 @@ std::vector<double> baseWeights(
     case PayoffBasedLearning:
         {
             std::vector<double> result(payoffs.size());
-            for (size_t i = 0; i < payoffs.size(); ++i) {
-                result[i] = traitFrequencies[i] * std::pow(payoffs[i], sensitivity);
-            }
+            std::transform(payoffs.begin(), payoffs.end(), traitFrequencies.begin(), result.begin(),
+               [sensitivity](double payoff, double traitFrequency) {
+                   return traitFrequency * std::pow(payoff, sensitivity);
+               });
             return result;
         }
     case ProximalLearning:
@@ -171,13 +167,7 @@ std::vector<double> baseWeights(
     case PrestigeBasedLearning:
         return prestigeBaseWeights(repertoire, traitFrequencies, allStates);
     case ConformityBasedLearning:
-        {
-        std::vector<double> result(traitFrequencies.size());
-        std::transform(traitFrequencies.begin(), traitFrequencies.end(), result.begin(),S_curve);
-        if (DEBUG_LEVEL >= 2) printVector(result); 
-
-        return result;
-        }
+        return conformityBaseWeights(traitFrequencies, repertoire);
     default:
         throw std::runtime_error("Unknown strategy");
     }
@@ -193,11 +183,33 @@ std::vector<double> normalizedWeights(
 )  {
     std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, allStates);
 
-    std::vector<double> w_unlearned(repertoire.size());
-    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        w_unlearned[trait] = repertoire[trait] ? 0.0 : w_star[trait];
+    DEBUG_PRINT(2, "Current repertoire:");
+    if (DEBUG_LEVEL >= 2) {
+        for (bool i : repertoire) {
+            std::cout << (i ? "1" : "0");
+        }
+        std::cout << '\n';
     }
 
+    DEBUG_PRINT(2, "Base weights:");
+    if (DEBUG_LEVEL >= 2) {
+        for (size_t i = 0; i < w_star.size(); ++i) {
+            std::cout << "Trait " << i <<": " << w_star[i] << '\n';
+        }
+    }
+
+    std::vector<double> w_unlearned(repertoire.size());
+    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+        w_unlearned[trait] = (repertoire[trait] || traitFrequencies[trait] == 0.0) ? 0.0 : w_star[trait];
+    }
+
+    DEBUG_PRINT (2, "Weights after setting learned ones to 0:");
+    if (DEBUG_LEVEL >= 2) {
+        for (size_t i = 0; i < w_unlearned.size(); ++i) {
+            std::cout << "Trait " << i <<": " << w_unlearned[i] << '\n';
+        }
+    }
+    
     double total = std::accumulate(w_unlearned.begin(), w_unlearned.end(), 0.0);
 
     if (total == 0.0) {
@@ -206,6 +218,15 @@ std::vector<double> normalizedWeights(
 
     std::transform(w_unlearned.begin(), w_unlearned.end(), w_unlearned.begin(),
         [total](double w) { return w / total; });
+    
+
+
+    DEBUG_PRINT(2, "Normalized weights:");
+    if (DEBUG_LEVEL >= 2) {
+        for (size_t i = 0; i < w_unlearned.size(); ++i) {
+            std::cout << "Trait " << i <<": " << w_unlearned[i] << '\n';
+        }
+    };
 
     return w_unlearned;
 }
@@ -254,7 +275,7 @@ double stayProbability(std::vector<std::pair<Repertoire, double>> transitions) {
     return 1.0 - totalTransitionProbability;
 }
 
-std::vector<Repertoire> generateReachableRepertoires(
+std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire, double>>>>  generateReachableRepertoires(
     Strategy strategy, 
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
@@ -269,6 +290,7 @@ std::vector<Repertoire> generateReachableRepertoires(
     std::queue<Repertoire> queue;
     std::unordered_set<Repertoire, RepertoireHash> visited;
     std::vector<Repertoire> result;
+    std::vector<std::vector<std::pair<Repertoire, double>>> allTransitions;
 
     queue.push(initialRepertoire);
 
@@ -281,6 +303,8 @@ std::vector<Repertoire> generateReachableRepertoires(
             result.push_back(r);
 
             auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, allStates, parents);
+            allTransitions.push_back(transitions);
+
             for (const auto& transition : transitions) {
                 const Repertoire& r_prime = transition.first;
                 if (visited.find(r_prime) == visited.end()) {
@@ -290,7 +314,7 @@ std::vector<Repertoire> generateReachableRepertoires(
         }
     }
 
-    return result;
+    return {result, allTransitions};
 }
 
 std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix, const Parents& parents) {

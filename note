@@ -1,0 +1,597 @@
+Updated trait frequencies
+Trait 0: 1.0000
+Trait 1: 0.3922
+Trait 2: 0.2745
+Trait 3: 0.1765
+Trait 4: 0.0980
+Trait 5: 0.0392
+Trait 6: 0.0098
+Trait 7: 0.0098
+State Frequencies:
+0.3418 0.2532 0.1772 0.1139 0.0633 0.0253 0.0127 0.0127
+
+Prestige
+
+```
+Current repertoire:
+10000000
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.2997
+Trait 2: 0.1006
+Trait 3: 0.0253
+Trait 4: 0.0037
+Trait 5: 0.0002
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.2997
+Trait 2: 0.1006
+Trait 3: 0.0253
+Trait 4: 0.0037
+Trait 5: 0.0002
+Trait 6: 0.0000
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.6977
+Trait 2: 0.2342
+Trait 3: 0.0588
+Trait 4: 0.0087
+Trait 5: 0.0006
+Trait 6: 0.0000
+Trait 7: 0.0000
+Current repertoire:
+11000000
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0940
+Trait 3: 0.0186
+Trait 4: 0.0025
+Trait 5: 0.0001
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0940
+Trait 3: 0.0186
+Trait 4: 0.0025
+Trait 5: 0.0001
+Trait 6: 0.0000
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.8154
+Trait 3: 0.1617
+Trait 4: 0.0216
+Trait 5: 0.0013
+Trait 6: 0.0000
+Trait 7: 0.0000
+Current repertoire:
+11100000
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0180
+Trait 4: 0.0019
+Trait 5: 0.0001
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0180
+Trait 4: 0.0019
+Trait 5: 0.0001
+Trait 6: 0.0000
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.9020
+Trait 4: 0.0929
+Trait 5: 0.0049
+Trait 6: 0.0001
+Trait 7: 0.0001
+Current repertoire:
+11110000
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0018
+Trait 5: 0.0001
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0018
+Trait 5: 0.0001
+Trait 6: 0.0000
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.9604
+Trait 5: 0.0386
+Trait 6: 0.0005
+Trait 7: 0.0005
+Current repertoire:
+11111000
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0001
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0001
+Trait 6: 0.0000
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.9807
+Trait 6: 0.0096
+Trait 7: 0.0096
+Current repertoire:
+11111100
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.5000
+Trait 7: 0.5000
+Current repertoire:
+11111110
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 1.0000
+Current repertoire:
+11111101
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 1.0000
+Trait 7: 0.0000
+Current repertoire:
+11111111
+Base weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Starting Computation of Expected Payoff Over 10.0000 Steps
+Expected payoff at Step 0 : 0.1744
+Expected payoff at Step 1 : 0.5116
+Expected payoff at Step 2 : 1.0509
+Expected payoff at Step 3 : 1.8252
+Expected payoff at Step 4 : 2.8478
+Expected payoff at Step 5 : 4.1905
+Expected payoff at Step 6 : 5.7075
+Expected payoff at Step 7 : 6.5098
+Expected payoff at Step 8 : 6.8316
+Expected payoff at Step 9 : 6.9452
+Total Expected Payoff: 36.5947
+Starting Computation of Expected Transitions Over 10.0000 Steps
+Expected transitions at Step 1 : 0.6977
+Expected transitions at Step 2 : 0.7798
+Expected transitions at Step 3 : 0.8539
+Expected transitions at Step 4 : 0.9154
+Expected transitions at Step 5 : 0.9541
+Expected transitions at Step 6 : 0.9805
+Expected transitions at Step 7 : 0.9929
+Expected transitions at Step 8 : 0.5143
+Expected transitions at Step 9 : 0.2047
+Expected transitions at Step 10 : 0.0720
+Total Expected Transitions: 6.9653
+```
+
+Conformity
+
+```
+Current repertoire:
+10000000
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.7852
+Trait 2: 0.1558
+Trait 3: 0.0367
+Trait 4: 0.0114
+Trait 5: 0.0047
+Trait 6: 0.0030
+Trait 7: 0.0030
+Current repertoire:
+11000000
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.7256
+Trait 3: 0.1711
+Trait 4: 0.0530
+Trait 5: 0.0220
+Trait 6: 0.0141
+Trait 7: 0.0141
+Current repertoire:
+11100000
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.6235
+Trait 4: 0.1933
+Trait 5: 0.0801
+Trait 6: 0.0515
+Trait 7: 0.0515
+Current repertoire:
+11110000
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.5134
+Trait 5: 0.2128
+Trait 6: 0.1369
+Trait 7: 0.1369
+Current repertoire:
+11111000
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.4373
+Trait 6: 0.2814
+Trait 7: 0.2814
+Current repertoire:
+11111100
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0006
+Trait 7: 0.0006
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.5000
+Trait 7: 0.5000
+Current repertoire:
+11111110
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0006
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 1.0000
+Current repertoire:
+11111101
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0006
+Trait 7: 0.0000
+Normalized weights:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 1.0000
+Trait 7: 0.0000
+Current repertoire:
+11111111
+Base weights:
+Trait 0: 0.9994
+Trait 1: 0.1655
+Trait 2: 0.0329
+Trait 3: 0.0077
+Trait 4: 0.0024
+Trait 5: 0.0010
+Trait 6: 0.0006
+Trait 7: 0.0006
+Weights after setting learned ones to 0:
+Trait 0: 0.0000
+Trait 1: 0.0000
+Trait 2: 0.0000
+Trait 3: 0.0000
+Trait 4: 0.0000
+Trait 5: 0.0000
+Trait 6: 0.0000
+Trait 7: 0.0000
+Starting Computation of Expected Payoff Over 10.0000 Steps
+Expected payoff at Step 0 : 0.1963
+Expected payoff at Step 1 : 0.5234
+Expected payoff at Step 2 : 0.9382
+Expected payoff at Step 3 : 1.4046
+Expected payoff at Step 4 : 1.9031
+Expected payoff at Step 5 : 2.5079
+Expected payoff at Step 6 : 3.2897
+Expected payoff at Step 7 : 4.1418
+Expected payoff at Step 8 : 4.9284
+Expected payoff at Step 9 : 5.5711
+Total Expected Payoff: 25.4047
+Starting Computation of Expected Transitions Over 10.0000 Steps
+Expected transitions at Step 1 : 0.7852
+Expected transitions at Step 2 : 0.7384
+Expected transitions at Step 3 : 0.6702
+Expected transitions at Step 4 : 0.6005
+Expected transitions at Step 5 : 0.5418
+Expected transitions at Step 6 : 0.5445
+Expected transitions at Step 7 : 0.6034
+Expected transitions at Step 8 : 0.6082
+Expected transitions at Step 9 : 0.5397
+Expected transitions at Step 10 : 0.4313
+```
+
+
+
+
+
+11110000
+
+Possible states:
+a: 11111000 
+b: 11111100
+c: 11111110
+d: 11111101
+e: 11111111
+
+weights/number of unknown traits in state
+a: 1
+b: 2
+c: 4
+d: 4
+e: 5
+
+
+trait weights
+trait 1: 1/1 + 1/2 + 1/2 + 1/4 + 1/4 + 1/5 = 
+trait 2: 

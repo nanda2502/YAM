@@ -46,7 +46,7 @@ struct RepertoireHash {
     }
 };
 
-std::vector<Repertoire> generateReachableRepertoires(
+std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire, double>>>>  generateReachableRepertoires(
     Strategy strategy, 
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 

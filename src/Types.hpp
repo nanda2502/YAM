@@ -25,7 +25,6 @@ struct ParamCombination {
     double alpha;
     int repl;
     int steps;
-    const std::vector<size_t>& shuffleSequence;
 };
 
 struct Result {
@@ -41,7 +40,7 @@ struct Result {
 
 struct AccumulatedResult {
     int count = 0;
-    double totalExpectedSteps = 0.0;
+    double totalExpectedPayoffPerStep = 0.0;
     double totalExpectedTransitionsPerStep = 0.0;
 };
 

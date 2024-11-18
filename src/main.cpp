@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <random>
 #include <iomanip>
+#include <execution>
 
 
 #include "Debug.hpp"
@@ -16,49 +17,40 @@
 
 
 void processRepl(
-    int repl,
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
     double alpha,
-    const std::vector<size_t>& shuffleSequence,
-    int num_steps,
+    int steps,
+    const std::vector<std::vector<size_t>>& shuffleSequences,
     bool saveTransitionMatrices,
     const std::string &outputDir,
-    std::vector<AccumulatedResult>& accumulatedResults,
-    size_t idx,
-    std::vector<std::atomic<int>>& failureCounts  
+    AccumulatedResult& accumResult,
+    std::atomic<int>& failureCount
 ) {
-    DEBUG_PRINT(1, "Replication:");
-    if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
+    double totalExpectedPayoffPerStep = 0.0;
+    double totalExpectedTransitionsPerStep = 0.0;
+    int successCount = 0;
 
-    std::mt19937 gen(repl);
+    for (const auto& shuffleSequence : shuffleSequences) {
+        double expectedSteps = 0.0;
+        double expectedPayoffPerStep = 0.0;
+        double expectedTransitionsPerStep = 0.0;
+        std::vector<std::vector<double>> transitionMatrix;
 
-    double expectedSteps = 0.0;
-    double expectedPayoffPerStep = 0.0;
-    double expectedTransitionsPerStep = 0.0;
-    std::vector<std::vector<double>> transitionMatrix;
-
-    if (!computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, num_steps, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
-        ++failureCounts[idx];
-        return;
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, steps, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
+            totalExpectedPayoffPerStep += expectedPayoffPerStep;
+            totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
+            successCount++;
+        } else {
+            ++failureCount;
+        }
     }
 
-    if (saveTransitionMatrices) {
-        std::ostringstream alphaStrStream;
-        alphaStrStream << std::fixed << std::setprecision(2) << alpha;
-        std::string alphaStr = alphaStrStream.str();
-
-        std::string strategyStr = strategyToString(strategy);
-        std::string fileName = "transition_mat_" + adjMatrixToBinaryString(adjMatrix) + "_strategy_" + strategyStr + "_alpha_" + alphaStr + ".csv";
-        std::string filePath = outputDir + "/" + fileName;
-        writeMatrixToCSV(filePath, transitionMatrix);
+    if (successCount > 0) {
+        accumResult.count++;
+        accumResult.totalExpectedPayoffPerStep += totalExpectedPayoffPerStep / successCount;
+        accumResult.totalExpectedTransitionsPerStep += totalExpectedTransitionsPerStep / successCount;
     }
-
-    // Accumulate results
-    AccumulatedResult& accumResult = accumulatedResults[idx];
-    accumResult.count++;
-    accumResult.totalExpectedSteps += expectedSteps;
-    accumResult.totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
 }
 
 size_t factorial(size_t num) {
@@ -70,39 +62,35 @@ size_t factorial(size_t num) {
 }
 
 int main(int argc, char* argv[]) {
-    // Parse command line arguments
     bool saveTransitionMatrices = false;
-    int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
-    int n = numNodes;
+    int adj_int = parseArgs(argc, argv, saveTransitionMatrices);
+    int n = 7;
     int replications = 1;
     try {
-        // Define parameters
         std::vector<int> stepVector(20);
         std::iota(stepVector.begin(), stepVector.end(), 1);
-        std::vector<double> alphas = {0.0, 0.5};
+        std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
-            Strategy::RandomLearning,
-            Strategy::PayoffBasedLearning,
-            Strategy::ProximalLearning,
-            Strategy::PrestigeBasedLearning,
+            //Strategy::RandomLearning,
+            //Strategy::PayoffBasedLearning,
+            //Strategy::ProximalLearning,
+            //Strategy::PrestigeBasedLearning,
             Strategy::ConformityBasedLearning
         };
     
-        // Prepare output directory
         std::string outputDir = "../output";
         if (!std::filesystem::exists(outputDir)) {
             std::filesystem::create_directory(outputDir);
         }
     
-        // Read adjacency matrices
-        std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
+        std::vector<AdjacencyMatrix> adjacencyMatricesAll = readAdjacencyMatrices(n);
+        std::vector<AdjacencyMatrix> adjacencyMatrices(1, adjacencyMatricesAll[adj_int]);
 
-        // Generate all possible permutations for n - 1 elements
         std::vector<size_t> perm(n - 1);
         std::iota(perm.begin(), perm.end(), 0);
         size_t sequenceCount = factorial(n - 1);
         std::vector<std::vector<size_t>> shuffleSequences;
-        shuffleSequences.reserve(sequenceCount);  // Reserve space in advance
+        shuffleSequences.reserve(sequenceCount);  
 
         do {
             shuffleSequences.push_back(perm);
@@ -110,46 +98,40 @@ int main(int argc, char* argv[]) {
     
         std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size() * shuffleSequences.size() << " runs." << '\n';
     
-        // Prepare the combinations
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector, shuffleSequences);
-
-        // Accumulate results for each parameter combination excluding shuffle sequence
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector);
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
         std::vector<std::atomic<int>> failureCounts(combinations.size());
-
-        // Parallelize the loop with OpenMP
+    
+        std::vector<size_t> indices(combinations.size());
+        std::iota(indices.begin(), indices.end(), 0);
+    
         #pragma omp parallel for
-        for (size_t idx = 0; idx < combinations.size(); ++idx) {
+        for (size_t i = 0; i < indices.size(); ++i) {
+            size_t idx = indices[i];
             const ParamCombination& comb = combinations[idx];
             processRepl(
-                comb.repl,
                 comb.adjMatrix,
                 comb.strategy,
                 comb.alpha,
-                comb.shuffleSequence,
                 comb.steps,
+                shuffleSequences,
                 saveTransitionMatrices,
                 outputDir,
-                accumulatedResults,
-                idx,
-                failureCounts
+                accumulatedResults[idx],
+                failureCounts[idx]
             );
         }
     
-        // Compute total failures
         int totalFailures = std::accumulate(failureCounts.begin(), failureCounts.end(), 0, [](int sum, const std::atomic<int>& val) {
             return sum + val.load();
         });
     
-        // Print total number of failures with debug level 0
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
 
-        // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,expected_steps,transitions_per_step";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
-        // Calculate averages and prepare CSV output
         for (size_t i = 0; i < accumulatedResults.size(); ++i) {
             const AccumulatedResult& accumResult = accumulatedResults[i];
             if (accumResult.count > 0) {
@@ -160,16 +142,15 @@ int main(int argc, char* argv[]) {
                     comb.alpha,
                     comb.strategy,
                     comb.repl,
-                    comb.steps, // Use comb.steps directly since expectedSteps maps to num_steps
-                    accumResult.totalExpectedSteps / accumResult.count,
-                    accumResult.totalExpectedTransitionsPerStep / accumResult.count
+                    comb.steps,
+                    accumResult.totalExpectedPayoffPerStep,
+                    accumResult.totalExpectedTransitionsPerStep 
                 );
                 csvData.push_back(formattedResult);
             }
         }
 
-        // Write and compress CSV output
-        writeAndCompressCSV(outputDir, n, csvData);
+        writeAndCompressCSV(outputDir, adj_int, csvData);
        
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << '\n';

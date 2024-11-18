@@ -42,8 +42,7 @@ std::vector<ParamCombination> makeCombinations(
     const std::vector<Strategy>& strategies, 
     const std::vector<double>& alphas, 
     int replications, 
-    const std::vector<int>& stepVector,
-    const std::vector<std::vector<size_t>>& shuffleSequences
+    const std::vector<int>& stepVector
 );
 
 std::string stateToString(const Repertoire& state);

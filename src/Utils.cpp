@@ -211,8 +211,7 @@ std::vector<ParamCombination> makeCombinations(
     const std::vector<Strategy>& strategies, 
     const std::vector<double>& alphas,
     int replications, 
-    const std::vector<int>& stepVector,
-    const std::vector<std::vector<size_t>>& shuffleSequences 
+    const std::vector<int>& stepVector
 ) {
     std::vector<ParamCombination> combinations;
     for (const auto& adjMatrix : adjacencyMatrices) {
@@ -221,16 +220,14 @@ std::vector<ParamCombination> makeCombinations(
             for (const auto& alpha : alphas) {
                 for (int repl = 0; repl < replications; ++repl) {
                     for (const auto& steps : stepVector) {
-                        for (const auto& shuffleSequence : shuffleSequences) {
-                            combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, steps, shuffleSequence});
-                        }
+                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, steps});
                     }
                 }
             }
         }
     }
     return combinations;
-};
+}
 
 std::string stateToString(const Repertoire& state) {
     std::string binaryString;

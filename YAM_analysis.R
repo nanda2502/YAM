@@ -154,7 +154,7 @@ read_all <- function(numbers) {
 
 average_over_lambda <- function(data) {
   outcome_vars <- c("step_payoff", "step_transitions")
-  other_vars_to_retain <- c("num_nodes", "avg_path_length")
+  other_vars_to_retain <- c("num_nodes", "avg_path_length", "expected_traits")
   
   lambda_values <- seq(0.1, 20, by = 0.1)
   
@@ -224,9 +224,6 @@ add_ratios <- function(data) {
 
 
 ## Plotting functions
-
-
-
 plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
   average_data <- data %>%
     filter(lambda == lambda_value) %>%
@@ -253,6 +250,32 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
       y = DV_label
     ) +
     theme_minimal() 
+  
+  if (!is.null(strategy_colors)) {
+    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+  } else {
+    plot <- plot + scale_color_discrete(name = "Strategy")
+  }
+  
+  print(plot)
+  return(plot)
+}
+
+plotDVbyTime <- function(data, DV, DV_label, IV, IV_label, strategy_colors = NULL) {
+  average_data <- data %>%
+    group_by(adj_mat, strategy, !!sym(IV), structure) %>%
+    summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
+  
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy")) +
+    geom_point(alpha = 0.2) +
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(
+      title = paste0(DV_label, " by ", IV_label),
+      x = IV_label,
+      y = DV_label
+    ) +
+    theme_minimal() +
+    facet_wrap(~ structure) 
   
   if (!is.null(strategy_colors)) {
     plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
@@ -455,15 +478,20 @@ s_curve <- function(x, total) {
 frequencies <- c(0.6, 0.3, 0.1, 0.0)
 s_curve(frequencies, sum(frequencies))
 
-## Analysis
+##### Analysis #####
 
 
 data <- read_all(3:8)
+data$expected_traits <-  data$step_transitions * data$steps
+
 data <- average_over_lambda(data)
+
+
+
 
 #data <- add_ratios(data)
 
-saveRDS(data, "data_processed_newconf.rds")
+
 data <- readRDS("data_processed_newconf.rds")
 
 
@@ -480,7 +508,7 @@ fully_constrained <- c(
 )
 
 
-payoff_harsh <- plotDVbyIV_binned(
+payoff_fast <- plotDVbyIV_binned(
   data[data$alpha == 0,],
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_path_length",  IV_label ="Constraints on Learning",
@@ -488,7 +516,7 @@ payoff_harsh <- plotDVbyIV_binned(
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
-payoff_easy <- plotDVbyIV_binned(
+payoff_slow <- plotDVbyIV_binned(
   data[data$alpha == 0,],
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_path_length",  IV_label ="Constraints on Learning",
@@ -496,7 +524,126 @@ payoff_easy <- plotDVbyIV_binned(
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
-grid.arrange(payoff_harsh, payoff_easy)
+success_slow <- plotDVbyIV(
+  data[data$alpha == 0,],
+  DV = "step_transitions", DV_label = "Learning Success Rate",
+  IV = "avg_path_length",  IV_label ="Constraints on Learning",
+  lambda_value = 10,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+)
+
+
+data_traits <- readRDS("data_traits.rds")
+
+success <- data_traits %>%
+  filter(strategy %in% c("Payoff", "Proximal"),
+         num_nodes == 8) %>%
+  mutate(structure = ifelse(avg_path_length < 1.3, "Low Constraints", 
+                            ifelse(avg_path_length > 3, "High Constraints", NA ))) %>%
+  filter(!is.na(structure)) %>%
+  mutate(structure = factor(structure, levels = c("Low Constraints", "High Constraints"))) %>%
+  plotDVbyTime(
+  DV = "expected_traits", DV_label = "Number of Traits Learned",
+  IV = "steps",  IV_label ="Time",
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C")
+)
+
+payoff <- data_traits %>%
+  filter(strategy %in% c("Payoff", "Proximal"),
+         num_nodes == 8) %>%
+  mutate(structure = ifelse(avg_path_length == 1, "Low Constraints", 
+                            ifelse(avg_path_length > 3, "High Constraints", NA ))) %>%
+  filter(!is.na(structure)) %>%
+  mutate(structure = factor(structure, levels = c("Low Constraints", "High Constraints"))) %>%
+  plotDVbyTime(
+    DV = "cum_payoff", DV_label = "Performance",
+    IV = "steps",  IV_label ="Time",
+    strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C")
+  )
+
+
+data_combined <- data_traits %>%
+  filter(
+    strategy %in% c("Payoff", "Proximal"),
+    num_nodes == 8
+  ) %>%
+  mutate(structure = case_when(
+    avg_path_length < 1.2 ~ "Low Constraints",
+    avg_path_length > 3 ~ "High Constraints",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(structure)) %>%
+  mutate(structure = factor(structure, levels = c("Low Constraints", "High Constraints"))) %>%
+  group_by(strategy, steps, structure) %>%
+  summarize(
+    avg_expected_traits = mean(expected_traits, na.rm = TRUE),
+    avg_cum_payoff = mean(cum_payoff, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# Calculate scaling parameters
+min_expected_traits <- min(data_combined$avg_expected_traits, na.rm = TRUE)
+max_expected_traits <- max(data_combined$avg_expected_traits, na.rm = TRUE)
+range_expected_traits <- max_expected_traits - min_expected_traits
+
+min_cum_payoff <- min(data_combined$avg_cum_payoff, na.rm = TRUE)
+max_cum_payoff <- max(data_combined$avg_cum_payoff, na.rm = TRUE)
+range_cum_payoff <- max_cum_payoff - min_cum_payoff
+
+scaling_factor <- range_expected_traits / range_cum_payoff
+
+# Rescale 'cum_payoff' to match the scale of 'expected_traits'
+data_combined <- data_combined %>%
+  mutate(
+    cum_payoff_rescaled = (avg_cum_payoff - min_cum_payoff) * scaling_factor + min_expected_traits
+  )
+
+ggplot() +
+  geom_line(
+    data = data_combined,
+    aes(
+      x = steps,
+      y = avg_expected_traits,
+      color = strategy,
+      linetype = "Number of Traits Learned"
+    )
+  ) +
+  geom_line(
+    data = data_combined,
+    aes(
+      x = steps,
+      y = cum_payoff_rescaled,
+      color = strategy,
+      linetype = "Performance"
+    )
+  ) +
+  scale_y_continuous(
+    name = "Number of Traits Learned",
+    sec.axis = sec_axis(
+      trans = ~ (. - min_expected_traits) / scaling_factor + min_cum_payoff,
+      name = "Performance"
+    )
+  ) +
+  scale_color_manual(
+    name = "Strategy",
+    values = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C") 
+  ) +
+  scale_linetype_manual(
+    name = "Variable",
+    values = c("Number of Traits Learned" = "solid", "Performance" = "dashed")
+  ) +
+  labs(
+    title = "Performance and Number of Traits Learned Over Time"
+  ) +
+  facet_wrap(~ structure) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),  
+    panel.grid.minor = element_blank()  
+  )
+
+
+
 
 plotDVbyIV_binned <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
   library(dplyr)

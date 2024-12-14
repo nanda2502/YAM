@@ -13,12 +13,14 @@
 #include "Types.hpp"
 #include "ExpectedSteps.hpp"
 
+
 void processRepl(
     int repl,
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
     double alpha,
     const std::vector<size_t>& shuffleSequence,
+    int num_steps,
     bool saveTransitionMatrices,
     const std::string &outputDir,
     std::vector<AccumulatedResult>& accumulatedResults,
@@ -32,11 +34,11 @@ void processRepl(
 
     std::mt19937 gen(repl);
 
-    double expectedSteps = 0.0;
-    double expectedPayoffPerStep = 0.0;
-    double expectedTransitionsPerStep = 0.0;
-    double expectedVariation = 0.0;
-    std::vector<std::vector<double>> transitionMatrix;
+    std::vector<double> expectedSteps(20, 0.0);
+    std::vector<double> expectedPayoffPerStep(20, 0.0);
+    std::vector<double> expectedTransitionsPerStep(20, 0.0);
+    std::vector<double> expectedVariation(20, 0.0);
+    std::vector<std::vector<std::vector<double>>> transitionMatrices(20);
 
     if (!computeExpectedSteps
     (
@@ -44,12 +46,11 @@ void processRepl(
         strategy,
         alpha, 
         shuffleSequence, 
-        20, // Fixed number of steps
         expectedSteps, 
         expectedPayoffPerStep, 
         expectedTransitionsPerStep, 
         expectedVariation,
-        transitionMatrix
+        transitionMatrices
     )) {
         ++failureCounts[idx];
         return;
@@ -61,17 +62,21 @@ void processRepl(
         std::string alphaStr = alphaStrStream.str();
 
         std::string strategyStr = strategyToString(strategy);
-        std::string fileName = "transition_mat_" + adjMatrixToBinaryString(adjMatrix) + "_strategy_" + strategyStr + "_alpha_" + alphaStr + ".csv";
-        std::string filePath = outputDir + "/" + fileName;
-        writeMatrixToCSV(filePath, transitionMatrix);
+        for (int step = 0; step < 20; ++step) {
+            std::string fileName = "transition_mat_" + adjMatrixToBinaryString(adjMatrix) + "_strategy_" + strategyStr + "_alpha_" + alphaStr + "_step_" + std::to_string(step + 1) + ".csv";
+            std::string filePath = outputDir + "/" + fileName;
+            writeMatrixToCSV(filePath, transitionMatrices[step]);
+        }
     }
 
     // Accumulate results
     AccumulatedResult& accumResult = accumulatedResults[idx];
     accumResult.count++;
-    accumResult.totalExpectedPayoffPerStep += expectedPayoffPerStep;
-    accumResult.totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
-    accumResult.totalExpectedVariation += expectedVariation;
+    for (int step = 0; step < 20; ++step) {
+        accumResult.totalExpectedPayoffPerStep += expectedPayoffPerStep[step];
+        accumResult.totalExpectedTransitionsPerStep += expectedTransitionsPerStep[step];
+        accumResult.totalExpectedVariation += expectedVariation[step];
+    }
 }
 
 size_t factorial(size_t num) {
@@ -143,6 +148,7 @@ int main(int argc, char* argv[]) {
                 comb.strategy,
                 comb.alpha,
                 comb.shuffleSequence,
+                comb.steps,
                 saveTransitionMatrices,
                 outputDir,
                 accumulatedResults,
@@ -169,18 +175,20 @@ int main(int argc, char* argv[]) {
             const AccumulatedResult& accumResult = accumulatedResults[i];
             if (accumResult.count > 0) {
                 const ParamCombination& comb = combinations[i];
-                std::string formattedResult = formatResults(
-                    n,
-                    adjMatrixToBinaryString(comb.adjMatrix),
-                    comb.alpha,
-                    comb.strategy,
-                    comb.repl,
-                    20, // Fixed number of steps
-                    accumResult.totalExpectedPayoffPerStep, 
-                    accumResult.totalExpectedTransitionsPerStep,
-                    accumResult.totalExpectedVariation 
-                );
-                csvData.push_back(formattedResult);
+                for (int step = 0; step < 20; ++step) {
+                    std::string formattedResult = formatResults(
+                        n,
+                        adjMatrixToBinaryString(comb.adjMatrix),
+                        comb.alpha,
+                        comb.strategy,
+                        comb.repl,
+                        step + 1, // Use step + 1 to represent the step number
+                        accumResult.totalExpectedPayoffPerStep / accumResult.count, 
+                        accumResult.totalExpectedTransitionsPerStep / accumResult.count,
+                        accumResult.totalExpectedVariation / accumResult.count 
+                    );
+                    csvData.push_back(formattedResult);
+                }
             }
         }
 

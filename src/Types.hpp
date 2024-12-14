@@ -24,7 +24,6 @@ struct ParamCombination {
     Strategy strategy;
     double alpha;
     int repl;
-    int steps;
     const std::vector<size_t>& shuffleSequence;
 };
 

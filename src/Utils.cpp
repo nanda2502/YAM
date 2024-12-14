@@ -48,7 +48,8 @@ std::string formatResults(
     int repl,
     double expectedSteps, 
     double expectedPayoffPerStep, 
-    double expectedTransitionsPerStep
+    double expectedTransitionsPerStep,
+    double expectedVariation
 ) {
     std::ostringstream oss;
     oss << n << ',' << 
@@ -58,7 +59,8 @@ std::string formatResults(
     repl << ',' << 
     std::fixed << std::setprecision(4) << expectedSteps << ',' << 
     expectedPayoffPerStep << ',' << 
-    expectedTransitionsPerStep;
+    expectedTransitionsPerStep << ',' <<
+    expectedVariation;
     return oss.str();
 }
 

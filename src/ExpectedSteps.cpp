@@ -285,6 +285,57 @@ double computeExpectedTransitionsPerStep(
     return expectedTransitionsPerStep;
 }
 
+double computeJaccardDistance(const Repertoire& state1, const Repertoire& state2) {
+    int intersectionCount = 0;
+    int unionCount = 0;
+
+    for (size_t i = 0; i < state1.size(); ++i) {
+        if (state1[i] || state2[i]) {
+            ++unionCount;
+            if (state1[i] && state2[i]) {
+                ++intersectionCount;
+            }
+        }
+    }
+
+    return 1.0 - static_cast<double>(intersectionCount) / static_cast<double>(unionCount);
+}
+
+double computeExpectedVariation(const std::vector<std::vector<double>>& transitionMatrix,
+                                const std::vector<Repertoire>& repertoires,
+                                int num_steps) {
+    size_t numStates = transitionMatrix.size();
+    std::vector<double> stateProbabilities(numStates, 0.0);
+    stateProbabilities[0] = 1.0; 
+
+    // Evolve state probabilities over num_steps
+    for (int step = 0; step < num_steps; ++step) {
+        std::vector<double> nextStateProbabilities(numStates, 0.0);
+
+        for (size_t i = 0; i < numStates; ++i) {
+            for (size_t j = 0; j < numStates; ++j) {
+                nextStateProbabilities[j] += stateProbabilities[i] * transitionMatrix[i][j];
+            }
+        }
+
+        stateProbabilities = nextStateProbabilities;
+    }
+
+    double totalExpectedJaccardDistance = 0.0;
+    size_t numComparisons = 0;
+
+    for (size_t i = 0; i < repertoires.size(); ++i) {
+        for (size_t j = i + 1; j < repertoires.size(); ++j) {
+            double jaccardDistance = computeJaccardDistance(repertoires[i], repertoires[j]);
+            totalExpectedJaccardDistance += stateProbabilities[i] * stateProbabilities[j] * jaccardDistance;
+            ++numComparisons;
+        }
+    }
+
+    return (numComparisons == 0) ? 0.0 : totalExpectedJaccardDistance / numComparisons;
+}
+
+
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
@@ -293,7 +344,8 @@ bool computeExpectedSteps(
     int num_steps, 
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
-    double& expectedTransitionsPerStep,                     
+    double& expectedTransitionsPerStep,
+    double& expectedVariation,                       
     std::vector<std::vector<double>>& transitionMatrix 
 ) {
     try {
@@ -485,6 +537,13 @@ bool computeExpectedSteps(
         expectedTransitionsPerStep = computeExpectedTransitionsPerStep(
             transitionMatrix,
             initialStateIndex,
+            num_steps
+        );
+
+        // Compute expected variation in traits
+        expectedVariation = computeExpectedVariation(
+            transitionMatrix, 
+            finalRepertoiresList, 
             num_steps
         );
 

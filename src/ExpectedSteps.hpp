@@ -64,6 +64,7 @@ bool computeExpectedSteps(
     double& expectedSteps,                             // Output parameter for expected steps
     double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
     double& expectedTransitionsPerStep,                // Output parameter for expected transitions per step
+    double& expectedVariation,                          // Output parameter for expected variation in traits
     std::vector<std::vector<double>>& transitionMatrix // Output parameter for the transition matrix
 );
 

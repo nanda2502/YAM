@@ -37,12 +37,14 @@ struct Result {
     double expectedSteps;
     double expectedPayoffPerStep;
     double expectedTransitionsPerStep;
+    double expectedVariation;
 };
 
 struct AccumulatedResult {
     int count = 0;
     double totalExpectedPayoffPerStep = 0.0;
     double totalExpectedTransitionsPerStep = 0.0;
+    double totalExpectedVariation = 0.0;
 };
 
 #endif // TYPES_HPP

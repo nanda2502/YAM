@@ -37,9 +37,22 @@ void processRepl(
     double expectedSteps = 0.0;
     double expectedPayoffPerStep = 0.0;
     double expectedTransitionsPerStep = 0.0;
+    double expectedVariation = 0.0;
     std::vector<std::vector<double>> transitionMatrix;
 
-    if (!computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, num_steps, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
+    if (!computeExpectedSteps
+    (
+        adjMatrix,
+        strategy,
+        alpha, 
+        shuffleSequence, 
+        num_steps, 
+        expectedSteps, 
+        expectedPayoffPerStep, 
+        expectedTransitionsPerStep, 
+        expectedVariation,
+        transitionMatrix
+    )) {
         ++failureCounts[idx];
         return;
     }
@@ -60,6 +73,7 @@ void processRepl(
     accumResult.count++;
     accumResult.totalExpectedPayoffPerStep += expectedPayoffPerStep;
     accumResult.totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
+    accumResult.totalExpectedVariation += expectedVariation;
 }
 
 size_t factorial(size_t num) {
@@ -79,7 +93,8 @@ int main(int argc, char* argv[]) {
     std::cout << std::fixed << std::setprecision(4);
     try {
         // Define parameters
-        std::vector<int> stepVector(20);
+        // To do: It would be massively beneficial for performance to instead loop over steps in the computeExpectedSteps function
+        std::vector<int> stepVector(20); 
         std::iota(stepVector.begin(), stepVector.end(), 1);
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
@@ -151,7 +166,7 @@ int main(int argc, char* argv[]) {
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
 
         // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -168,7 +183,8 @@ int main(int argc, char* argv[]) {
                     comb.repl,
                     comb.steps, // Use comb.steps directly since expectedSteps maps to num_steps
                     accumResult.totalExpectedPayoffPerStep, 
-                    accumResult.totalExpectedTransitionsPerStep 
+                    accumResult.totalExpectedTransitionsPerStep,
+                    accumResult.totalExpectedVariation 
                 );
                 csvData.push_back(formattedResult);
             }

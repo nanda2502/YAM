@@ -13,14 +13,12 @@
 #include "Types.hpp"
 #include "ExpectedSteps.hpp"
 
-
 void processRepl(
     int repl,
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
     double alpha,
     const std::vector<size_t>& shuffleSequence,
-    int num_steps,
     bool saveTransitionMatrices,
     const std::string &outputDir,
     std::vector<AccumulatedResult>& accumulatedResults,
@@ -46,7 +44,7 @@ void processRepl(
         strategy,
         alpha, 
         shuffleSequence, 
-        num_steps, 
+        20, // Fixed number of steps
         expectedSteps, 
         expectedPayoffPerStep, 
         expectedTransitionsPerStep, 
@@ -93,9 +91,6 @@ int main(int argc, char* argv[]) {
     std::cout << std::fixed << std::setprecision(4);
     try {
         // Define parameters
-        // To do: It would be massively beneficial for performance to instead loop over steps in the computeExpectedSteps function
-        std::vector<int> stepVector(20); 
-        std::iota(stepVector.begin(), stepVector.end(), 1);
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
             Strategy::RandomLearning,
@@ -125,10 +120,10 @@ int main(int argc, char* argv[]) {
             shuffleSequences.push_back(perm);
         } while (std::next_permutation(perm.begin(), perm.end())); 
     
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size() * shuffleSequences.size() << " runs." << '\n';
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * shuffleSequences.size() << " runs." << '\n';
     
         // Prepare the combinations
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector, shuffleSequences);
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, shuffleSequences);
 
         // Accumulate results for each parameter combination excluding shuffle sequence
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
@@ -148,7 +143,6 @@ int main(int argc, char* argv[]) {
                 comb.strategy,
                 comb.alpha,
                 comb.shuffleSequence,
-                comb.steps,
                 saveTransitionMatrices,
                 outputDir,
                 accumulatedResults,
@@ -181,7 +175,7 @@ int main(int argc, char* argv[]) {
                     comb.alpha,
                     comb.strategy,
                     comb.repl,
-                    comb.steps, // Use comb.steps directly since expectedSteps maps to num_steps
+                    20, // Fixed number of steps
                     accumResult.totalExpectedPayoffPerStep, 
                     accumResult.totalExpectedTransitionsPerStep,
                     accumResult.totalExpectedVariation 

@@ -512,40 +512,63 @@ bool computeExpectedSteps(
         initialRepertoire[rootNode] = true;
         int initialStateIndex = finalRepertoireIndexMap[initialRepertoire];
 
-        // Expected steps is the number of steps we simulate
-        expectedSteps = static_cast<double>(num_steps);
+        // Initialize vectors to accumulate results
+        std::vector<double> expectedStepsVector(20, 0.0);
+        std::vector<double> expectedPayoffPerStepVector(20, 0.0);
+        std::vector<double> expectedTransitionsPerStepVector(20, 0.0);
+        std::vector<double> expectedVariationVector(20, 0.0);
 
-        // Compute expected payoff per step
-        std::vector<double> statePayoffs(finalRepertoiresList.size(), 0.0);
-        for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
-            const auto& repertoire = finalRepertoiresList[i];
-            for (size_t j = 0; j < repertoire.size(); ++j) {
-                if (repertoire[j]) {
-                    statePayoffs[i] += payoffs[j];
+        // Loop over steps internally and accumulate results
+        for (int step = 1; step <= 20; ++step) {
+            // Expected steps is the number of steps we simulate
+            expectedSteps = static_cast<double>(step);
+
+            // Compute expected payoff per step
+            std::vector<double> statePayoffs(finalRepertoiresList.size(), 0.0);
+            for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
+                const auto& repertoire = finalRepertoiresList[i];
+                for (size_t j = 0; j < repertoire.size(); ++j) {
+                    if (repertoire[j]) {
+                        statePayoffs[i] += payoffs[j];
+                    }
                 }
             }
+
+            expectedPayoffPerStep = computeExpectedPayoffOverNSteps(
+                transitionMatrix,
+                statePayoffs,
+                initialStateIndex,
+                step
+            );
+
+            // Compute expected transitions per step
+            expectedTransitionsPerStep = computeExpectedTransitionsPerStep(
+                transitionMatrix,
+                initialStateIndex,
+                step
+            );
+
+            // Compute expected variation in traits
+            expectedVariation = computeExpectedVariation(
+                transitionMatrix, 
+                finalRepertoiresList, 
+                step
+            );
+
+            // Accumulate results
+            expectedStepsVector[step - 1] = expectedSteps;
+            expectedPayoffPerStepVector[step - 1] = expectedPayoffPerStep;
+            expectedTransitionsPerStepVector[step - 1] = expectedTransitionsPerStep;
+            expectedVariationVector[step - 1] = expectedVariation;
         }
 
-        expectedPayoffPerStep = computeExpectedPayoffOverNSteps(
-            transitionMatrix,
-            statePayoffs,
-            initialStateIndex,
-            num_steps
-        );
-
-        // Compute expected transitions per step
-        expectedTransitionsPerStep = computeExpectedTransitionsPerStep(
-            transitionMatrix,
-            initialStateIndex,
-            num_steps
-        );
-
-        // Compute expected variation in traits
-        expectedVariation = computeExpectedVariation(
-            transitionMatrix, 
-            finalRepertoiresList, 
-            num_steps
-        );
+        // Output 20 rows for the final CSV
+        for (int step = 1; step <= 20; ++step) {
+            std::cout << "Step: " << step << ", Expected Steps: " << expectedStepsVector[step - 1]
+                      << ", Expected Payoff Per Step: " << expectedPayoffPerStepVector[step - 1]
+                      << ", Expected Transitions Per Step: " << expectedTransitionsPerStepVector[step - 1]
+                      << ", Expected Variation: " << expectedVariationVector[step - 1] << '\n';
+        }
 
         return true;
 

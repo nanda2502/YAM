@@ -173,6 +173,10 @@ double computeExpectedPayoffOverNSteps(
     double totalExpectedPayoff = 0.0;
 
     DEBUG_PRINT(1, "Starting Computation of Expected Payoff Over " << n << " Steps");
+    DEBUG_PRINT(1, "Initial State Distribution:");
+    for (int k = 0; k < numStates; ++k) {
+        DEBUG_PRINT(1, "State " << k << ": " << stateDistribution[k]);
+    }
 
     for (int step = 0; step < n; ++step) {
         // Update state distribution for the next step
@@ -185,16 +189,20 @@ double computeExpectedPayoffOverNSteps(
         stateDistribution = nextStateDistribution;
 
         // Compute expected payoff at this step
-        // Start accumulating payoffs from step 1 and beyond
         double expectedPayoffThisStep = 0.0;
         for (int i = 0; i < numStates; ++i) {
             expectedPayoffThisStep += stateDistribution[i] * statePayoffs[i];
         }
         totalExpectedPayoff += expectedPayoffThisStep;
-        DEBUG_PRINT(1, "Expected payoff at Step " << step << " : " << expectedPayoffThisStep);
+
+        DEBUG_PRINT(1, "State Distribution at Step " << step + 1 << ":");
+        for (int k = 0; k < numStates; ++k) {
+            DEBUG_PRINT(1, "State " << k << ": " << stateDistribution[k]);
+        }
+        DEBUG_PRINT(1, "Expected payoff at Step " << step + 1 << ": " << expectedPayoffThisStep);
     }
 
-    DEBUG_PRINT(1, "Total Expected Payoff: " << totalExpectedPayoff);
+    DEBUG_PRINT(1, "Total Expected Payoff over " << n << " Steps: " << totalExpectedPayoff);
     
     // Compute expected payoff per step
     double expectedPayoffPerStep = totalExpectedPayoff / n;
@@ -245,7 +253,6 @@ double computeExpectedPayoffAtNSteps(
 
     return expectedPayoffAtNSteps;
 }
-
 
 double computeExpectedStepsFromMatrix(const std::vector<std::vector<double>>& LU, const std::vector<int>& p,  int initialStateNewIndex) {
     // Set up the b vector (ones)
@@ -577,6 +584,7 @@ bool computeExpectedSteps(
             }
         }
 
+        expectedPayoffPerStep = computeExpectedPayoffAtNSteps(
         expectedPayoffPerStep = computeExpectedPayoffAtNSteps(
             transitionMatrix,
             statePayoffs,

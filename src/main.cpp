@@ -155,7 +155,7 @@ int main(int argc, char* argv[]) {
                     comb.alpha,
                     comb.strategy,
                     comb.repl,
-                    comb.steps, // Use comb.steps directly since expectedSteps maps to num_steps
+                    comb.steps, 
                     accumResult.totalExpectedPayoffPerStep, 
                     accumResult.totalExpectedTransitionsPerStep,
                     accumResult.totalExpectedVariation 

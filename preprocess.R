@@ -87,7 +87,7 @@ clean_file <- function(data) {
 }
 
 read_file <- function(num_nodes) {
-  data <- read.csv(gzfile(paste0("./output/expected_steps_", num_nodes, ".csv.gz")), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character"))
+  data <- read.csv(paste0("./output/expected_steps_", num_nodes, ".csv"), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character"))
   data$strategy <- factor(
     data$strategy,
     levels = c(
@@ -139,7 +139,7 @@ average_over_lambda <- function(data) {
   outcome_vars <- c("step_payoff", "step_transitions", "step_variation")
   other_vars_to_retain <- c("num_nodes", "avg_path_length", "expected_traits")
   
-  lambda_values <- seq(0.1, 20, by = 0.1)
+  lambda_values <- seq(1, 20, by = 1)
   
   subsets <- lapply(lambda_values, function(lambda) {
     data <- data %>%

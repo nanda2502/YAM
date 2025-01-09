@@ -67,7 +67,6 @@ plot_graph <- function(adj_string) {
   adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
   graph <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
   plot(graph, layout = layout_as_tree(graph))
-  
 }
 
 plotUnconstrained <- function(data, num_steps) {
@@ -378,13 +377,7 @@ plot_graph_panel <- function(df) {
   n_cols <- ceiling(sqrt(n_plots))
   n_rows <- ceiling(n_plots / n_cols)
   
-  n_cols <- 7
-  n_rows <- 1
-  
   combined_plot <- plot_grid(plotlist = plot_list, ncol = n_cols, nrow = n_rows, align = 'none')
-  
-  pdf_width <- n_cols * 1.5
-  pdf_height <- n_rows * 1.5
   
   print(combined_plot)
   combined_plot

@@ -6,7 +6,6 @@
 #include <iostream>
 #include <cstdio>
 #include <unordered_map>
-#include <zlib.h>
 
 void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector<double>>& matrix) {
     std::ofstream file(filename);
@@ -153,7 +152,7 @@ int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices) {
     return numNodes;
 }
 
-void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData) {
+void writeCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData) {
     // Construct the output CSV file path
     std::string outputCsvPath = outputDir + "/expected_steps_" + std::to_string(n) + ".csv";
 
@@ -168,32 +167,7 @@ void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<
     }
     csvFile.close();
 
-    // Compress the CSV file using gzip
-    std::string compressedFilePath = outputCsvPath + ".gz";
-    FILE* source = fopen(outputCsvPath.c_str(), "rb");
-    gzFile dest = gzopen(compressedFilePath.c_str(), "wb");
-    if ((source == nullptr) || (dest == nullptr)) {
-        std::cerr << "Failed to open files for compression\n";
-        if (source != nullptr) fclose(source);
-        if (dest != nullptr) gzclose(dest);
-        return;
-    }
-
-    char buffer[8192];
-    int bytesRead = 0;
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), source)) > 0) {
-        gzwrite(dest, buffer, bytesRead);
-    }
-
-    fclose(source);
-    gzclose(dest);
-
-    // Remove the original uncompressed file
-    if (std::remove(outputCsvPath.c_str()) != 0) {
-        std::cerr << "Failed to remove original file: " << outputCsvPath << '\n';
-    }
-
-    std::cout << "Expected steps to absorption saved and compressed to '" << compressedFilePath << "'\n";
+    std::cout << "Expected steps to absorption saved to '" << outputCsvPath << "'\n";
 }
 
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
@@ -213,8 +187,7 @@ std::vector<ParamCombination> makeCombinations(
     const std::vector<Strategy>& strategies, 
     const std::vector<double>& alphas,
     int replications, 
-    const std::vector<int>& stepVector,
-    const std::vector<std::vector<size_t>>& shuffleSequences 
+    const std::vector<int>& stepVector
 ) {
     std::vector<ParamCombination> combinations;
     for (const auto& adjMatrix : adjacencyMatrices) {
@@ -223,16 +196,14 @@ std::vector<ParamCombination> makeCombinations(
             for (const auto& alpha : alphas) {
                 for (int repl = 0; repl < replications; ++repl) {
                     for (const auto& steps : stepVector) {
-                        for (const auto& shuffleSequence : shuffleSequences) {
-                            combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, steps, shuffleSequence});
-                        }
+                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, steps});
                     }
                 }
             }
         }
     }
     return combinations;
-};
+}
 
 std::string stateToString(const Repertoire& state) {
     std::string binaryString;

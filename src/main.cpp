@@ -1,11 +1,9 @@
+#include <atomic>
 #include <iostream>
 #include <algorithm>
-#include <execution>
 #include <vector>
 #include <string>
-#include <sstream>
 #include <filesystem>
-#include <random>
 #include <iomanip>
 
 #include "Debug.hpp"
@@ -15,65 +13,43 @@
 
 
 void processRepl(
-    int repl,
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
     double alpha,
-    const std::vector<size_t>& shuffleSequence,
-    int num_steps,
-    bool saveTransitionMatrices,
-    const std::string &outputDir,
-    std::vector<AccumulatedResult>& accumulatedResults,
-    size_t idx,
-    std::vector<std::atomic<int>>& failureCounts  
+    int steps,
+    const std::vector<std::vector<size_t>>& shuffleSequences,
+    AccumulatedResult& accumResult,
+    std::atomic<int>& failureCount
 ) {
-    DEBUG_PRINT(1, "Replication:");
-    if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
-    DEBUG_PRINT(1, "Strategy:")
-    if (DEBUG_LEVEL >= 1) std::cout << strategyToString(strategy) << '\n';
+    double totalExpectedPayoffPerStep = 0.0;
+    double totalExpectedTransitionsPerStep = 0.0;
+    double totalExpectedVariation = 0.0;
+    int successCount = 0;
 
-    std::mt19937 gen(repl);
+    for (const auto& shuffleSequence : shuffleSequences) {
+        double expectedSteps = 0.0;
+        double expectedPayoffPerStep = 0.0;
+        double expectedTransitionsPerStep = 0.0;
+        double expectedVariation = 0.0;
+        std::vector<std::vector<double>> transitionMatrix;
 
-    double expectedSteps = 0.0;
-    double expectedPayoffPerStep = 0.0;
-    double expectedTransitionsPerStep = 0.0;
-    double expectedVariation = 0.0;
-    std::vector<std::vector<double>> transitionMatrix;
 
-    if (!computeExpectedSteps
-    (
-        adjMatrix,
-        strategy,
-        alpha, 
-        shuffleSequence, 
-        num_steps, 
-        expectedSteps, 
-        expectedPayoffPerStep, 
-        expectedTransitionsPerStep, 
-        expectedVariation,
-        transitionMatrix
-    )) {
-        ++failureCounts[idx];
-        return;
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, steps, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix)) {
+            totalExpectedPayoffPerStep += expectedPayoffPerStep;
+            totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
+            totalExpectedVariation += expectedVariation;
+            successCount++;
+        } else {
+            ++failureCount;
+        }
     }
 
-    if (saveTransitionMatrices) {
-        std::ostringstream alphaStrStream;
-        alphaStrStream << std::fixed << std::setprecision(4) << alpha;
-        std::string alphaStr = alphaStrStream.str();
-
-        std::string strategyStr = strategyToString(strategy);
-        std::string fileName = "transition_mat_" + adjMatrixToBinaryString(adjMatrix) + "_strategy_" + strategyStr + "_alpha_" + alphaStr + ".csv";
-        std::string filePath = outputDir + "/" + fileName;
-        writeMatrixToCSV(filePath, transitionMatrix);
+    if (successCount > 0) {
+        accumResult.count++;
+        accumResult.totalExpectedPayoffPerStep += totalExpectedPayoffPerStep / successCount;
+        accumResult.totalExpectedTransitionsPerStep += totalExpectedTransitionsPerStep / successCount;
+        accumResult.totalExpectedVariation += totalExpectedVariation / successCount;
     }
-
-    // Accumulate results
-    AccumulatedResult& accumResult = accumulatedResults[idx];
-    accumResult.count++;
-    accumResult.totalExpectedPayoffPerStep += expectedPayoffPerStep;
-    accumResult.totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
-    accumResult.totalExpectedVariation += expectedVariation;
 }
 
 size_t factorial(size_t num) {
@@ -119,7 +95,7 @@ int main(int argc, char* argv[]) {
         std::iota(perm.begin(), perm.end(), 0);
         size_t sequenceCount = factorial(n - 1);
         std::vector<std::vector<size_t>> shuffleSequences;
-        shuffleSequences.reserve(sequenceCount);  // Reserve space in advance
+        shuffleSequences.reserve(sequenceCount);  
 
         do {
             shuffleSequences.push_back(perm);
@@ -128,7 +104,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size() * shuffleSequences.size() << " runs." << '\n';
     
         // Prepare the combinations
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector, shuffleSequences);
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector);
 
         // Accumulate results for each parameter combination excluding shuffle sequence
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
@@ -140,22 +116,20 @@ int main(int argc, char* argv[]) {
         std::iota(indices.begin(), indices.end(), 0);
     
         // Process all combinations in parallel
-        std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t idx) {
+        #pragma omp parallel for
+        for (size_t i = 0; i < indices.size(); ++i) {
+            size_t idx = indices[i];
             const ParamCombination& comb = combinations[idx];
             processRepl(
-                comb.repl,
                 comb.adjMatrix,
                 comb.strategy,
                 comb.alpha,
-                comb.shuffleSequence,
                 comb.steps,
-                saveTransitionMatrices,
-                outputDir,
-                accumulatedResults,
-                idx,
-                failureCounts  
+                shuffleSequences,
+                accumulatedResults[idx],
+                failureCounts[idx]
             );
-        });
+        }
     
         // Compute total failures
         int totalFailures = std::accumulate(failureCounts.begin(), failureCounts.end(), 0, [](int sum, const std::atomic<int>& val) {
@@ -190,8 +164,8 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Write and compress CSV output
-        writeAndCompressCSV(outputDir, n, csvData);
+        // Write output to CSV
+        writeCSV(outputDir, n, csvData);
        
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << '\n';

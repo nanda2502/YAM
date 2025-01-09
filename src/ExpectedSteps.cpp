@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <numeric>
 #include <cmath>
+#include <vector>
 
 
 // Helper function to extract Q matrix and compute (I - Q)
@@ -200,6 +201,52 @@ double computeExpectedPayoffOverNSteps(
     return expectedPayoffPerStep;
 }
 
+double computeExpectedPayoffAtNSteps(
+    const std::vector<std::vector<double>>& transitionMatrix,
+    const std::vector<double>& statePayoffs,
+    int initialStateIndex,
+    int n // Number of steps to simulate
+) {
+    int numStates = static_cast<int>(transitionMatrix.size());
+
+    // Initialize the state distribution: start in the initial state
+    std::vector<double> stateDistribution(numStates, 0.0);
+    stateDistribution[initialStateIndex] = 1.0;
+
+    DEBUG_PRINT(1, "Starting Computation of Expected Payoff at " << n << " Steps");
+    DEBUG_PRINT(1, "Initial State Distribution:");
+    for (int k = 0; k < numStates; ++k) {
+        DEBUG_PRINT(1, "State " << k << ": " << stateDistribution[k]);
+    }
+
+    for (int step = 0; step < n; ++step) {
+        // Update state distribution for the next step
+        std::vector<double> nextStateDistribution(numStates, 0.0);
+        for (int i = 0; i < numStates; ++i) {
+            for (int j = 0; j < numStates; ++j) {
+                nextStateDistribution[j] += stateDistribution[i] * transitionMatrix[i][j];
+            }
+        }
+        stateDistribution = nextStateDistribution; // Update the state distribution
+
+        DEBUG_PRINT(1, "State Distribution at Step " << step + 1 << ":");
+        for (int k = 0; k < numStates; ++k) {
+            DEBUG_PRINT(1, "State " << k << ": " << stateDistribution[k]);
+        }
+    }
+
+    // Compute expected payoff at step n
+    double expectedPayoffAtNSteps = 0.0;
+    for (int i = 0; i < numStates; ++i) {
+        expectedPayoffAtNSteps += stateDistribution[i] * statePayoffs[i];
+    }
+
+    DEBUG_PRINT(1, "Expected payoff at Step " << n << " : " << expectedPayoffAtNSteps);
+
+    return expectedPayoffAtNSteps;
+}
+
+
 double computeExpectedStepsFromMatrix(const std::vector<std::vector<double>>& LU, const std::vector<int>& p,  int initialStateNewIndex) {
     // Set up the b vector (ones)
     int numTransientStates = static_cast<int>(LU.size());
@@ -355,6 +402,7 @@ bool computeExpectedSteps(
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
         PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence);
 
+
         // print payoffs
         DEBUG_PRINT(2, "Payoffs:");
         if(DEBUG_LEVEL >= 2) {
@@ -376,8 +424,11 @@ bool computeExpectedSteps(
         DEBUG_PRINT(1, "Building initial transition matrix with uniform trait frequencies");
         auto allStates = generateAllRepertoires(adjacencyMatrix, parents);
 
+        // this won't be used, but the function requires it as an argument
+        std::vector<double> initialStateFrequencies(allStates.size(), 1.0);
+
         // Generate repertoires based on initial traitFrequencies
-        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents);
+        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         for (size_t i = 0; i < repertoiresList.size(); ++i) {
@@ -487,7 +538,7 @@ bool computeExpectedSteps(
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
-            strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents
+            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents
         );
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
 
@@ -526,7 +577,7 @@ bool computeExpectedSteps(
             }
         }
 
-        expectedPayoffPerStep = computeExpectedPayoffOverNSteps(
+        expectedPayoffPerStep = computeExpectedPayoffAtNSteps(
             transitionMatrix,
             statePayoffs,
             initialStateIndex,

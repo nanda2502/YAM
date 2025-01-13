@@ -585,7 +585,6 @@ bool computeExpectedSteps(
         }
 
         expectedPayoffPerStep = computeExpectedPayoffAtNSteps(
-        expectedPayoffPerStep = computeExpectedPayoffAtNSteps(
             transitionMatrix,
             statePayoffs,
             initialStateIndex,

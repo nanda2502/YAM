@@ -8,21 +8,6 @@
 
 std::vector<bool> learnability(const Repertoire& repertoire, const Parents& parents);
 
-std::vector<double> baseWeights(
-    Strategy strategy,
-    const Repertoire& repertoire,
-    const PayoffVector& payoffs,
-    const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates 
-);
-
-std::vector<double> normalizedWeights(
-    Strategy strategy,
-    const Repertoire& repertoire,
-    const PayoffVector& payoffs,
-    const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates
-);
 
 // In this version, trait frequency is the probability that a trait is considered for learning
 std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, std::mt19937& gen);
@@ -34,6 +19,7 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const Repertoire& repertoire, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
+    const std::vector<double>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents
 );
@@ -51,6 +37,7 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
+    const std::vector<double>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents
 );

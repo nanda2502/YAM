@@ -35,6 +35,8 @@ std::string strategyToString(Strategy strategy) {
             return "PrestigeBasedLearning";
         case ConformityBasedLearning:
             return "ConformityBasedLearning";
+        case SimilarityBasedLearning:
+            return "SimilarityBasedLearning";
         default:
             throw std::invalid_argument("Unknown strategy");
     }
@@ -48,7 +50,8 @@ std::string formatResults(
     int repl,
     double expectedSteps, 
     double expectedPayoffPerStep, 
-    double expectedTransitionsPerStep
+    double expectedTransitionsPerStep,
+    double expectedVariation
 ) {
     std::ostringstream oss;
     oss << n << ',' << 
@@ -58,7 +61,8 @@ std::string formatResults(
     repl << ',' << 
     std::fixed << std::setprecision(4) << expectedSteps << ',' << 
     expectedPayoffPerStep << ',' << 
-    expectedTransitionsPerStep;
+    expectedTransitionsPerStep << ',' <<
+    expectedVariation;
     return oss.str();
 }
 

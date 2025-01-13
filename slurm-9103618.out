@@ -1,0 +1,15 @@
+slurmstepd: error: *** JOB 9103618 ON tcn36 CANCELLED AT 2024-12-18T14:47:02 ***
+
+JOB STATISTICS
+==============
+Job ID: 9103618
+Cluster: snellius
+User/Group: njafarian/njafarian
+State: CANCELLED (exit code 0)
+Nodes: 1
+Cores per node: 64
+CPU Utilized: 00:00:00
+CPU Efficiency: 0.00% of 01:13:36 core-walltime
+Job Wall-clock time: 00:01:09
+Memory Utilized: 49.43 MB
+Memory Efficiency: 0.04% of 112.00 GB

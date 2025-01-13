@@ -3,12 +3,7 @@
 #include <algorithm>
 #include <vector>
 #include <string>
-#include <sstream>
 #include <filesystem>
-#include <random>
-#include <iomanip>
-#include <execution>
-
 
 #include "Debug.hpp"
 #include "Utils.hpp"
@@ -22,24 +17,26 @@ void processRepl(
     double alpha,
     int steps,
     const std::vector<std::vector<size_t>>& shuffleSequences,
-    bool saveTransitionMatrices,
-    const std::string &outputDir,
     AccumulatedResult& accumResult,
     std::atomic<int>& failureCount
 ) {
     double totalExpectedPayoffPerStep = 0.0;
     double totalExpectedTransitionsPerStep = 0.0;
+    double totalExpectedVariation = 0.0;
     int successCount = 0;
 
     for (const auto& shuffleSequence : shuffleSequences) {
         double expectedSteps = 0.0;
         double expectedPayoffPerStep = 0.0;
         double expectedTransitionsPerStep = 0.0;
+        double expectedVariation = 0.0;
         std::vector<std::vector<double>> transitionMatrix;
 
-        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, steps, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
+
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, steps, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix)) {
             totalExpectedPayoffPerStep += expectedPayoffPerStep;
             totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
+            totalExpectedVariation += expectedVariation;
             successCount++;
         } else {
             ++failureCount;
@@ -50,6 +47,7 @@ void processRepl(
         accumResult.count++;
         accumResult.totalExpectedPayoffPerStep += totalExpectedPayoffPerStep / successCount;
         accumResult.totalExpectedTransitionsPerStep += totalExpectedTransitionsPerStep / successCount;
+        accumResult.totalExpectedVariation += totalExpectedVariation / successCount;
     }
 }
 
@@ -64,17 +62,17 @@ size_t factorial(size_t num) {
 int main(int argc, char* argv[]) {
     bool saveTransitionMatrices = false;
     int adj_int = parseArgs(argc, argv, saveTransitionMatrices);
-    int n = 7;
+    int n = 8;
     int replications = 1;
     try {
         std::vector<int> stepVector(20);
         std::iota(stepVector.begin(), stepVector.end(), 1);
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
-            //Strategy::RandomLearning,
-            //Strategy::PayoffBasedLearning,
-            //Strategy::ProximalLearning,
-            //Strategy::PrestigeBasedLearning,
+            Strategy::RandomLearning,
+            Strategy::PayoffBasedLearning,
+            Strategy::ProximalLearning,
+            Strategy::PrestigeBasedLearning,
             Strategy::ConformityBasedLearning
         };
     
@@ -115,8 +113,6 @@ int main(int argc, char* argv[]) {
                 comb.alpha,
                 comb.steps,
                 shuffleSequences,
-                saveTransitionMatrices,
-                outputDir,
                 accumulatedResults[idx],
                 failureCounts[idx]
             );
@@ -128,7 +124,7 @@ int main(int argc, char* argv[]) {
     
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
 
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -144,7 +140,8 @@ int main(int argc, char* argv[]) {
                     comb.repl,
                     comb.steps,
                     accumResult.totalExpectedPayoffPerStep,
-                    accumResult.totalExpectedTransitionsPerStep 
+                    accumResult.totalExpectedTransitionsPerStep,
+                    accumResult.totalExpectedVariation 
                 );
                 csvData.push_back(formattedResult);
             }

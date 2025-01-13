@@ -1,0 +1,18 @@
+Loaded 554 adjacency matrices.
+Starting 504000 runs.
+Total failures: 0
+Expected steps to absorption saved and compressed to '../output/expected_steps_0.csv.gz'
+
+JOB STATISTICS
+==============
+Job ID: 9103630
+Cluster: snellius
+User/Group: njafarian/njafarian
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 128
+CPU Utilized: 01:00:55
+CPU Efficiency: 46.06% of 02:12:16 core-walltime
+Job Wall-clock time: 00:01:02
+Memory Utilized: 103.07 MB
+Memory Efficiency: 0.04% of 224.00 GB

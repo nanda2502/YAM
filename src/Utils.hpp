@@ -19,7 +19,8 @@ std::string formatResults(
     double expectedSteps, 
     double expectedPayoffPerStep, 
     double expectedTransitionsPerStep,
-    double expectedVariation
+    double expectedVariation,
+    double slope
 );
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);

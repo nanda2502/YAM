@@ -61,6 +61,7 @@ bool computeExpectedSteps(
     double alpha,
     const std::vector<size_t>& shuffleSequence,
     int num_steps,
+    double slope, 
     double& expectedSteps,                             // Output parameter for expected steps
     double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
     double& expectedTransitionsPerStep,                // Output parameter for expected transitions per step

@@ -396,11 +396,12 @@ bool computeExpectedSteps(
     double alpha,
     const std::vector<size_t>& shuffleSequence,
     int num_steps, 
+    double slope,
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
     double& expectedTransitionsPerStep,
     double& expectedVariation,                       
-    std::vector<std::vector<double>>& transitionMatrix 
+    std::vector<std::vector<double>>& transitionMatrix
 ) {
     try {
         // Initialization
@@ -435,7 +436,7 @@ bool computeExpectedSteps(
         std::vector<double> initialStateFrequencies(allStates.size(), 1.0);
 
         // Generate repertoires based on initial traitFrequencies
-        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents);
+        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents, slope);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         for (size_t i = 0; i < repertoiresList.size(); ++i) {
@@ -545,7 +546,7 @@ bool computeExpectedSteps(
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
-            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents
+            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope
         );
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
 

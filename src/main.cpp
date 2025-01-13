@@ -17,6 +17,7 @@ void processRepl(
     const Strategy& strategy,
     double alpha,
     int steps,
+    double slope,
     const std::vector<std::vector<size_t>>& shuffleSequences,
     AccumulatedResult& accumResult,
     std::atomic<int>& failureCount
@@ -34,7 +35,7 @@ void processRepl(
         std::vector<std::vector<double>> transitionMatrix;
 
 
-        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, steps, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix)) {
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, steps, slope, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix)) {
             totalExpectedPayoffPerStep += expectedPayoffPerStep;
             totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
             totalExpectedVariation += expectedVariation;
@@ -99,9 +100,10 @@ int main(int argc, char* argv[]) {
 
         do {
             shuffleSequences.push_back(perm);
-        } while (std::next_permutation(perm.begin(), perm.end())); 
-    
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size() * shuffleSequences.size() << " runs." << '\n';
+        } while (std::next_permutation(perm.begin(), perm.end()));
+
+        
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size() * shuffleSequences.size() * 5 << " runs." << '\n';
     
         // Prepare the combinations
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector);
@@ -125,6 +127,7 @@ int main(int argc, char* argv[]) {
                 comb.strategy,
                 comb.alpha,
                 comb.steps,
+                comb.slope,
                 shuffleSequences,
                 accumulatedResults[idx],
                 failureCounts[idx]
@@ -140,11 +143,11 @@ int main(int argc, char* argv[]) {
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
 
         // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
-        // Calculate averages and prepare CSV output
+        // Prepare CSV output
         for (size_t i = 0; i < accumulatedResults.size(); ++i) {
             const AccumulatedResult& accumResult = accumulatedResults[i];
             if (accumResult.count > 0) {
@@ -158,7 +161,8 @@ int main(int argc, char* argv[]) {
                     comb.steps, 
                     accumResult.totalExpectedPayoffPerStep, 
                     accumResult.totalExpectedTransitionsPerStep,
-                    accumResult.totalExpectedVariation 
+                    accumResult.totalExpectedVariation,
+                    comb.slope 
                 );
                 csvData.push_back(formattedResult);
             }

@@ -110,7 +110,7 @@ read_file <- function(num_nodes) {
 
 average_over_replications <- function(data) {
   outcome_vars <- c("step_payoff", "step_transitions")
-  grouping_vars <- c("num_nodes", "alpha", "strategy", "adj_mat", "steps", "step_variation")
+  grouping_vars <- c("num_nodes", "alpha", "strategy", "adj_mat", "steps", "slope")
   
   data <- data %>%
     group_by(across(all_of(grouping_vars))) %>%
@@ -137,7 +137,7 @@ read_all <- function(numbers) {
 
 average_over_lambda <- function(data) {
   outcome_vars <- c("step_payoff", "step_transitions", "step_variation")
-  other_vars_to_retain <- c("num_nodes", "avg_path_length", "expected_traits")
+  other_vars_to_retain <- c("num_nodes", "avg_path_length", "slope")
   
   lambda_values <- seq(1, 20, by = 1)
   

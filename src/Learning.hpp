@@ -10,7 +10,7 @@ std::vector<bool> learnability(const Repertoire& repertoire, const Parents& pare
 
 
 // In this version, trait frequency is the probability that a trait is considered for learning
-std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, std::mt19937& gen);
+std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, std::mt19937& gen, double slope);
 
 Repertoire learnTrait(const Repertoire& repertoire, Trait trait);
 
@@ -21,7 +21,8 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const std::vector<double>& traitFrequencies,
     const std::vector<double>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
-    const Parents& parents
+    const Parents& parents,
+    double slope
 );
 
 double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
@@ -39,7 +40,8 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const std::vector<double>& traitFrequencies,
     const std::vector<double>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
-    const Parents& parents
+    const Parents& parents,
+    double slope
 );
 
 std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix, const Parents& parents);

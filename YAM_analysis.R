@@ -19,7 +19,22 @@ source("plotting.R")
 
 
 ##### Figures #####
-data <- read_all(3:7)
+data <- read_all(3:8)
+
+saveRDS(data, "data_allslopes.rds")
+
+default_slopes <- list(
+ "Payoff" = 5.0,
+ "Proximal" = 2.0,
+ "Prestige" = 2.0,
+ "Conformity" = 5.0,
+ "Random" = 0.0
+)
+
+#filter data to only include rows where the slope column is the default slope for the corresponding entry in the strategy column
+data <- data %>% filter(slope == default_slopes[strategy])
+
+saveRDS(data, "data.rds")
 
 data <- average_over_lambda(data)
 

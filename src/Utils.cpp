@@ -193,12 +193,28 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
         case PrestigeBasedLearning:
             return {1.0, 1.5, 2.0, 3.0, 5.0};
         case ConformityBasedLearning:
-            return {0.0, 5.0, 10.0, 15.0};
+            return {1.0, 5.0, 10.0, 15.0};
         default:
             return {0.0};
     }
 }
 
+/*
+std::vector<double> returnSlopeVector(Strategy strategy) {
+    switch (strategy) {
+        case PayoffBasedLearning:
+            return {5.0};	
+        case ProximalLearning:
+            return {2.0};
+        case PrestigeBasedLearning:
+            return {2.0};
+        case ConformityBasedLearning:
+            return {5.0};
+        default:
+            return {0.0};
+    }
+}
+*/
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     const std::vector<Strategy>& strategies, 

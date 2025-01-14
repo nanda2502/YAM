@@ -509,13 +509,16 @@ bool computeExpectedSteps(
 
         // Normalize trait frequencies
         double sum = std::accumulate(traitFrequencies.begin() + 1, traitFrequencies.end(), 0.0);
-        if (sum == 0.0) {
-            // If all frequencies become zero, reset to equal distribution
-            for (size_t j = 1; j < n; ++j) {
-                traitFrequencies[j] = 1.0;
+
+
+        // Set a small positive frequency to traits that die out in structures with a single pre-absorbing state
+        for (size_t j = 1; j < n; ++j) {
+            if (traitFrequencies[j] == 0.0) {
+                traitFrequencies[j] = 1e-5;
+                sum += 1e-5;
             }
-            sum = n - 1.0;
         }
+
         for (size_t j = 1; j < n; ++j) {
             traitFrequencies[j] /= sum;
         }
@@ -532,6 +535,13 @@ bool computeExpectedSteps(
         // Calculate the frequency of visiting each transient state
         for (int i = 0; i < numTransientStates; ++i) {
             stateFrequencies[i] = std::accumulate(fundamentalMatrix[i].begin(), fundamentalMatrix[i].end(), 0.0) / totalTransientTime;
+        }
+
+        // Set the frequency of the absorbing state to a small positive value
+        for (double & stateFrequency : stateFrequencies) {
+            if (stateFrequency == 0.0) {
+                stateFrequency = 1e-5;
+            }
         }
 
         // Print the vector of state frequencies

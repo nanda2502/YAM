@@ -19,8 +19,7 @@ source("plotting.R")
 
 
 ##### Figures #####
-data <- read_all(3:8)
-data$expected_traits <-  data$step_transitions * data$steps
+data <- read_all(3:7)
 
 data <- average_over_lambda(data)
 
@@ -46,8 +45,6 @@ payoff_slow <- plotDVbyIV_binned(
   lambda_value = 10,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
-
-###### Success ~ Constraints ####
 
 ###### Success ~ Constraints ####
 
@@ -190,7 +187,7 @@ ggplot() +
     values = c(
       "Number of Traits Learned" = "solid",
       "Performance" = "dotted"
-    )
+    ),
     values = c(
       "Number of Traits Learned" = "solid",
       "Performance" = "dotted"
@@ -207,6 +204,26 @@ ggplot() +
 
 ##### Extra things #####
 
+## varying the slopes 
+
+plot_slopes <- function(strategy) {
+  plot <- ggplot(data[data$lambda == 5 & data$strategy == strategy,], aes(x = avg_path_length, y = step_payoff, color = as.factor(slope), group = slope)) +
+    geom_point(alpha = 0.2) +
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(x = "Average Path Length", y = "Performance", color = "Slope") +
+    ggtitle(strategy) +
+    theme_minimal()
+  print(plot)
+  return(plot)
+}
+
+strategies <- c("Payoff", "Proximal", "Prestige", "Conformity")
+plots <- vector("list", length(strategies))
+for (i in 1:length(strategies)) {
+  plots[[i]] <- plot_slopes(strategies[i])
+}
+
+grid.arrange(grobs = plots, ncol = 2)
 
 
 sampled_rows <- do.call(rbind, lapply(sort(unique(data$avg_path_length))[seq(1, 43, length.out = 7)], function(val) {

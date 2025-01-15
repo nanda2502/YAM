@@ -26,6 +26,7 @@ struct ParamCombination {
     double alpha;
     int repl;
     int steps;
+    double slope;
 };
 
 struct Result {

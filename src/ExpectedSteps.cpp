@@ -387,7 +387,8 @@ bool computeExpectedSteps(
     Strategy strategy,
     double alpha,
     const std::vector<size_t>& shuffleSequence,
-    int num_steps, 
+    int num_steps,
+    double slope, 
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
     double& expectedTransitionsPerStep,
@@ -426,7 +427,7 @@ bool computeExpectedSteps(
         std::vector<double> initialStateFrequencies(allStates.size(), 1.0);
 
         // Generate repertoires based on initial traitFrequencies
-        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents);
+        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents,slope);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         for (size_t i = 0; i < repertoiresList.size(); ++i) {
@@ -499,13 +500,15 @@ bool computeExpectedSteps(
 
         // Normalize trait frequencies
         double sum = std::accumulate(traitFrequencies.begin() + 1, traitFrequencies.end(), 0.0);
-        if (sum == 0.0) {
-            // If all frequencies become zero, reset to equal distribution
+
+            // Set a small positive frequency to traits that die out in structures with a single pre-absorbing state
             for (size_t j = 1; j < n; ++j) {
-                traitFrequencies[j] = 1.0;
+                if (traitFrequencies[j] == 0.0) {
+                    traitFrequencies[j] = 1e-5;
+                    sum += 1e-5;
+                }
             }
-            sum = n - 1.0;
-        }
+
         for (size_t j = 1; j < n; ++j) {
             traitFrequencies[j] /= sum;
         }
@@ -529,6 +532,13 @@ bool computeExpectedSteps(
             stateFrequencies[i] = std::accumulate(fundamentalMatrix[i].begin(), fundamentalMatrix[i].end(), 0.0) / totalTransientTime;
         }
 
+        // Set the frequency of the absorbing state to a small positive value
+        for (double & stateFrequency : stateFrequencies) {
+            if (stateFrequency == 0.0) {
+                stateFrequency = 1e-5;
+            }
+        }
+
         // Print the vector of state frequencies
         DEBUG_PRINT(2, "State Frequencies:");
         if (DEBUG_LEVEL >= 2) {
@@ -541,7 +551,7 @@ bool computeExpectedSteps(
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
-            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents
+            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope
         );
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
 

@@ -51,7 +51,8 @@ std::string formatResults(
     double expectedSteps, 
     double expectedPayoffPerStep, 
     double expectedTransitionsPerStep,
-    double expectedVariation
+    double expectedVariation,
+    double slope
 ) {
     std::ostringstream oss;
     oss << n << ',' << 
@@ -62,7 +63,8 @@ std::string formatResults(
     std::fixed << std::setprecision(4) << expectedSteps << ',' << 
     expectedPayoffPerStep << ',' << 
     expectedTransitionsPerStep << ',' <<
-    expectedVariation;
+    expectedVariation << ',' <<
+    slope;
     return oss.str();
 }
 
@@ -130,29 +132,22 @@ void printMatrix(const std::vector<std::vector<double>>& matrix) {
     }
 }
 
-int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices) {
-    int numNodes = 4;  // Default value
-    saveTransitionMatrices = false;  // Default value
+int parseArgs(int argc, char* argv[], int& num_nodes) {
+    int adj_ind = 1;  // Default value
+    num_nodes = 8;  // Default value
 
     if (argc == 1) {
         // Use default values
     } else if (argc == 2) {
-        numNodes = std::stoi(argv[1]);
+        adj_ind = std::stoi(argv[1]);
     } else if (argc == 3) {
-        numNodes = std::stoi(argv[1]);
-        std::string arg2 = argv[2];
-        if (arg2 == "True") {
-            saveTransitionMatrices = true;
-        } else if (arg2 == "False") {
-            saveTransitionMatrices = false;
-        } else {
-            throw std::invalid_argument("Second argument must be True or False.");
-        }
+        adj_ind = std::stoi(argv[1]);
+        num_nodes = std::stoi(argv[2]);
     } else {
-        throw std::invalid_argument("Usage: program [numNodes] [saveTransitionMatrices]");
+        throw std::invalid_argument("Usage: program [adj_ind] [num_nodes]");
     }
 
-    return numNodes;
+    return adj_ind;
 }
 
 void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData) {
@@ -210,6 +205,38 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
     return binaryString;
 }
 
+std::vector<double> returnSlopeVector(Strategy strategy) {
+    switch (strategy) {
+        case PayoffBasedLearning:
+            return {1.0, 3.0, 5.0, 7.0, 9.0};	
+        case ProximalLearning:
+            return {1.0, 1.5, 2.0, 3.0, 5.0};
+        case PrestigeBasedLearning:
+            return {1.0, 1.5, 2.0, 3.0, 5.0};
+        case ConformityBasedLearning:
+            return {1.0, 5.0, 10.0, 15.0};
+        default:
+            return {0.0};
+    }
+}
+
+/*
+std::vector<double> returnSlopeVector(Strategy strategy) {
+    switch (strategy) {
+        case PayoffBasedLearning:
+            return {5.0};	
+        case ProximalLearning:
+            return {2.0};
+        case PrestigeBasedLearning:
+            return {2.0};
+        case ConformityBasedLearning:
+            return {5.0};
+        default:
+            return {0.0};
+    }
+}
+*/
+
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     const std::vector<Strategy>& strategies, 
@@ -221,10 +248,13 @@ std::vector<ParamCombination> makeCombinations(
     for (const auto& adjMatrix : adjacencyMatrices) {
         std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
         for (const auto& strategy : strategies) {
+            auto slopes = returnSlopeVector(strategy);
             for (const auto& alpha : alphas) {
                 for (int repl = 0; repl < replications; ++repl) {
                     for (const auto& steps : stepVector) {
-                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, steps});
+                        for (const auto& slope : slopes) {
+                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, steps, slope});
+                        }
                     }
                 }
             }

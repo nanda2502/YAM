@@ -1,16 +1,19 @@
-#!/bin/bash
-#SBATCH -p rome
-#SBATCH -n 554
-#SBATCH --cpus-per-task 4
-#SBATCH -t 00:35:00
+num_nodes=$1
 
-export OMP_NUM_THREADS=4
+file="./data/adj_mat_${num_nodes}.csv"
 
-cd build
+max_i=$(($(wc -l < "$file") - 1))
 
-for i in {0..553}; do
-    ./yam "$i" &
+missing=0
+
+for i in $(seq 0 $max_i); do
+    if [ ! -f "./output/expected_steps_${i}.csv.gz" ]; then
+        missing=$((missing + 1))
+    fi
 done
 
-wait
+run_script="run${num_nodes}.sh"
 
+sed -i "s/^#SBATCH -n .*/#SBATCH -n $missing/" "$run_script"
+
+sbatch "$run_script"

@@ -120,25 +120,6 @@
 
 YAM is a computational model designed to simulate social learning processes within structured environments. The model represents learning structures as directed graphs, where each node corresponds to a trait, and edges represent prerequisite relationships between traits. Learners progress through these structures by acquiring traits based on various learning strategies, which dictate how they select new traits to learn.
 
-Key features of the model include:
-
-- **Learning Structures**: Traits and their prerequisite relationships are modeled using directed graphs, allowing for complex learning pathways and dependencies.
-- **Learning Strategies**: Different strategies, such as random learning, payoff-based learning, proximal learning, prestige-based learning, and conformity-based learning, influence how agents choose which traits to attempt next.
-- **Outcome Variables**: The model computes outcome variables like the expected success rate of learning attempts and the expected payoff per learning event, providing insights into the efficiency and benefits of different learning strategies.
-
-A more detailed description of the model is available in the document **Mathematical Description of YAM.pdf** included in the repository.
-
-# Results
-
-The results of our simulations using the YAM model are summarized in the figures found in the `figures` directory. These results provide insights into the performance of different learning strategies across a variety of learning structures.
-
-For our analysis, we considered all possible structures with nodes ranging from 3 to 8. For each structure, we calculated the total distance of all paths between every node and the root, which serves as an indicator of how constrained a structure is.
-Here, we compare how the performance of different learning strategies in terms of learning success rate and cumulative payoff depends on total distance, i.e., the constrainedness of the learning structure. 
-
-![Success Rate](figures/success_rate.jpg)
-
-![Payoffs](figures/payoffs.jpg)
-
 ## Build Instructions
 
 ### Windows

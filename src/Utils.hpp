@@ -22,7 +22,7 @@ bool charToBool(char c);
 
 void printMatrix(const std::vector<std::vector<double>>& matrix);
 
-int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices);
+int parseArgs(int argc, char* argv[], int& num_nodes);
 
 void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData);
 

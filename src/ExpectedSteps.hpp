@@ -4,7 +4,6 @@
 #include "Types.hpp"
 #include "Learning.hpp"
 
-#include <random>
 #include <vector>
 #include <unordered_map>
 #include <tuple>
@@ -64,11 +63,11 @@ bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
     double alpha,
-    std::mt19937& gen,
-    double& expectedSteps,                             // Output parameter for expected steps
-    double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
-    double& expectedTransitionsPerStep,                // Output parameter for expected transitions per step
-    std::vector<std::vector<double>>& transitionMatrix // Output parameter for the transition matrix
+    const std::vector<size_t>& shuffleSequence,
+    double& expectedSteps,                             
+    double& expectedPayoffPerStep,
+    double& expectedTransitionsPerStep,                     
+    std::vector<std::vector<double>>& transitionMatrix 
 );
 
 #endif // EXPECTEDSTEPS_HPP

@@ -251,7 +251,7 @@ bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
     double alpha,
-    std::mt19937& gen,
+    const std::vector<size_t>& shuffleSequence,
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
     double& expectedTransitionsPerStep,                     
@@ -262,7 +262,7 @@ bool computeExpectedSteps(
         Strategy baseStrategy = RandomLearning;
         Trait rootNode = 0;
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
-        PayoffVector payoffs = generatePayoffs(distances, alpha, gen);
+        PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence);
         // print payoffs
         DEBUG_PRINT(2, "Payoffs:");
         if(DEBUG_LEVEL >= 2) {

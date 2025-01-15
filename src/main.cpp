@@ -1,70 +1,68 @@
+#include <atomic>
 #include <iostream>
 #include <algorithm>
-#include <execution>
 #include <vector>
 #include <string>
-#include <sstream>
 #include <filesystem>
-#include <random>
-#include <iomanip>
-
 #include "Debug.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
 #include "ExpectedSteps.hpp"
 
 void processRepl(
-    int repl,
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
     double alpha,
-    int n,
-    bool saveTransitionMatrices,
-    const std::string &outputDir,
-    std::vector<Result>& flatResults,
-    size_t idx,
-    std::vector<std::atomic<int>>& failureCounts  
+    const std::vector<std::vector<size_t>>& shuffleSequences,
+    AccumulatedResult& accumResult,
+    std::atomic<int>& failureCount
 ) {
-    DEBUG_PRINT(1, "Replication:");
-    if (DEBUG_LEVEL >= 1) std::cout << repl << '\n';
+    double totalExpectedSteps = 0.0;
+    double totalExpectedPayoffPerStep = 0.0;
+    double totalExpectedTransitionsPerStep = 0.0;
+    int successCount = 0;
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
 
-    // Compute expected steps
-    double expectedSteps = 0.0;
-    double expectedPayoffPerStep = 0.0;
-    double expectedTransitionsPerStep = 0.0;
-    std::vector<std::vector<double>> transitionMatrix;
+    for (const auto& shuffleSequence : shuffleSequences) {
+        // Compute expected steps
+        double expectedSteps = 0.0;
+        double expectedPayoffPerStep = 0.0;
+        double expectedTransitionsPerStep = 0.0;
+        std::vector<std::vector<double>> transitionMatrix;
 
-    if (!computeExpectedSteps(adjMatrix, strategy, alpha, gen, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
-        // Increment failure count
-        ++failureCounts[idx];
-        return;
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,  expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
+            totalExpectedSteps += expectedSteps;
+            totalExpectedPayoffPerStep += expectedPayoffPerStep;
+            totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
+            successCount++;
+        } else {
+            failureCount++;
+        }
+
     }
 
-    // Save transition matrix if flag is set
-    if (saveTransitionMatrices) {
-        std::ostringstream alphaStrStream;
-        alphaStrStream << std::fixed << std::setprecision(2) << alpha;
-        std::string alphaStr = alphaStrStream.str();
-
-        std::string strategyStr = strategyToString(strategy);
-        std::string fileName = "transition_mat_" + adjMatrixToBinaryString(adjMatrix) + "_strategy_" + strategyStr + "_alpha_" + alphaStr + ".csv";
-        std::string filePath = outputDir + "/" + fileName;
-        writeMatrixToCSV(filePath, transitionMatrix);
+    if (successCount > 0) {
+        accumResult.count++;
+        accumResult.totalExpectedSteps += totalExpectedSteps / successCount;
+        accumResult.totalExpectedPayoffPerStep += totalExpectedPayoffPerStep / successCount;
+        accumResult.totalExpectedTransitionsPerStep += totalExpectedTransitionsPerStep / successCount;
     }
 
-    // Store results directly into the pre-allocated vector
-    flatResults[idx] = Result{n, adjMatrixToBinaryString(adjMatrix), alpha, strategy, repl, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep};
+}
+
+size_t factorial(size_t num) {
+    size_t result = 1;
+    for (size_t i = 2; i <= num; ++i) {
+        result *= i;
+    }
+    return result;
 }
 
 int main(int argc, char* argv[]) {
-    // Parse command line arguments
-    bool saveTransitionMatrices = false;
-    int numNodes = parseArgs(argc, argv, saveTransitionMatrices);
-    int n = numNodes;
-    int replications = 30;
+    int n;
+    int adj_int = parseArgs(argc, argv, n);
+    int replications = 1;
+
     try {
         // Define alphas and strategies
         std::vector<double> alphas = {0.0};
@@ -82,52 +80,47 @@ int main(int argc, char* argv[]) {
             std::filesystem::create_directory(outputDir);
         }
     
-        // Read adjacency matrices
-        std::vector<AdjacencyMatrix> adjacencyMatrices = readAdjacencyMatrices(n);
+        // Read adjacency matrix
+        std::vector<AdjacencyMatrix> adjacencyMatricesAll = readAdjacencyMatrices(n);
+        std::vector<AdjacencyMatrix> adjacencyMatrices(1, adjacencyMatricesAll[adj_int]);
+
+        std::vector<size_t> perm(n - 1);
+        std::iota(perm.begin(), perm.end(), 0);
+        size_t sequenceCount = factorial(n - 1);
+        std::vector<std::vector<size_t>> shuffleSequences;
+        shuffleSequences.reserve(sequenceCount);  
+
+        do {
+            shuffleSequences.push_back(perm);
+        } while (std::next_permutation(perm.begin(), perm.end())); 
     
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications << " runs." << '\n';
+        //std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * shuffleSequences.size() * 5 << " runs." << '\n';
     
-        // Prepare the combinations
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);
-    
-        std::vector<Result> flatResults(combinations.size());
-        // Preallocate failure counts vector
+        std::vector<AccumulatedResult> accumulatedResults(combinations.size());
         std::vector<std::atomic<int>> failureCounts(combinations.size());
     
-        // Create indices for storing the results
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
-    
-        // Process all combinations in parallel
-        std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t idx) {
-            const ParamCombination& comb = combinations[idx];
-            DEBUG_PRINT(1, "Adjacency Matrix:");
-            if(DEBUG_LEVEL >= 1) std::cout << formatAdjMat(comb.adjMatrixBinary, n) << '\n';
-            DEBUG_PRINT(1, "Strategy:");
-            if(DEBUG_LEVEL >= 1) std::cout << strategyToString(comb.strategy) << '\n';
-            DEBUG_PRINT(1, "Alpha:");
-            if(DEBUG_LEVEL >= 1) std::cout << comb.alpha << '\n';
-    
+        
+        #pragma omp parallel for
+        for (size_t i = 0; i < indices.size(); ++i) {
+            size_t idx = indices[i];
+            const auto& comb = combinations[idx];
             processRepl(
-                comb.repl,
                 comb.adjMatrix,
                 comb.strategy,
                 comb.alpha,
-                n,
-                saveTransitionMatrices,
-                outputDir,
-                flatResults,
-                idx,
-                failureCounts  
+                shuffleSequences,
+                accumulatedResults[idx],
+                failureCounts[idx]  
             );
-        });
-    
-        // Compute total failures
-        int totalFailures = 0;
-        for (const auto& count : failureCounts) {
-            totalFailures += count.load();
         }
     
+        int totalFailures = std::accumulate(failureCounts.begin(), failureCounts.end(), 0, [](int sum, const std::atomic<int>& val) {
+            return sum + val.load();
+        });
+        
         // Print total number of failures with debug level 0
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
     
@@ -136,21 +129,26 @@ int main(int argc, char* argv[]) {
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
     
-        for (const auto& result : flatResults) {
-            std::string formattedResult = formatResults(
-                result.n,
-                result.adjMatrixBinary,
-                result.alpha,
-                result.strategy,
-                result.repl,
-                result.expectedSteps,
-                result.expectedPayoffPerStep,
-                result.expectedTransitionsPerStep
-            );
-            csvData.push_back(formattedResult);
+        for (size_t i = 0; i < accumulatedResults.size(); ++i) {
+            const AccumulatedResult& accumResult = accumulatedResults[i];
+            if (accumResult.count > 0) {
+                const ParamCombination& comb = combinations[i];
+                std::string formattedResult = formatResults(
+                    n,
+                    adjMatrixToBinaryString(comb.adjMatrix),
+                    comb.alpha,
+                    comb.strategy,
+                    comb.repl,
+                    accumResult.totalExpectedSteps,
+                    accumResult.totalExpectedPayoffPerStep,
+                    accumResult.totalExpectedTransitionsPerStep
+                );
+                csvData.push_back(formattedResult);
+            }
         }
+
     
-        writeAndCompressCSV(outputDir, n, csvData);
+        writeAndCompressCSV(outputDir, adj_int, csvData);
        
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << '\n';

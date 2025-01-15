@@ -110,29 +110,22 @@ void printMatrix(const std::vector<std::vector<double>>& matrix) {
     }
 }
 
-int parseArgs(int argc, char* argv[], bool& saveTransitionMatrices) {
-    int numNodes = 4;  // Default value
-    saveTransitionMatrices = false;  // Default value
+int parseArgs(int argc, char* argv[], int& num_nodes) {
+    int adj_ind = 1;  // Default value
+    num_nodes = 8;  // Default value
 
     if (argc == 1) {
         // Use default values
     } else if (argc == 2) {
-        numNodes = std::stoi(argv[1]);
+        adj_ind = std::stoi(argv[1]);
     } else if (argc == 3) {
-        numNodes = std::stoi(argv[1]);
-        std::string arg2 = argv[2];
-        if (arg2 == "True") {
-            saveTransitionMatrices = true;
-        } else if (arg2 == "False") {
-            saveTransitionMatrices = false;
-        } else {
-            throw std::invalid_argument("Second argument must be True or False.");
-        }
+        adj_ind = std::stoi(argv[1]);
+        num_nodes = std::stoi(argv[2]);
     } else {
-        throw std::invalid_argument("Usage: program [numNodes] [saveTransitionMatrices]");
+        throw std::invalid_argument("Usage: program [adj_ind] [num_nodes]");
     }
 
-    return numNodes;
+    return adj_ind;
 }
 
 void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData) {
@@ -175,7 +168,6 @@ void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<
         std::cerr << "Failed to remove original file: " << outputCsvPath << '\n';
     }
 
-    std::cout << "Expected steps to absorption saved and compressed to '" << compressedFilePath << "'\n";
 }
 
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {

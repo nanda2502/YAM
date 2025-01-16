@@ -24,6 +24,27 @@ add_avg_path_length <- function(data) {
   data
 }
 
+add_graph_measure <- function(data, measure_func, measure_name) {
+  unique_combinations <- data %>%
+    select(num_nodes, adj_mat) %>%
+    distinct()
+  for (i in seq_len(nrow(unique_combinations))) {
+    combination <- unique_combinations[i, ]
+    adj_string <- combination[[which(colnames(unique_combinations) == "adj_mat")]]
+    num_nodes <- combination[[which(colnames(unique_combinations) == "num_nodes")]]
+    
+    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
+    graph <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
+    V(graph )$name <- as.character(1:num_nodes)
+    
+    measure <- measure_func(graph)
+    
+    data[data$adj_mat == adj_string, measure_name] <- measure
+  }
+  data
+}
+
 
 calculate_path_lengths_to_root <- function(graph, root) {
   total_distance <- 0

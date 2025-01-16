@@ -1,9 +1,9 @@
 plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
   average_data <- data %>%
-    filter(lambda == lambda_value) %>%
+    filter(steps == lambda_value) %>%
     mutate(
-      !!sym(DV) := scales::rescale(!!sym(DV), to = c(0, 1)),
-      !!sym(IV) := scales::rescale(!!sym(IV), to = c(0, 1))
+      !!sym(DV) := scales::rescale(!!sym(DV), to = c(0, 1))
+      #!!sym(IV) := scales::rescale(!!sym(IV), to = c(0, 1))
     ) %>%
     group_by(adj_mat, strategy, !!sym(IV)) %>%
     summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
@@ -18,8 +18,6 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
     geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
     labs(
-      title = paste0(DV_label, " by ", IV_label),
-      subtitle = paste0("Number of nodes: ", num_nodes,  ", Expected number of learning opportunities λ = ", lambda_value),
       x = IV_label,
       y = DV_label
     ) +
@@ -34,6 +32,41 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
   print(plot)
   return(plot)
 }
+
+plotDVbyIVnofilter <- function(data, DV, DV_label, IV, IV_label, strategy_colors = NULL) {
+  average_data <- data %>%
+    mutate(
+      !!sym(DV) := scales::rescale(!!sym(DV), to = c(0, 1))
+      #!!sym(IV) := scales::rescale(!!sym(IV), to = c(0, 1))
+    ) %>%
+    group_by(adj_mat, strategy, !!sym(IV)) %>%
+    summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
+  
+  if (length(unique(data$num_nodes)) > 1) {
+    num_nodes <- paste0(min(data$num_nodes), " - ", max(data$num_nodes))
+  } else {
+    num_nodes <- data$num_nodes[1]
+  }
+  
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy")) +
+    geom_point(alpha = 0.2) +
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(
+      x = IV_label,
+      y = DV_label
+    ) +
+    theme_minimal() 
+  
+  if (!is.null(strategy_colors)) {
+    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+  } else {
+    plot <- plot + scale_color_discrete(name = "Strategy")
+  }
+  
+  print(plot)
+  return(plot)
+}
+
 
 plotDVbyTime <- function(data, DV, DV_label, IV, IV_label, strategy_colors = NULL) {
   average_data <- data %>%

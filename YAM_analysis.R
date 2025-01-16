@@ -21,7 +21,9 @@ source("plotting.R")
 ##### Figures #####
 data <- read_all(3:8)
 
-saveRDS(data, "data_allslopes.rds")
+data <- readRDS("data.rds")
+
+data_abs <- readRDS("data_absorbing.rds")
 
 default_slopes <- list(
  "Payoff" = 5.0,
@@ -31,8 +33,8 @@ default_slopes <- list(
  "Random" = 0.0
 )
 
-#filter data to only include rows where the slope column is the default slope for the corresponding entry in the strategy column
-data <- data %>% filter(slope == default_slopes[strategy])
+data <- data %>% 
+  filter(slope == sapply(as.character(strategy), function(x) default_slopes[[x]]))
 
 saveRDS(data, "data.rds")
 
@@ -41,7 +43,11 @@ data <- average_over_lambda(data)
 #data <- add_ratios(data)
 data <- readRDS("data_processed_newconf.rds")
 
+average_indegree <- function(graph) {
+  mean(degree(graph, mode = "in"))
+}
 
+data <- add_graph_measure(data, average_indegree, "avg_indegree")
 
 ###### Figure 1C #####
 
@@ -64,15 +70,56 @@ payoff_slow <- plotDVbyIV_binned(
 ###### Success ~ Constraints ####
 
 success_slow <- plotDVbyIV(
-  data[data$alpha == 0,],
+  data[data$avg_path_length == 2,],
   DV = "step_transitions", DV_label = "Learning Success Rate",
   IV = "avg_path_length",  IV_label ="Constraints on Learning",
   lambda_value = 10,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
+plotDVbyIV(
+  data[data$avg_path_length == 2,],
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_indegree",  IV_label ="Average In-Degree",
+  lambda_value = 5,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+)
 
+plotDVbyIVnofilter(
+  data_abs,
+  DV = "steps", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Avg Path Length",
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+)
 
+plot_graph_panel(data[data$avg_path_length == 2 & data$num_nodes == 8 & data$strategy == "Proximal" & data$step_payoff > 4, ])
+
+data2 <- data$step_payoff[data$avg_path_length == 2 & data$steps == 5 & data$num_nodes == 8]
+
+max_perf <- max(data$step_payoff[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$num_nodes == 8])
+min_perf <- min(data$step_payoff[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$num_nodes == 8])
+
+par(mfrow = c(1, 2))
+data$adj_mat[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$step_payoff == max_perf] %>%
+  plot_graph()
+
+data$adj_mat[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$step_payoff == min_perf] %>%
+  plot_graph()
+
+plot_graphs <- function(data, strategy) {
+  max_perf <- max(data$step_payoff[data$avg_path_length == 2 & data$strategy == strategy & data$steps == 5 & data$num_nodes == 8])
+  min_perf <- min(data$step_payoff[data$avg_path_length == 2 & data$strategy == strategy & data$steps == 5 & data$num_nodes == 8])
+  
+  par(mfrow = c(1, 2))
+  data$adj_mat[data$avg_path_length == 2 & data$strategy == strategy & data$steps == 5 & data$step_payoff == max_perf] %>%
+    plot_graph()
+  mtext("Best", side = 3, line = 0.5, cex = 1.2, at = -0.5)
+  data$adj_mat[data$avg_path_length == 2 & data$strategy == strategy & data$steps == 5 & data$step_payoff == min_perf] %>%
+    plot_graph()
+  mtext("Worst", side = 3, line = 0.5, cex = 1.2, at = -0.5)
+}
+
+plot_graphs(data, "Random")
 
 ###### Variation ~ Time ####
 

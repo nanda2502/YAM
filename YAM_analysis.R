@@ -36,7 +36,7 @@ default_slopes <- list(
 data <- data %>% 
   filter(slope == sapply(as.character(strategy), function(x) default_slopes[[x]]))
 
-saveRDS(data, "data.rds")
+saveRDS(data, "data_merged.rds")
 
 data <- average_over_lambda(data)
 
@@ -48,6 +48,10 @@ average_indegree <- function(graph) {
 }
 
 data <- add_graph_measure(data, average_indegree, "avg_indegree")
+
+data <- data %>%
+  left_join(data_abs %>% select(strategy, adj_mat, steps), by = c("strategy", "adj_mat")) %>%
+  rename(absorption = steps.y, steps = steps.x)
 
 ###### Figure 1C #####
 
@@ -78,16 +82,16 @@ success_slow <- plotDVbyIV(
 )
 
 plotDVbyIV(
-  data[data$avg_path_length == 2,],
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_indegree",  IV_label ="Average In-Degree",
+  data,
+  DV = "step_transitions", DV_label = "Success Rate",
+  IV = "avg_path_length",  IV_label ="Average Path Length",
   lambda_value = 5,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
 plotDVbyIVnofilter(
-  data_abs,
-  DV = "steps", DV_label = "Performance",
+  data_abs,#[data_abs$strategy != "Payoff",],
+  DV = "step_transitions", DV_label = "Performance",
   IV = "avg_path_length",  IV_label ="Avg Path Length",
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )

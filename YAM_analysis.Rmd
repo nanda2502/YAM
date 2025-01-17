@@ -100,7 +100,7 @@ clean_file <- function(data) {
 }
 
 read_file <- function(num_nodes) {
-  data <- read.csv(gzfile(paste0("./output/expected_steps_", num_nodes, ".csv.gz")), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character"))
+  data <- read.csv(paste0("./output/expected_steps_", num_nodes, ".csv"), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character"))
   data$strategy <- factor(
     data$strategy,
     levels = c(
@@ -111,11 +111,11 @@ read_file <- function(num_nodes) {
     "ConformityBasedLearning"
     ),
     labels = c(
-      "Random Learning",
-      "Payoff-Based Learning",
-      "Proximal Learning",
-      "Prestige-Based Learning",
-      "Conformity-Based Learning"
+      "Random",
+      "Payoff",
+      "Proximal",
+      "Prestige",
+      "Conformity"
       )
     )
   return(data)
@@ -140,7 +140,7 @@ data <- clean_file(data)
 colnames(data)
 data <- add_avg_path_length(data)
 
-all_data <- read_all(2:7)
+all_data <- read_all(3:8)
 
 steps_plot <- plotDVByDistance(all_data, "steps", "Expected Steps")
 payoff_plot <- plotDVByDistance(all_data, "step_payoff", "Expected Payoff per Step")

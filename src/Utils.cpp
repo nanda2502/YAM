@@ -40,9 +40,28 @@ std::string strategyToString(Strategy strategy) {
     }
 }
 
-std::string formatResults(int n, const std::string& adjMatrixBinary, double alpha, Strategy strategy, int repl, double expectedSteps, double expectedPayoffPerStep, double expectedTransitionsPerStep) {
+std::string formatResults
+(
+    int n,
+    const std::string& adjMatrixBinary, 
+    double alpha, 
+    Strategy strategy, 
+    int repl, 
+    double expectedSteps, 
+    double expectedPayoffPerStep, 
+    double expectedTransitionsPerStep,
+    double slope
+) {
     std::ostringstream oss;
-    oss << n << ',' << adjMatrixBinary << ',' << alpha << ',' << strategyToString(strategy) << ',' << repl << ',' << std::fixed << std::setprecision(4) << expectedSteps << ',' << expectedPayoffPerStep << ',' << expectedTransitionsPerStep;
+    oss << n << ',' <<
+    adjMatrixBinary << ',' << 
+    alpha << ',' << 
+    strategyToString(strategy) << ',' << 
+    repl << ',' << 
+    std::fixed << std::setprecision(4) << expectedSteps << ',' << 
+    expectedPayoffPerStep << ',' << 
+    expectedTransitionsPerStep << ',' <<
+    slope;
     return oss.str();
 }
 
@@ -182,14 +201,32 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
     return binaryString;
 }
 
+std::vector<double> returnSlopeVector(Strategy strategy) {
+    switch (strategy) {
+        case PayoffBasedLearning:
+            return {0.0, 1.0,  5.0, 9.0};	
+        case ProximalLearning:
+            return {1.0,  2.0, 3.0, 5.0};
+        case PrestigeBasedLearning:
+            return {1.0,  2.0,  5.0};
+        case ConformityBasedLearning:
+            return {0.0, 1.0, 5.0, 15.0};
+        default:
+            return {0.0};
+    }
+}
+
 std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adjacencyMatrices, std::vector<Strategy>& strategies, std::vector<double>& alphas, int replications) {
     std::vector<ParamCombination> combinations;
     for (const auto& adjMatrix : adjacencyMatrices) {
         std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
         for (const auto& strategy : strategies) {
+            auto slopes = returnSlopeVector(strategy);
             for (const auto& alpha : alphas) {
                 for (int repl = 0; repl < replications; ++repl) {
-                    combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl});
+                    for (const auto& slope : slopes) {
+                    combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, slope});
+                    }
                 }
             }
         }

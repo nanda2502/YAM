@@ -13,6 +13,7 @@ void processRepl(
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
     double alpha,
+    double slope,
     const std::vector<std::vector<size_t>>& shuffleSequences,
     AccumulatedResult& accumResult,
     std::atomic<int>& failureCount
@@ -30,7 +31,7 @@ void processRepl(
         double expectedTransitionsPerStep = 0.0;
         std::vector<std::vector<double>> transitionMatrix;
 
-        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,  expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, slope, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
             totalExpectedSteps += expectedSteps;
             totalExpectedPayoffPerStep += expectedPayoffPerStep;
             totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
@@ -111,6 +112,7 @@ int main(int argc, char* argv[]) {
                 comb.adjMatrix,
                 comb.strategy,
                 comb.alpha,
+                comb.slope,
                 shuffleSequences,
                 accumulatedResults[idx],
                 failureCounts[idx]  
@@ -125,7 +127,7 @@ int main(int argc, char* argv[]) {
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
     
         // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,slope";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
     
@@ -141,7 +143,8 @@ int main(int argc, char* argv[]) {
                     comb.repl,
                     accumResult.totalExpectedSteps,
                     accumResult.totalExpectedPayoffPerStep,
-                    accumResult.totalExpectedTransitionsPerStep
+                    accumResult.totalExpectedTransitionsPerStep,
+                    comb.slope
                 );
                 csvData.push_back(formattedResult);
             }

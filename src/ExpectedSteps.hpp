@@ -14,16 +14,6 @@ std::vector<std::vector<double>> computeIMinusQ(
     int numTransientStates
 );
 
-std::vector<std::vector<double>> buildTransitionMatrix(
-    const std::vector<Repertoire>& repertoiresList,
-    const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
-    Strategy strategy,
-    const PayoffVector& payoffs,
-    const std::vector<double>& traitFrequencies,
-    const std::vector<Repertoire>& allStates,
-    const Parents& parents
-);
-
 bool isAbsorbingState(const Repertoire& repertoire, const std::vector<double>& traitFrequencies);
 
 // Function to reorder the transition matrix, separating transient and absorbing states
@@ -64,6 +54,7 @@ bool computeExpectedSteps(
     Strategy strategy,
     double alpha,
     const std::vector<size_t>& shuffleSequence,
+    double slope,
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
     double& expectedTransitionsPerStep,                     

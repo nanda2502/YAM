@@ -20,7 +20,8 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const std::vector<double>& traitFrequencies,
     const std::vector<double>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
-    const Parents& parents
+    const Parents& parents,
+    double slope
 );
 
 double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
@@ -38,7 +39,8 @@ std::vector<Repertoire> generateReachableRepertoires(
     const std::vector<double>& traitFrequencies,
     const std::vector<double>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
-    const Parents& parents
+    const Parents& parents,
+    double slope
 );
 
 std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix, const Parents& parents);

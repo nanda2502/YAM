@@ -24,6 +24,7 @@ struct ParamCombination {
     Strategy strategy;
     double alpha;
     int repl;
+    double slope;
 };
 
 struct Result {

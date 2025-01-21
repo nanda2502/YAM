@@ -53,14 +53,15 @@ std::vector<std::vector<double>> buildTransitionMatrix(
     const std::vector<double>& traitFrequencies,
     const std::vector<double>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
-    const Parents& parents
+    const Parents& parents,
+    double slope
 ) {
     int numStates = static_cast<int>(repertoiresList.size());
     std::vector<std::vector<double>> transitionMatrix(numStates, std::vector<double>(numStates, 0.0));
 
     for (int i = 0; i < numStates; ++i) {
         const Repertoire& repertoire = repertoiresList[i];
-        auto transitions = transitionFromState(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, parents);
+        auto transitions = transitionFromState(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope);
         auto stayProb = stayProbability(transitions);
 
         std::unordered_map<int, double> probMap;
@@ -252,6 +253,7 @@ bool computeExpectedSteps(
     Strategy strategy,
     double alpha,
     const std::vector<size_t>& shuffleSequence,
+    double slope,
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
     double& expectedTransitionsPerStep,                     
@@ -288,7 +290,7 @@ bool computeExpectedSteps(
         std::vector<double> initialStateFrequencies(allStates.size(), 1.0);
 
         // Generate repertoires based on initial traitFrequencies
-        std::vector<Repertoire> repertoiresList = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents);
+        std::vector<Repertoire> repertoiresList = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents, slope);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         for (size_t i = 0; i < repertoiresList.size(); ++i) {
@@ -301,7 +303,7 @@ bool computeExpectedSteps(
         }
 
         // Build initial transition matrix
-        transitionMatrix = buildTransitionMatrix(repertoiresList, repertoireIndexMap, strategy, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents);
+        transitionMatrix = buildTransitionMatrix(repertoiresList, repertoireIndexMap, strategy, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents, slope);
         auto [reorderedTransitionMatrix, oldToNewIndexMap, numTransientStates] = reorderTransitionMatrix(transitionMatrix, repertoiresWithIndices, repertoireIndexMap, rootNode, traitFrequencies);
         
         DEBUG_PRINT(2, "States:");
@@ -378,7 +380,7 @@ bool computeExpectedSteps(
 
         // Calculate the frequency of visiting each transient state
         for (int i = 0; i < numTransientStates; ++i) {
-            stateFrequencies[i] = std::accumulate(fundamentalMatrix[i].begin(), fundamentalMatrix[i].end(), 0.0) / totalTransientTime;
+            stateFrequencies[i] = fundamentalMatrix[0][i] / totalTransientTime;
         }
 
         // Set the frequency of the absorbing state to a small positive value
@@ -400,7 +402,7 @@ bool computeExpectedSteps(
 
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
-        std::vector<Repertoire> finalRepertoiresList = generateReachableRepertoires(strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents);
+        std::vector<Repertoire> finalRepertoiresList = generateReachableRepertoires(strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope);
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
 
         for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
@@ -415,7 +417,7 @@ bool computeExpectedSteps(
         DEBUG_PRINT(1, "Repertoires:")
         if(DEBUG_LEVEL >= 1) printStatesWithIndices(finalRepertoiresWithIndices);
 
-        transitionMatrix = buildTransitionMatrix(finalRepertoiresList, finalRepertoireIndexMap, strategy, payoffs, traitFrequencies, stateFrequencies, allStates, parents);
+        transitionMatrix = buildTransitionMatrix(finalRepertoiresList, finalRepertoireIndexMap, strategy, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope);
 
         DEBUG_PRINT(2, "Final transition matrix:");
         if(DEBUG_LEVEL >= 2) printMatrix(transitionMatrix);

@@ -81,8 +81,7 @@ std::vector<double> proximalBaseWeights(
                 if (state[trait]) {  // If the state has trait j learned
                     double delta = computeDelta(repertoire, state);
                     if (delta > 0) {
-                        int N_s = delta;  // Number of additional traits known in s but not in r
-                        w_star[trait] += stateFrequencies[stateidx] * (phi_proximal(delta, slope) / N_s); 
+                        w_star[trait] += stateFrequencies[stateidx] * (phi_proximal(delta, slope)); 
                     }
                 }
             }
@@ -106,8 +105,7 @@ std::vector<double> prestigeBaseWeights(
                 if (state[trait]) {  // If the state has trait j learned
                     double delta = computeDelta(repertoire, state);
                     if (delta > 0) {
-                        int N_s = delta;  // Number of additional traits known in s but not in r
-                        w_star[trait] += stateFrequencies[stateidx] * (phi_prestige(delta, slope) / N_s); 
+                        w_star[trait] += stateFrequencies[stateidx] * (phi_prestige(delta, slope)); 
                     }
                 }
             }

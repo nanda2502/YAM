@@ -1,7 +1,5 @@
 ##### Load Libraries #####
 
-##### Load Libraries #####
-
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 library(igraph)
@@ -21,9 +19,7 @@ source("plotting.R")
 ##### Figures #####
 data <- read_all(3:8)
 
-data <- readRDS("data.rds")
-
-data_abs <- readRDS("data_absorbing.rds")
+data <- readRDS("data_merged.rds")
 
 default_slopes <- list(
  "Payoff" = 5.0,
@@ -36,7 +32,7 @@ default_slopes <- list(
 data <- data %>% 
   filter(slope == sapply(as.character(strategy), function(x) default_slopes[[x]]))
 
-saveRDS(data, "data_merged.rds")
+saveRDS(data, "data.rds")
 
 data <- average_over_lambda(data)
 
@@ -47,11 +43,82 @@ average_indegree <- function(graph) {
   mean(degree(graph, mode = "in"))
 }
 
+calculate_average_product <- function(graph) {
+  distances <- distances(graph, v = 1, mode = "out")
+  indegrees <- degree(graph, mode = "in")
+  average_product <- mean(distances[-1] * indegrees[-1], na.rm = TRUE)
+  return(average_product)
+}
+
+average_path_length_to_root <- function(graph) {
+  all_paths <- list()
+  
+  dfs_paths <- function(node, path) {
+    if (node == 1) {
+      all_paths[[length(all_paths) + 1]] <<- path
+      return()
+    }
+    for (predecessor in neighbors(graph, node, mode = "in")) {
+      dfs_paths(predecessor, c(predecessor, path))
+    }
+  }
+  
+  for (node in V(graph)$name) {
+    if (node != 1) {  # Start pathfinding from every node except the root
+      dfs_paths(node, node)
+    }
+  }
+
+  path_lengths <- sapply(all_paths, length) - 1  # Length minus 1 for number of edges
+  average_length <- mean(path_lengths)
+  return(average_length)
+}
+
+calculate_modularity<- function(graph) {
+  # Detect communities using the Walktrap method
+  communities <- cluster_walktrap(graph)
+  # Calculate modularity
+  modularity_value <- modularity(communities)
+  return(modularity_value)
+}
+
+calculate_clustering_coefficient <- function(graph) {
+  # Calculate the global clustering coefficient (transitivity)
+  clustering_coefficient <- transitivity(graph, type = "global")
+  return(clustering_coefficient)
+}
+
+calculate_lock_measure <- function(graph, root = 1) {
+  # Calculate the out-degree for each node
+  out_degrees <- degree(graph, mode = "out")
+  
+  # Calculate the shortest path distances from the root node
+  distances <- distances(graph, v = root, mode = "out")[1, ]
+  
+  # Identify unlocking nodes (those with more than 1 outgoing edge)
+  unlocking_nodes <- which(out_degrees > 1)
+  
+  # Calculate the locking measure
+  lock_measure <- sum(unlist(lapply(unlocking_nodes, function(node) {
+    num_unlocked_nodes <- out_degrees[node]
+    depth_from_root <- distances[node]
+    num_unlocked_nodes * depth_from_root
+  })))
+  
+  return(lock_measure)
+}
+
 data <- add_graph_measure(data, average_indegree, "avg_indegree")
 
-data <- data %>%
-  left_join(data_abs %>% select(strategy, adj_mat, steps), by = c("strategy", "adj_mat")) %>%
-  rename(absorption = steps.y, steps = steps.x)
+data <- add_graph_measure(data, calculate_average_product, "avg_product")
+
+data <- add_graph_measure(data, average_path_length_to_root, "avg_total_path_length")
+
+data <- add_graph_measure(data, calculate_modularity, "modularity")
+
+data <- add_graph_measure(data, calculate_clustering_coefficient, "clustering")
+
+data <- add_graph_measure(data, calculate_lock_measure, "locking")
 
 ###### Figure 1C #####
 
@@ -83,23 +150,53 @@ success_slow <- plotDVbyIV(
 
 plotDVbyIV(
   data,
-  DV = "step_transitions", DV_label = "Success Rate",
-  IV = "avg_path_length",  IV_label ="Average Path Length",
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Average In-Degree",
   lambda_value = 5,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
-plotDVbyIVnofilter(
-  data_abs,#[data_abs$strategy != "Payoff",],
-  DV = "step_transitions", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Avg Path Length",
+plotDVbyIV(
+  data,
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_indegree",  IV_label ="Average In-Degree",
+  lambda_value = 5,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
 
-plot_graph_panel(data[data$avg_path_length == 2 & data$num_nodes == 8 & data$strategy == "Proximal" & data$step_payoff > 4, ])
+plotDVbyIV(
+  data,
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_total_path_length",  IV_label ="Average Product",
+  lambda_value = 5,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+)
 
-data2 <- data$step_payoff[data$avg_path_length == 2 & data$steps == 5 & data$num_nodes == 8]
+plotDVbyIV(
+  data,
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_product",  IV_label ="Average Product",
+  lambda_value = 5,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+)
 
+plotDVbyIV(
+  data,
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "locking",  IV_label ="Locking",
+  lambda_value = 5,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+)
+plot_graph("0101000101000000000000000")
+
+summary(lm(step_payoff ~  locking + avg_path_length + avg_indegree + strategy, data = data[data$num_nodes == 8,]))
+
+flexplot(step_payoff ~ avg_path_length + avg_indegree, data = data[data$num_nodes == 8,], sample = 200)
+
+cor(data[data$num_nodes == 8,c("avg_path_length", "avg_product", "avg_indegree")])
+
+
+### min vs max payoff within a specified range
 max_perf <- max(data$step_payoff[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$num_nodes == 8])
 min_perf <- min(data$step_payoff[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$num_nodes == 8])
 

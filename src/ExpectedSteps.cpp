@@ -534,7 +534,7 @@ bool computeExpectedSteps(
 
         // Calculate the frequency of visiting each transient state
         for (int i = 0; i < numTransientStates; ++i) {
-            stateFrequencies[i] = std::accumulate(fundamentalMatrix[i].begin(), fundamentalMatrix[i].end(), 0.0) / totalTransientTime;
+            stateFrequencies[i] = fundamentalMatrix[0][i] / totalTransientTime;
         }
 
         // Set the frequency of the absorbing state to a small positive value

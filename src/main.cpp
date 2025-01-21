@@ -118,7 +118,7 @@ int main(int argc, char* argv[]) {
         std::iota(indices.begin(), indices.end(), 0);
     
         // Process all combinations in parallel
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (size_t i = 0; i < indices.size(); ++i) {
             size_t idx = indices[i];
             const ParamCombination& comb = combinations[idx];

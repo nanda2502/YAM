@@ -2,7 +2,7 @@
 #SBATCH -p rome
 #SBATCH -n 56
 #SBATCH --cpus-per-task 4
-#SBATCH -t 00:05:00
+#SBATCH -t 00:10:00
 
 export OMP_NUM_THREADS=4
 

@@ -35,31 +35,25 @@ double computeDelta(const Repertoire& r, const Repertoire& s) {
         std::plus<>(), [](bool s_i, bool r_i) { return (s_i && !r_i) ? 1 : 0; });
 }
 
-double phi_proximal(double delta, double slope) {
-    return std::pow(slope, 1.0 - delta);
-}
 
-double phi_prestige(double delta, double slope) {
-    return std::pow(slope, delta - 1.0);
-}
 
 std::vector<double> proximalBaseWeights(
     const Repertoire& repertoire,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope
 ) {
     std::vector<double> w_star(repertoire.size(), 0.0);
-    // Compute trait contributions
     for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        if (!repertoire[trait]) {  // Only consider unlearned traits
-            for (size_t stateidx = 0; stateidx < allStates.size(); ++stateidx) {
-                const auto& state = allStates[stateidx];
-                if (state[trait]) {  // If the state has trait j learned
-                    double delta = computeDelta(repertoire, state);
-                    if (delta > 0) {
-                        int N_s = delta;  // Number of additional traits known in s but not in r
-                        w_star[trait] += stateFrequencies[stateidx] * (phi_proximal(delta, slope) / N_s); 
+        if (!repertoire[trait]) {
+            for (const auto& state : allStates) {
+                if (state[trait]) {
+                    auto freqIt = stateFrequencies.find(state);
+                    if (freqIt != stateFrequencies.end()) {
+                        double delta = computeDelta(repertoire, state);
+                        if (delta > 0) {
+                            w_star[trait] += freqIt->second * std::pow(slope, -delta);;
+                        }
                     }
                 }
             }
@@ -70,21 +64,21 @@ std::vector<double> proximalBaseWeights(
 
 std::vector<double> prestigeBaseWeights(
     const Repertoire& repertoire,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope
 ) {
     std::vector<double> w_star(repertoire.size(), 0.0);
-    // Compute trait contributions
     for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        if (!repertoire[trait]) {  // Only consider unlearned traits
-            for (size_t stateidx = 0; stateidx < allStates.size(); ++stateidx) {
-                const auto& state = allStates[stateidx];
-                if (state[trait]) {  // If the state has trait j learned
-                    double delta = computeDelta(repertoire, state);
-                    if (delta > 0) {
-                        int N_s = delta;  // Number of additional traits known in s but not in r
-                        w_star[trait] += stateFrequencies[stateidx] * (phi_prestige(delta, slope) / N_s); 
+        if (!repertoire[trait]) {
+            for (const auto& state : allStates) {
+                if (state[trait]) {
+                    auto freqIt = stateFrequencies.find(state);
+                    if (freqIt != stateFrequencies.end()) {
+                        double delta = computeDelta(repertoire, state);
+                        if (delta > 0) {
+                            w_star[trait] += freqIt->second * std::pow(slope, delta);;
+                        }
                     }
                 }
             }
@@ -93,28 +87,35 @@ std::vector<double> prestigeBaseWeights(
     return w_star;
 }
 
-double S_curve(double x, double total, double slope) {
-    // between 0 and 1;
-    return 1/(1+std::exp(-slope * ((x/total)-0.5)));
-}
-
-
 std::vector<double> conformityBaseWeights(
     const std::vector<double>& traitFrequencies,
-    const Repertoire& repertoire,
     double slope
 ) {
-    double total = 0.0;
-
-    //Only count unlearned traits, so that the normalization works
-    for (size_t i = 0; i < traitFrequencies.size(); i++) {
-        total += repertoire[i] ? 0.0 : traitFrequencies[i];
-    }
-
     std::vector<double> w_star(traitFrequencies.size());
     
-    std::transform(traitFrequencies.begin(), traitFrequencies.end(), w_star.begin(), [total, slope](double f) {return S_curve(f, total, slope);});
+    std::transform(traitFrequencies.begin(), traitFrequencies.end(), w_star.begin(), [slope](double f) {return std::pow(f, slope);});
 
+    return w_star;
+}
+
+std::vector<double> perfectBaseWeights(
+    const Repertoire& repertoire,
+    const PayoffVector& payoffs,
+    const Parents& parents
+) {
+    // always pick the learnable trait with the highest payoff
+    auto learnable = learnability(repertoire, parents);
+    double highestPayoff = 0.0;
+    double bestTraitidx = 0;
+    std::vector<double> w_star(repertoire.size(), 0.0);
+    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+        if (learnable[trait] && payoffs[trait] > highestPayoff) {
+            highestPayoff = payoffs[trait];
+            bestTraitidx = trait;
+        }
+
+    }
+    w_star[bestTraitidx] = 1.0;
     return w_star;
 }
 
@@ -124,9 +125,10 @@ std::vector<double> baseWeights(
     const Repertoire& repertoire,
     const PayoffVector& payoffs,
     const std::vector<double>& traitFrequencies,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,  
     const std::vector<Repertoire>& allStates,
-    double slope  
+    double slope,
+    const Parents& parents   
 ) {
     switch (strategy) {
     case RandomLearning:
@@ -145,7 +147,9 @@ std::vector<double> baseWeights(
     case PrestigeBasedLearning:
         return prestigeBaseWeights(repertoire, stateFrequencies, allStates, slope);
     case ConformityBasedLearning:
-        return conformityBaseWeights(traitFrequencies, repertoire, slope);
+        return conformityBaseWeights(traitFrequencies, slope);
+    case PerfectLearning:
+        return perfectBaseWeights(repertoire, payoffs, parents);
     default:
         throw std::runtime_error("Unknown strategy");
     }
@@ -156,11 +160,12 @@ std::vector<double> normalizedWeights(
     const Repertoire& repertoire,
     const PayoffVector& payoffs,
     const std::vector<double>& traitFrequencies,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,  
     const std::vector<Repertoire>& allStates,
-    double slope
+    double slope,
+    const Parents& parents
 )  {
-    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, slope);
+    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, slope, parents);
 
     DEBUG_PRINT(2, "Current repertoire:");
     if (DEBUG_LEVEL >= 2) {
@@ -223,14 +228,14 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const Repertoire& repertoire, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,  
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope
 ) {
 
     std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
-    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope);
+    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope, parents);
     std::vector<bool> learnable = learnability(repertoire, parents);
 
     std::vector<std::pair<Repertoire, double>> transitions;
@@ -261,7 +266,7 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,  
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope
@@ -334,19 +339,15 @@ std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix,
     return result;
 }
 
-size_t countLearnedTraits(const Repertoire& r) {
-    return std::count(r.begin(), r.end(), true);
-}
-
 std::vector<Repertoire> retrieveBetterRepertoires(const std::vector<Repertoire>& repertoires, const Repertoire& singleRepertoire) {
     std::vector<Repertoire> result;
-    size_t singleRepertoireLearnedTraits = countLearnedTraits(singleRepertoire);
-
     for (const Repertoire& r : repertoires) {
-        if (countLearnedTraits(r) > singleRepertoireLearnedTraits) {
-            result.push_back(r);
+        for (size_t trait = 0; trait < r.size(); ++trait) {
+            if (r[trait] && !singleRepertoire[trait]) {
+                result.push_back(r);
+                break;
+            }
         }
     }
-
     return result;
 }

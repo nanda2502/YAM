@@ -35,6 +35,8 @@ std::string strategyToString(Strategy strategy) {
             return "PrestigeBasedLearning";
         case ConformityBasedLearning:
             return "ConformityBasedLearning";
+        case PerfectLearning:
+            return "PerfectLearning";
         default:
             throw std::invalid_argument("Unknown strategy");
     }
@@ -203,16 +205,13 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
 
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
-        case PayoffBasedLearning:
-            return {0.0, 1.0,  5.0, 9.0};	
-        case ProximalLearning:
-            return {1.0,  2.0, 3.0, 5.0};
-        case PrestigeBasedLearning:
-            return {1.0,  2.0,  5.0};
-        case ConformityBasedLearning:
-            return {0.0, 1.0, 5.0, 15.0};
-        default:
+        case RandomLearning:
             return {0.0};
+        case PerfectLearning:
+            return {0.0};
+        default:
+            return {0.0, 1.0, 1.25, 2.5, 5.0, 10.0, 20.0, 40.0};	
+
     }
 }
 

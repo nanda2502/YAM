@@ -16,4 +16,4 @@ done
 
 wait 
 cd .. 
-./combine.sh $num_nodes
+./combine.sh 

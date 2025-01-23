@@ -2,9 +2,17 @@
 #define LEARNING_HPP
 
 #include "Types.hpp"
+#include <unordered_map>
 #include <vector>
 #include <string>
 #include <random>
+
+struct RepertoireHash {
+    std::size_t operator()(const Repertoire& repertoire) const {
+        return std::hash<std::string>{}(std::string(repertoire.begin(), repertoire.end()));
+    }
+};
+
 
 std::vector<bool> learnability(const Repertoire& repertoire, const Parents& parents);
 
@@ -18,7 +26,7 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const Repertoire& repertoire, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope
@@ -26,18 +34,12 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
 
 double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
 
-struct RepertoireHash {
-    std::size_t operator()(const Repertoire& repertoire) const {
-        return std::hash<std::string>{}(std::string(repertoire.begin(), repertoire.end()));
-    }
-};
-
 std::vector<Repertoire> generateReachableRepertoires(
     Strategy strategy, 
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope

@@ -51,7 +51,7 @@ std::vector<std::vector<double>> buildTransitionMatrix(
     Strategy strategy,
     const PayoffVector& payoffs,
     const std::vector<double>& traitFrequencies,
-    const std::vector<double>& stateFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope
@@ -287,7 +287,11 @@ bool computeExpectedSteps(
         auto allStates = generateAllRepertoires(adjacencyMatrix, parents);
 
         // this won't be used, but the function requires it as an argument
-        std::vector<double> initialStateFrequencies(allStates.size(), 1.0);
+        std::unordered_map<Repertoire, double, RepertoireHash> initialStateFrequencies;
+        double uniformFrequency = 1.0 / static_cast<double>(allStates.size());
+        for (const auto& state : allStates) {
+            initialStateFrequencies[state] = uniformFrequency;
+        }
 
         // Generate repertoires based on initial traitFrequencies
         std::vector<Repertoire> repertoiresList = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents, slope);
@@ -335,68 +339,60 @@ bool computeExpectedSteps(
         DEBUG_PRINT(2, "Preliminary Fundamental matrix:");
         if(DEBUG_LEVEL >= 2) printMatrix(fundamentalMatrix);
 
-        double totalTransientTime = 0.0;
-        for (const auto& row : fundamentalMatrix) {
-            totalTransientTime += std::accumulate(row.begin(), row.end(), 0.0);
+        // Create a mapping between states and their indices in the fundamental matrix
+        std::unordered_map<Repertoire, int, RepertoireHash> transientStateIndices;
+        std::vector<Repertoire> transientStates;
+        for (size_t i = 0; i < repertoiresList.size(); ++i) {
+            int newIndex = oldToNewIndexMap[i];
+            if (newIndex < numTransientStates) {
+                transientStateIndices[repertoiresList[i]] = newIndex;
+                transientStates.push_back(repertoiresList[i]);
+            }
         }
         
-        // Update trait frequencies based on expected time in states
+        // Calculate state frequencies and store them in an unordered_map
+        std::unordered_map<Repertoire, double, RepertoireHash> stateFrequencies;
+        double totalTransientTime = std::accumulate(fundamentalMatrix[0].begin(), fundamentalMatrix[0].end(), 0.0);
+
+        for (const auto& [state, index] : transientStateIndices) {
+            double frequency = fundamentalMatrix[0][index] / totalTransientTime;
+            if (frequency == 0.0) {
+                frequency = 1e-5;  // Set small positive frequency for states that die out
+            }
+            stateFrequencies[state] = frequency;
+        }
+
+        DEBUG_PRINT(2, "State Frequencies:");
+        if (DEBUG_LEVEL >= 2) {
+            for (const auto& [state, freq] : stateFrequencies) {
+                std::cout << "State " << stateToString(state) << ": " << freq << '\n';
+            }
+        }
+
+        // Update trait frequencies based on state frequencies
         for (Trait trait = 1; trait < n; ++trait) {
             double timeTraitKnown = 0.0;
-            for (size_t repertoire = 0; repertoire < repertoiresList.size(); ++repertoire) {
-                if (repertoiresList[repertoire][trait]) {
-                    int newIndex = oldToNewIndexMap[repertoire];
-                    if (newIndex < numTransientStates) {
-                        timeTraitKnown += fundamentalMatrix[0][newIndex];
-                    }
+            for (const auto& [state, freq] : stateFrequencies) {
+                if (state[trait]) {
+                    timeTraitKnown += freq;
                 }
             }
-            traitFrequencies[trait] = timeTraitKnown / totalTransientTime;
+            traitFrequencies[trait] = timeTraitKnown;
         }
 
         // Normalize trait frequencies
         double sum = std::accumulate(traitFrequencies.begin() + 1, traitFrequencies.end(), 0.0);
 
-            // Set a small positive frequency to traits that die out in structures with a single pre-absorbing state
-            for (size_t j = 1; j < n; ++j) {
-                if (traitFrequencies[j] == 0.0) {
-                    traitFrequencies[j] = 1e-5;
-                    sum += 1e-5;
-                }
+        // Ensure no zero frequencies
+        for (size_t j = 1; j < n; ++j) {
+            if (traitFrequencies[j] == 0.0) {
+                traitFrequencies[j] = 1e-5;
+                sum += 1e-5;
             }
+        }
 
         for (size_t j = 1; j < n; ++j) {
             traitFrequencies[j] /= sum;
-        }
-
-        DEBUG_PRINT(2, "Updated trait frequencies:");
-        if(DEBUG_LEVEL >= 2) {
-            for (size_t i = 0; i < traitFrequencies.size(); ++i) {
-                std::cout << "Trait " << i << ": " << traitFrequencies[i] << '\n';
-            }
-        }
-
-        std::vector<double> stateFrequencies(numTransientStates, 0.0);
-
-        // Calculate the frequency of visiting each transient state
-        for (int i = 0; i < numTransientStates; ++i) {
-            stateFrequencies[i] = fundamentalMatrix[0][i] / totalTransientTime;
-        }
-
-        // Set the frequency of the absorbing state to a small positive value
-        for (double & stateFrequency : stateFrequencies) {
-            if (stateFrequency == 0.0) {
-                stateFrequency = 1e-5;
-            }
-        }
-
-        // Print the vector of state frequencies
-        DEBUG_PRINT(2, "State Frequencies:");
-        if (DEBUG_LEVEL >= 2) {
-            for (const auto& freq : stateFrequencies) {
-                std::cout << freq << " ";
-            }
-            std::cout << '\n';
         }
 
 

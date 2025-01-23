@@ -15,7 +15,8 @@ enum Strategy {
     PayoffBasedLearning,
     ProximalLearning,
     PrestigeBasedLearning,
-    ConformityBasedLearning
+    ConformityBasedLearning,
+    PerfectLearning
 };
 
 struct ParamCombination {

@@ -72,7 +72,8 @@ int main(int argc, char* argv[]) {
             Strategy::PayoffBasedLearning, 
             Strategy::ProximalLearning, 
             Strategy::PrestigeBasedLearning, 
-            Strategy::ConformityBasedLearning
+            Strategy::ConformityBasedLearning,
+            Strategy::PerfectLearning
         };
     
         // Prepare output directory

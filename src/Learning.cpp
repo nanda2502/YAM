@@ -240,6 +240,19 @@ Repertoire learnTrait(const Repertoire& repertoire, Trait trait) {
     return newRepertoire;
 }
 
+std::vector<Repertoire> retrieveBetterRepertoires(const std::vector<Repertoire>& repertoires, const Repertoire& singleRepertoire) {
+    std::vector<Repertoire> result;
+    for (const Repertoire& r : repertoires) {
+        for (size_t trait = 0; trait < r.size(); ++trait) {
+            if (r[trait] && !singleRepertoire[trait]) {
+                result.push_back(r);
+                break;
+            }
+        }
+    }
+    return result;
+}
+
 std::vector<std::pair<Repertoire, double>> transitionFromState(
     Strategy strategy,
     const Repertoire& repertoire, 
@@ -251,7 +264,7 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     double slope
 ) {
 
-    std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
+    auto newStates = retrieveBetterRepertoires(allStates, repertoire);
     std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope);
     std::vector<bool> learnable = learnability(repertoire, parents);
 
@@ -356,19 +369,3 @@ std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix,
     return result;
 }
 
-size_t countLearnedTraits(const Repertoire& r) {
-    return std::count(r.begin(), r.end(), true);
-}
-
-std::vector<Repertoire> retrieveBetterRepertoires(const std::vector<Repertoire>& repertoires, const Repertoire& singleRepertoire) {
-    std::vector<Repertoire> result;
-    size_t singleRepertoireLearnedTraits = countLearnedTraits(singleRepertoire);
-
-    for (const Repertoire& r : repertoires) {
-        if (countLearnedTraits(r) > singleRepertoireLearnedTraits) {
-            result.push_back(r);
-        }
-    }
-
-    return result;
-}

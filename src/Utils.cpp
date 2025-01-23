@@ -187,13 +187,13 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
         case PayoffBasedLearning:
-            return {1.0, 3.0, 5.0, 7.0, 9.0};	
+            return {0.0, 1.0,  5.0, 9.0};	
         case ProximalLearning:
-            return {1.0, 1.5, 2.0, 3.0, 5.0};
+            return {1.0,  2.0, 3.0, 5.0};
         case PrestigeBasedLearning:
-            return {1.0, 1.5, 2.0, 3.0, 5.0};
+            return {1.0,  2.0, 3.0,  5.0};
         case ConformityBasedLearning:
-            return {1.0, 5.0, 10.0, 15.0};
+            return {0.0, 1.0, 5.0, 15.0};
         default:
             return {0.0};
     }

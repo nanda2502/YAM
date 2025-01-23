@@ -4,7 +4,7 @@
 #include <iostream>
 
 
-#define DEBUG_LEVEL 2  
+#define DEBUG_LEVEL 2
 std::ostream& setPrecision(std::ostream& os, int precision);
 
 #define DEBUG_PRINT(level, x) \

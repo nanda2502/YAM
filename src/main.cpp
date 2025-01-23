@@ -11,7 +11,6 @@
 #include "Types.hpp"
 #include "ExpectedSteps.hpp"
 
-
 void processRepl(
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
@@ -75,11 +74,11 @@ int main(int argc, char* argv[]) {
         std::iota(stepVector.begin(), stepVector.end(), 1);
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
-            Strategy::RandomLearning,
-            Strategy::PayoffBasedLearning,
-            Strategy::ProximalLearning,
-            Strategy::PrestigeBasedLearning,
-            Strategy::ConformityBasedLearning
+            //Strategy::RandomLearning,
+            //Strategy::PayoffBasedLearning,
+            Strategy::ProximalLearning//,
+            //Strategy::PrestigeBasedLearning,
+            //Strategy::ConformityBasedLearning
         };
     
         // Prepare output directory

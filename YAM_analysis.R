@@ -17,15 +17,15 @@ source("plotting.R")
 
 
 ##### Figures #####
-data <- read_all(3:8)
+data <- read_all(3:7)
 
 data <- readRDS("data_merged.rds")
 
 default_slopes <- list(
- "Payoff" = 5.0,
- "Proximal" = 2.0,
- "Prestige" = 2.0,
- "Conformity" = 5.0,
+ "Payoff" = 0.0,
+ "Proximal" = 1.0,
+ "Prestige" = 1.0,
+ "Conformity" = 0.0,
  "Random" = 0.0
 )
 
@@ -35,6 +35,12 @@ data <- data %>%
 saveRDS(data, "data.rds")
 
 data <- average_over_lambda(data)
+
+
+data <- data %>%
+  left_join(all_data %>% select(strategy, adj_mat, slope, steps), 
+            by = c("strategy", "adj_mat", "slope")) %>%
+  rename(absorbing = steps.y) 
 
 #data <- add_ratios(data)
 data <- readRDS("data_processed_newconf.rds")
@@ -72,20 +78,6 @@ average_path_length_to_root <- function(graph) {
   path_lengths <- sapply(all_paths, length) - 1  # Length minus 1 for number of edges
   average_length <- mean(path_lengths)
   return(average_length)
-}
-
-calculate_modularity<- function(graph) {
-  # Detect communities using the Walktrap method
-  communities <- cluster_walktrap(graph)
-  # Calculate modularity
-  modularity_value <- modularity(communities)
-  return(modularity_value)
-}
-
-calculate_clustering_coefficient <- function(graph) {
-  # Calculate the global clustering coefficient (transitivity)
-  clustering_coefficient <- transitivity(graph, type = "global")
-  return(clustering_coefficient)
 }
 
 calculate_lock_measure <- function(graph, root = 1) {
@@ -151,7 +143,7 @@ success_slow <- plotDVbyIV(
 plotDVbyIV(
   data,
   DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Average In-Degree",
+  IV = "avg_path_length",  IV_label ="Average Path Length",
   lambda_value = 5,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
 )
@@ -370,12 +362,16 @@ ggplot() +
 ## varying the slopes 
 
 plot_slopes <- function(strategy) {
-  plot <- ggplot(data[data$lambda == 5 & data$strategy == strategy,], aes(x = avg_path_length, y = step_payoff, color = as.factor(slope), group = slope)) +
+  plot <- ggplot(data[data$steps == 5 & data$strategy == strategy,], aes(x = avg_path_length, y = step_payoff, color = as.factor(slope), group = slope)) +
     geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
+    geom_smooth(data = data[data$steps == 5 & data$strategy == "Random", ],
+                aes(x = avg_path_length, y = step_payoff), 
+                method = "loess", se = FALSE, color = "black", linetype = "dashed") + 
     labs(x = "Average Path Length", y = "Performance", color = "Slope") +
     ggtitle(strategy) +
-    theme_minimal()
+    theme_minimal() + 
+    ylim(min(data$step_payoff), max(data$step_payoff))
   print(plot)
   return(plot)
 }
@@ -417,3 +413,64 @@ fully_constrained <- c(
   "0100000001000000010000000100000001000000010000000",
   "0100000000100000000100000000100000000100000000100000000100000000"
 )
+cols <- c("black",  # Placeholder or a value for index 1 (won't be used)
+          "red",    # Used for strat = 2
+          "blue",   # Used for strat = 3
+          "green",  # Used for strat = 4
+          "purple"  # Used for strat = 5
+)
+slopes<-rbind(c(0,5,9),
+              c(1,2,5),
+              c(1,2,5),
+              c(0,5,15))
+xlims<-rbind(c(0,1),
+             c(1,8),
+             c(1,8),
+             c(0,1))
+xlabs<-c("Payoffs", "Trait difference", "Trait difference", "Frequency")
+par(mfrow=c(2,2))
+for (strat in 2:5){
+
+  minX<-xlims[strat-1,1]
+  maxX<-xlims[strat-1,2]
+
+  x<-seq(from = minX, to = maxX, length.out = 7)
+  plot(0, type='n', xlim=c(minX, maxX), ylim=c(0,1), xlab=xlabs[strat-1], ylab="Weight", axes=FALSE)
+  axis(1)
+  axis(2)
+
+  for (k in 1:3){
+    b<-slopes[strat-1,k]
+
+    if (strat==2){ # payoff bias
+      y<-x^b
+    }
+    if (strat==3) { # proximal learning
+      y<-b^(1-x)
+    }
+    if (strat==4){ # prestige learning
+      y<-b^(x-1)
+    }
+    if (strat==5){
+      y<-1 / (1 + exp(-b * (x-0.5))) # conformity
+    }
+
+    y<-y/max(y)
+
+    lines(x,y, col=cols[strat], lwd=2)
+
+    for (i in 1:length(x)) points(x[i], y[i], pch=14+k, col=cols[strat], cex=1.5)
+  }
+}
+
+
+s_curve <- function(x, total, offset) {
+  return(1 / (1 + exp(-5*((x/total) - offset))))
+}
+
+frequencies <- c(0.5, 0.3, 0.15, 0.05)
+
+par(mfrow = c(1, 2))
+plot(s_curve(frequencies[1:4], 1, 1/length(frequencies[1:4])), type = "l", main = paste("Frequencies:", paste(frequencies, collapse = " ")), sub = "Offset = 1/length(frequencies)", xlab = "x", ylab = "y", ylim = c(0, 1))
+plot(s_curve(frequencies[1:4], 1, 0.5), type = "l", sub = "Offset = 0.5", xlab = "x", ylab = "y", ylim = c(0, 1))
+

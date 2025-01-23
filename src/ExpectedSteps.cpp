@@ -488,10 +488,8 @@ bool computeExpectedSteps(
         DEBUG_PRINT(2, "Preliminary Fundamental matrix:");
         if(DEBUG_LEVEL >= 2) printMatrix(fundamentalMatrix);
 
-        double totalTransientTime = 0.0;
-        for (const auto& row : fundamentalMatrix) {
-            totalTransientTime += std::accumulate(row.begin(), row.end(), 0.0);
-        }
+        // Calculate the total transient time from the first row
+        double totalTransientTime = std::accumulate(fundamentalMatrix[0].begin(), fundamentalMatrix[0].end(), 0.0);
         
         // Update trait frequencies based on expected time in states
         for (Trait trait = 1; trait < n; ++trait) {

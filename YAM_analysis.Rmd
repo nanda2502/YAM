@@ -133,13 +133,11 @@ read_all <- function(numbers) {
   
   return(all_data)
 } 
+```
 
-num_nodes <- 5
-data <- read_file(num_nodes)
-data <- clean_file(data)
-colnames(data)
-data <- add_avg_path_length(data)
 
+
+```{r}
 all_data <- read_all(3:8)
 
 steps_plot <- plotDVByDistance(all_data, "steps", "Expected Steps")

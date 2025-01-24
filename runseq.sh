@@ -1,4 +1,4 @@
-export OMP_NUM_THREADS=40
+export OMP_NUM_THREADS=30
 
 num_nodes=$1
 

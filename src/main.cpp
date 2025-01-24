@@ -68,12 +68,12 @@ int main(int argc, char* argv[]) {
         // Define alphas and strategies
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
-            Strategy::RandomLearning,
-            Strategy::PayoffBasedLearning, 
+            //Strategy::RandomLearning,
+            //Strategy::PayoffBasedLearning, 
             Strategy::ProximalLearning, 
-            Strategy::PrestigeBasedLearning, 
-            Strategy::ConformityBasedLearning,
-            Strategy::PerfectLearning
+            Strategy::PrestigeBasedLearning//, 
+            //Strategy::ConformityBasedLearning,
+            //Strategy::PerfectLearning
         };
     
         // Prepare output directory

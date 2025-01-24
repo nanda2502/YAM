@@ -395,6 +395,9 @@ bool computeExpectedSteps(
             traitFrequencies[j] /= sum;
         }
 
+        // add absorbing state to the state frequencies
+        Repertoire absorbingState(n, true);  // All traits learned
+        stateFrequencies[absorbingState] = 1e-5;
 
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");

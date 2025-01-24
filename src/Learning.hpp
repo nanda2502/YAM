@@ -15,17 +15,6 @@ std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& reper
 
 Repertoire learnTrait(const Repertoire& repertoire, Trait trait);
 
-std::vector<std::pair<Repertoire, double>> transitionFromState(
-    Strategy strategy, 
-    const Repertoire& repertoire, 
-    const PayoffVector& payoffs, 
-    const std::vector<double>& traitFrequencies,
-    const std::vector<double>& stateFrequencies,
-    const std::vector<Repertoire>& allStates,
-    const Parents& parents,
-    double slope
-);
-
 double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
 
 struct RepertoireHash {

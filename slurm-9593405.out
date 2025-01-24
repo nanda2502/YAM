@@ -1,0 +1,14 @@
+
+JOB STATISTICS
+==============
+Job ID: 9593405
+Cluster: snellius
+User/Group: njafarian/njafarian
+State: COMPLETED (exit code 0)
+Nodes: 5
+Cores per node: 128
+CPU Utilized: 05:28:41
+CPU Efficiency: 8.20% of 2-18:50:40 core-walltime
+Job Wall-clock time: 00:06:16
+Memory Utilized: 176.82 MB
+Memory Efficiency: 0.02% of 1.09 TB

@@ -483,7 +483,7 @@ bool computeExpectedSteps(
         DEBUG_PRINT(2, "Preliminary Fundamental matrix:");
         if(DEBUG_LEVEL >= 2) printMatrix(fundamentalMatrix);
 
-        // First, create a mapping between states and their indices in the fundamental matrix
+        // Create a mapping between states and their indices in the fundamental matrix
         std::unordered_map<Repertoire, int, RepertoireHash> transientStateIndices;
         std::vector<Repertoire> transientStates;
         for (size_t i = 0; i < repertoiresList.size(); ++i) {

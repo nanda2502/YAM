@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p rome
-#SBATCH -n 553
+#SBATCH -n 554
 #SBATCH --cpus-per-task 4
 #SBATCH -t 06:00:00
 

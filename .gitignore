@@ -4,3 +4,4 @@ output/
 yam.exe
 .vscode/
 .cache/
+.out

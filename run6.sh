@@ -15,3 +15,5 @@ for i in {0..56}; do
 done
 
 wait
+cd ..
+./combine.sh

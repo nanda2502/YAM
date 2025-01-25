@@ -111,11 +111,11 @@ read_file <- function(num_nodes) {
     "ConformityBasedLearning"
     ),
     labels = c(
-      "Random Learning",
-      "Payoff-Based Learning",
-      "Proximal Learning",
-      "Prestige-Based Learning",
-      "Conformity-Based Learning"
+      "Random",
+      "Payoff",
+      "Proximal",
+      "Prestige",
+      "Conformity"
       )
     )
   return(data)

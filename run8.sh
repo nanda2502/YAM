@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -p rome
 #SBATCH -n 554
-#SBATCH --cpus-per-task 4
+#SBATCH --cpus-per-task 2
 #SBATCH -t 06:00:00
 
-export OMP_NUM_THREADS=4
+export OMP_NUM_THREADS=2
 
 cd build
 
@@ -15,6 +15,8 @@ for i in {0..553}; do
 done
 
 wait
+cd ..
+./combine.sh
 
 
 

@@ -3,7 +3,7 @@ cd output
 gz_count=$(ls -1 expected_steps_*.csv.gz 2>/dev/null | wc -l)
 
 # Check each possible adj_mat file and compare line counts
-for n in {3..8}; do
+for n in $(ls ../data/adj_mat_*.csv | sed -n 's/.*adj_mat_\([0-9][0-9]*\)\.csv$/\1/p' | sort -n); do
     if [ -f "../data/adj_mat_${n}.csv" ]; then
         line_count=$(wc -l < "../data/adj_mat_${n}.csv")
         if [ "$gz_count" -eq "$line_count" ]; then

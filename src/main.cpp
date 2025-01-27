@@ -10,7 +10,6 @@
 #include "Types.hpp"
 #include "ExpectedSteps.hpp"
 
-
 void processRepl(
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
@@ -69,12 +68,12 @@ int main(int argc, char* argv[]) {
         std::iota(stepVector.begin(), stepVector.end(), 1);
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
-            //Strategy::RandomLearning,
-            //Strategy::PayoffBasedLearning,
+            Strategy::RandomLearning,
+            Strategy::PayoffBasedLearning,
             Strategy::ProximalLearning,
-            Strategy::PrestigeBasedLearning//,
-            //Strategy::ConformityBasedLearning,
-            //Strategy::PerfectLearning
+            Strategy::PrestigeBasedLearning,
+            Strategy::ConformityBasedLearning,
+            Strategy::PerfectLearning
         };
     
         std::string outputDir = "../output";
@@ -84,17 +83,28 @@ int main(int argc, char* argv[]) {
     
         std::vector<AdjacencyMatrix> adjacencyMatricesAll = readAdjacencyMatrices(n);
         std::vector<AdjacencyMatrix> adjacencyMatrices(1, adjacencyMatricesAll[adj_int]);
+        int numNodes = adjacencyMatrices[0].size();
 
-        std::vector<size_t> perm(n - 1);
+        int m = 8;
+        
+        std::vector<size_t> perm(m - 1);
         std::iota(perm.begin(), perm.end(), 0);
-        size_t sequenceCount = factorial(n - 1);
+        size_t sequenceCount = factorial(m - 1);
         std::vector<std::vector<size_t>> shuffleSequences;
         shuffleSequences.reserve(sequenceCount);  
 
         do {
-            shuffleSequences.push_back(perm);
-        } while (std::next_permutation(perm.begin(), perm.end())); 
-    
+            // Create a truncated version of the permutation up to numNodes
+            std::vector<size_t> truncatedPerm(perm.begin(), perm.begin() + numNodes);
+            
+            // Only add if this truncated permutation is unique
+            if (std::find(shuffleSequences.begin(), shuffleSequences.end(), truncatedPerm) == shuffleSequences.end()) {
+                shuffleSequences.push_back(truncatedPerm);
+            }
+        } while (std::next_permutation(perm.begin(), perm.end()));
+        
+        shuffleSequences.shrink_to_fit();
+        
         std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size() * shuffleSequences.size() * 5 << " runs." << '\n';
     
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector);
@@ -135,7 +145,7 @@ int main(int argc, char* argv[]) {
             if (accumResult.count > 0) {
                 const ParamCombination& comb = combinations[i];
                 std::string formattedResult = formatResults(
-                    n,
+                    numNodes,
                     adjMatrixToBinaryString(comb.adjMatrix),
                     comb.alpha,
                     comb.strategy,

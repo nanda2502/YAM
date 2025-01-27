@@ -9,21 +9,7 @@ fi
 num_nodes="$1"
 
 
-case "$num_nodes" in
-    8)
-        max_index=553
-        ;;
-    7)
-        max_index=149
-        ;;
-    6)
-        max_index=56
-        ;;
-    *)
-        echo "Invalid num_nodes. Please provide either 7 or 8."
-        exit 1
-        ;;
-esac
+max_index=$(( $(wc -l < "./data/adj_mat_${num_nodes}.csv") - 1 ))
 
 # Initialize counter for missing files
 missing_count=0

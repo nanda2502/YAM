@@ -220,7 +220,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
     }
 }
 
-
+*/
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
         case RandomLearning:
@@ -228,12 +228,12 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
         case PerfectLearning:
             return {0.0};
         default:
-            return {0.0, 1.0, 1.25, 2.5, 5.0, 10.0, 20.0, 40.0};	
+            return {0.0, 1.0, 1.25, 2.0 , 2.5, 5.0, 10.0, 20.0, 40.0};	
 
     }
 }
 
-*/
+/*
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
         case RandomLearning:
@@ -245,7 +245,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
 
     }
 }
-
+*/
 
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 

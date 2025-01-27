@@ -17,19 +17,22 @@ source("plotting.R")
 
 
 ##### Figures #####
-data <- read_all(3:7)
+data_abs <- read_abs(3:8)
 
+data <- read_all(3:8)
+data_abs <- readRDS("data_abs.rds")
 data <- readRDS("data_merged.rds")
 
 default_slopes <- list(
- "Payoff" = 0.0,
- "Proximal" = 1.0,
- "Prestige" = 1.0,
- "Conformity" = 0.0,
- "Random" = 0.0
+ "Payoff" = 2.0,
+ "Proximal" = 2.0,
+ "Prestige" = 2.0,
+ "Conformity" = 2.5,
+ "Random" = 0.0,
+ "Perfect" = 0.0
 )
 
-data <- data %>% 
+default_data <- data %>% 
   filter(slope == sapply(as.character(strategy), function(x) default_slopes[[x]]))
 
 saveRDS(data, "data.rds")
@@ -38,9 +41,10 @@ data <- average_over_lambda(data)
 
 
 data <- data %>%
-  left_join(all_data %>% select(strategy, adj_mat, slope, steps), 
+  left_join(data_abs %>% select(strategy, adj_mat, slope, steps), 
             by = c("strategy", "adj_mat", "slope")) %>%
-  rename(absorbing = steps.y) 
+  rename(absorbing = steps.y,
+         steps = steps.x) 
 
 #data <- add_ratios(data)
 data <- readRDS("data_processed_newconf.rds")
@@ -99,6 +103,35 @@ calculate_lock_measure <- function(graph, root = 1) {
   
   return(lock_measure)
 }
+
+unlocking_degree <- function(graph, root = 1) {
+  # Calculate the out-degree for each node
+  out_degrees <- degree(graph, mode = "out")
+  
+  return(sum(out_degrees))
+}
+
+downstream_complexity <- function(g) {
+  root <- V(g)[1]
+  non_root_vertices <- V(g)[-1]
+  
+  downstream_counts <- sapply(non_root_vertices, function(v) {
+    descendants <- subcomponent(g, v, mode="out")
+    length(descendants) - 1  # Exclude the node itself
+  })
+  
+  mean(downstream_counts)
+}
+
+mean_indegree <- function(graph) {
+  mean(degree(graph, mode = "in"))
+}
+
+data_perf <- add_graph_measure(data_perf, mean_indegree, "mean_indegree")
+
+data_abs <- add_graph_measure(data_abs, downstream_complexity, "downstream_complexity")
+
+data <- add_graph_measure(data, unlocking_degree, "unlocking_degree")
 
 data <- add_graph_measure(data, average_indegree, "avg_indegree")
 
@@ -173,12 +206,43 @@ plotDVbyIV(
 )
 
 plotDVbyIV(
-  data,
+  default_data[default_data$num_nodes == 8,],
   DV = "step_payoff", DV_label = "Performance",
-  IV = "locking",  IV_label ="Locking",
+  IV = "unlocking_degree",  IV_label ="Locking",
   lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
+
+graph_ids <- data.frame(
+  graph = unique(data$adj_mat),
+  ID = 1:length(unique(data$adj_mat))
+)
+
+plot_graph(graph_ids$graph[graph_ids$ID == 615])
+
+plotDVbyIV(
+  data_perf,
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Average path length",
+  lambda_value = NULL,
+  strategy_colors = c("Perfect" = "blue" )
+)
+
+plotDVbyIV(
+  data_perf,
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Average path length",
+  lambda_value = NULL,
+  strategy_colors = c("Perfect" = "blue" )
+)
+
+plotDVbyIV(
+  data_abs[data_abs$num_nodes == 8 & data_abs$strategy == "Proximal" & data_abs$slope == 2,],
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Average path length",
+  lambda_value = NULL
+)
+
 plot_graph("0101000101000000000000000")
 
 summary(lm(step_payoff ~  locking + avg_path_length + avg_indegree + strategy, data = data[data$num_nodes == 8,]))
@@ -355,19 +419,20 @@ ggplot() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 
-
-
 ##### Extra things #####
 
 ## varying the slopes 
 
-plot_slopes <- function(strategy) {
+plot_slopes <- function(strategy, data) {
   plot <- ggplot(data[data$steps == 5 & data$strategy == strategy,], aes(x = avg_path_length, y = step_payoff, color = as.factor(slope), group = slope)) +
     geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
     geom_smooth(data = data[data$steps == 5 & data$strategy == "Random", ],
                 aes(x = avg_path_length, y = step_payoff), 
                 method = "loess", se = FALSE, color = "black", linetype = "dashed") + 
+    geom_smooth(data = data[data$steps == 5 & data$strategy == "Perfect", ],
+                aes(x = avg_path_length, y = step_payoff), 
+                method = "loess", se = FALSE, color = "black") + 
     labs(x = "Average Path Length", y = "Performance", color = "Slope") +
     ggtitle(strategy) +
     theme_minimal() + 
@@ -379,7 +444,7 @@ plot_slopes <- function(strategy) {
 strategies <- c("Payoff", "Proximal", "Prestige", "Conformity")
 plots <- vector("list", length(strategies))
 for (i in 1:length(strategies)) {
-  plots[[i]] <- plot_slopes(strategies[i])
+  plots[[i]] <- plot_slopes(strategies[i], data[data$num_nodes == 8,])
 }
 
 grid.arrange(grobs = plots, ncol = 2)

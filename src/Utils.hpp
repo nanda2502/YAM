@@ -25,10 +25,6 @@ std::string formatResults(
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
 
-AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str);
-
-std::string formatAdjMat(const std::string& adj_string, int n);
-
 bool charToBool(char c);
 
 void printMatrix(const std::vector<std::vector<double>>& matrix);

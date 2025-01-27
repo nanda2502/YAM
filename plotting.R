@@ -1,9 +1,16 @@
 plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
+  if (!is.null(lambda_value)) {
+    data <- data %>% filter(steps == lambda_value)
+  }
+  
+  graph_ids <- data.frame(
+    graph = unique(data$adj_mat),
+    ID = 1:length(unique(data$adj_mat))
+  )
+  
   average_data <- data %>%
-    filter(steps == lambda_value) %>%
     mutate(
-      !!sym(DV) := scales::rescale(!!sym(DV), to = c(0, 1))
-      #!!sym(IV) := scales::rescale(!!sym(IV), to = c(0, 1))
+      across(all_of(DV), ~scales::rescale(.x, to = c(0, 1)))
     ) %>%
     group_by(adj_mat, strategy, !!sym(IV)) %>%
     summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
@@ -13,8 +20,11 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
   } else {
     num_nodes <- data$num_nodes[1]
   }
-  
-  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy")) +
+
+  average_data$graph_id <- graph_ids$ID[match(average_data$adj_mat, graph_ids$graph)]
+  average_data <- add_graph_measure(average_data, mean_indegree, "mean_indegree")
+  average_data$mean_indegree <- as.factor(average_data$mean_indegree)
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "mean_indegree")) +
     geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
     labs(
@@ -22,12 +32,13 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
       y = DV_label
     ) +
     theme_minimal() 
+  #+ geom_text(aes(label = ID), hjust = -0.2)
   
-  if (!is.null(strategy_colors)) {
-    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
-  } else {
-    plot <- plot + scale_color_discrete(name = "Strategy")
-  }
+  # if (!is.null(strategy_colors)) {
+  #   plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+  # } else {
+  #   plot <- plot + scale_color_discrete(name = "Strategy")
+  # }
   
   print(plot)
   return(plot)

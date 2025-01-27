@@ -26,12 +26,13 @@ add_avg_path_length <- function(data) {
 
 add_graph_measure <- function(data, measure_func, measure_name) {
   unique_combinations <- data %>%
-    select(num_nodes, adj_mat) %>%
+    select(adj_mat) %>%
     distinct()
   for (i in seq_len(nrow(unique_combinations))) {
     combination <- unique_combinations[i, ]
     adj_string <- combination[[which(colnames(unique_combinations) == "adj_mat")]]
-    num_nodes <- combination[[which(colnames(unique_combinations) == "num_nodes")]]
+
+    num_nodes <- sqrt(length(unlist(strsplit(adj_string, ""))))
     
     adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
     adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
@@ -141,6 +142,20 @@ average_over_replications <- function(data) {
     ungroup()
   
   return(data)
+}
+
+read_abs <- function(numbers) {
+  all_data <- lapply(numbers, function(num_nodes) {
+    data <- read_file(num_nodes)
+    data <- clean_file(data)
+    data <- add_avg_path_length(data)
+    print(paste0("Finished processing data for ", num_nodes, " nodes."))
+    return(data)
+  })
+  
+  all_data <- bind_rows(all_data)
+  
+  return(all_data)
 }
 
 read_all <- function(numbers) {

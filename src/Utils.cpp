@@ -1,5 +1,6 @@
 #include "Utils.hpp"
 #include "Types.hpp"
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <stdexcept>
@@ -70,29 +71,12 @@ std::string formatResults(
     return oss.str();
 }
 
-std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
-    std::string filePath = "../data/adj_mat_" + std::to_string(n) + ".csv";
-    std::ifstream file(filePath);
-    if (!file.is_open()) throw std::runtime_error("Could not open file " + filePath);
-
-    std::vector<AdjacencyMatrix> matrices;
-    std::string line;
-    while (std::getline(file, line)) {
-        matrices.push_back(binaryStringToAdjacencyMatrix(n, line));
-    }
-    
-    std::cout << "Loaded " << matrices.size() << " adjacency matrices." << '\n';
-
-    return matrices;
-}
-
-AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str) {
+AdjacencyMatrix binaryStringToAdjacencyMatrix(const std::string& str) {
     std::string binaryStr = str;
 
-    if (binaryStr.length() != static_cast<size_t>(n * n)) {
-        throw std::invalid_argument("Invalid length: Expected " + std::to_string(n * n) + 
-                                    " bits, got " + std::to_string(binaryStr.length()));
-    }
+    int n = static_cast<int>(std::sqrt(binaryStr.size()));
+
+    if (n == 0) throw std::invalid_argument("Invalid adjmat string: " + str);
 
     AdjacencyMatrix matrix(n, std::vector<bool>(n));
     for (int row = 0; row < n; ++row) {
@@ -103,6 +87,23 @@ AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str) {
 
     return matrix;
 }
+
+std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
+    std::string filePath = "../data/adj_mat_" + std::to_string(n) + ".csv";
+    std::ifstream file(filePath);
+    if (!file.is_open()) throw std::runtime_error("Could not open file " + filePath);
+
+    std::vector<AdjacencyMatrix> matrices;
+    std::string line;
+    while (std::getline(file, line)) {
+        matrices.push_back(binaryStringToAdjacencyMatrix(line));
+    }
+    
+    std::cout << "Loaded " << matrices.size() << " adjacency matrices." << '\n';
+
+    return matrices;
+}
+
 
 std::string formatAdjMat(const std::string& adj_string, int n) {
     std::string adj_mat;
@@ -218,7 +219,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
         return slopeVector;
     }
 }
-*/
+
 
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
@@ -228,6 +229,19 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
             return {0.0};
         default:
             return {0.0, 1.0, 1.25, 2.5, 5.0, 10.0, 20.0, 40.0};	
+
+    }
+}
+
+*/
+std::vector<double> returnSlopeVector(Strategy strategy) {
+    switch (strategy) {
+        case RandomLearning:
+            return {0.0};
+        case PerfectLearning:
+            return {0.0};
+        default:
+            return {2.0};	
 
     }
 }

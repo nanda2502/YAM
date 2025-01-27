@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
     int adj_int = parseArgs(argc, argv, n);
     int replications = 1;
     try {
-        std::vector<int> stepVector(20);
+        std::vector<int> stepVector(1);
         std::iota(stepVector.begin(), stepVector.end(), 1);
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {

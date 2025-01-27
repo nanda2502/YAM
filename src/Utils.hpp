@@ -25,8 +25,6 @@ std::string formatResults(
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
 
-AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str);
-
 std::string formatAdjMat(const std::string& adj_string, int n);
 
 bool charToBool(char c);
@@ -37,8 +35,6 @@ int parseArgs(int argc, char* argv[], int& num_nodes);
 
 void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData);
 
-std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
-
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     const std::vector<Strategy>& strategies, 
@@ -46,6 +42,8 @@ std::vector<ParamCombination> makeCombinations(
     int replications, 
     const std::vector<int>& stepVector
 );
+
+std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
 
 std::string stateToString(const Repertoire& state);
 

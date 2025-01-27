@@ -4,6 +4,6 @@ output/
 yam.exe
 .vscode/
 .cache/
-.rds
-.sh
-.out
+*.rds
+*.sh
+*.out

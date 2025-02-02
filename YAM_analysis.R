@@ -16,6 +16,7 @@ source("preprocessing.R")
 source("plotting.R")
 
 
+
 ##### Figures #####
 data_abs <- read_abs(3:8)
 
@@ -23,17 +24,8 @@ data <- read_all(3:8)
 data_abs <- readRDS("data_abs.rds")
 data <- readRDS("data_merged.rds")
 
-default_slopes <- list(
- "Payoff" = 2.0,
- "Proximal" = 2.0,
- "Prestige" = 2.0,
- "Conformity" = 2.5,
- "Random" = 0.0,
- "Perfect" = 0.0
-)
 
-default_data <- data %>% 
-  filter(slope == sapply(as.character(strategy), function(x) default_slopes[[x]]))
+
 
 saveRDS(data, "data.rds")
 
@@ -47,6 +39,7 @@ data <- data %>%
          steps = steps.x) 
 
 #data <- add_ratios(data)
+
 data <- readRDS("data_processed_newconf.rds")
 
 average_indegree <- function(graph) {
@@ -127,6 +120,14 @@ mean_indegree <- function(graph) {
   mean(degree(graph, mode = "in"))
 }
 
+root_outdegree <- function(graph) {
+  degree(graph, 1, mode = "out")
+}
+
+data_1 <- add_graph_measure(data_1, root_outdegree, "root_outdegree")
+
+data <- add_graph_measure(data, root_outdegree, "root_outdegree")
+
 data_perf <- add_graph_measure(data_perf, mean_indegree, "mean_indegree")
 
 data_abs <- add_graph_measure(data_abs, downstream_complexity, "downstream_complexity")
@@ -152,7 +153,7 @@ payoff_fast <- plotDVbyIV_binned(
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_path_length",  IV_label ="Constraints on Learning",
   lambda_value = 2,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
 payoff_slow <- plotDVbyIV_binned(
@@ -160,7 +161,7 @@ payoff_slow <- plotDVbyIV_binned(
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_path_length",  IV_label ="Constraints on Learning",
   lambda_value = 10,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
 ###### Success ~ Constraints ####
@@ -170,15 +171,15 @@ success_slow <- plotDVbyIV(
   DV = "step_transitions", DV_label = "Learning Success Rate",
   IV = "avg_path_length",  IV_label ="Constraints on Learning",
   lambda_value = 10,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
 plotDVbyIV(
-  data,
+  default_data,
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_path_length",  IV_label ="Average Path Length",
-  lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+  lambda_value = 1,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
 plotDVbyIV(
@@ -186,7 +187,7 @@ plotDVbyIV(
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_indegree",  IV_label ="Average In-Degree",
   lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
 plotDVbyIV(
@@ -194,7 +195,7 @@ plotDVbyIV(
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_total_path_length",  IV_label ="Average Product",
   lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
 plotDVbyIV(
@@ -202,7 +203,7 @@ plotDVbyIV(
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_product",  IV_label ="Average Product",
   lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black" )
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
 plotDVbyIV(
@@ -237,10 +238,33 @@ plotDVbyIV(
 )
 
 plotDVbyIV(
+  default_data,
+  DV = "step_transitions", DV_label = "Success rate",
+  IV = "prop_learnable",  IV_label ="Average Proportion Learnable",
+  lambda_value = NULL,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+)
+
+plotDVbyIV(
   data_abs[data_abs$num_nodes == 8 & data_abs$strategy == "Proximal" & data_abs$slope == 2,],
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_path_length",  IV_label ="Average path length",
   lambda_value = NULL
+)
+
+plotDVbyIV(
+  data,
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "root_outdegree",  IV_label ="Root Outdegree",
+  lambda_value = 5
+)
+
+plotDVbyIV(
+  data,
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "scaled_outdegree",  IV_label ="Weighted Root Outdegree",
+  lambda_value = 5,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
 plot_graph("0101000101000000000000000")
@@ -538,4 +562,59 @@ frequencies <- c(0.5, 0.3, 0.15, 0.05)
 par(mfrow = c(1, 2))
 plot(s_curve(frequencies[1:4], 1, 1/length(frequencies[1:4])), type = "l", main = paste("Frequencies:", paste(frequencies, collapse = " ")), sub = "Offset = 1/length(frequencies)", xlab = "x", ylab = "y", ylim = c(0, 1))
 plot(s_curve(frequencies[1:4], 1, 0.5), type = "l", sub = "Offset = 0.5", xlab = "x", ylab = "y", ylim = c(0, 1))
+
+data_perf <- data[data$strategy == "Perfect", ]
+data_perf$payoff_scaled <- scales::rescale(data_perf$step_payoff, to = c(0, 1))
+plot_graph_panel(data_perf[data_perf$payoff_scaled > 0.6 & data_perf$payoff_scaled < 0.7,])
+plot_graph_panel(data_perf[data_perf$payoff_scaled > 0.4 & data_perf$payoff_scaled < 0.5,])
+
+data_1 <- read_all(99)
+data_learn <- read.csv("../Cassava/results.csv", colClasses = c(adj_mat = "character"))
+data_1 <- get_default(data_1)
+data_learn <- get_default(data_learn)
+data_abs <- merge(data_abs, data_learn, by = c("adj_mat", "strategy", "slope"))
+data_abs <- get_default(data_abs)
+
+
+plotDVbyIV(
+  data_abs,
+  DV = "step_transitions", DV_label = "Success Rate",
+  IV = "prop_learnable",  IV_label ="Proportion Learnable",
+  lambda_value = NULL,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+)
+plotDVbyIV_outdeg(
+  data_abs[data_abs$strategy == "Proximal",],
+  DV = "step_payoff", DV_label = "Performance",
+  IV = "prop_learnable",  IV_label ="Proportion Learnable",
+  lambda_value = NULL,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+)
+
+graph_ids <- data.frame(
+  graph = unique(data_abs$adj_mat),
+  ID = 1:length(unique(data_abs$adj_mat))
+)
+
+data_abs$graph_id <- graph_ids$ID[match(data_abs$adj_mat, graph_ids$graph)]
+
+plot_graph(data_abs$adj_mat[data_abs$graph_id == 86])
+
+
+data$scaled_outdegree <- NULL
+for (row in seq_len(nrow(data_1))) {
+  num_nodes <- data$num_nodes[row]
+  data$scaled_outdegree[row] <- data$root_outdegree[row] * node_weights[num_nodes - 2]
+}
+plot(
+  3:8,
+  tapply(
+    data$scaled_outdegree[data$steps == 1] / data$root_outdegree[data$steps == 1],
+    data$num_nodes[data$steps == 1],
+    mean
+  ),
+  type = 'l',
+  ylab = "Outdegree weight",
+  xlab = "structure size"
+)
 

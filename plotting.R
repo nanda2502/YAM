@@ -9,6 +9,44 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
   )
   
   average_data <- data %>%
+    # mutate(
+    #   across(all_of(DV), ~scales::rescale(.x, to = c(0, 1)))
+    # ) %>%
+    group_by(adj_mat, strategy, !!sym(IV)) %>%
+    summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
+  
+
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy")) +
+    geom_point(alpha = 0.2) +
+    geom_smooth(method = "loess", se = FALSE) +
+    labs(
+      x = IV_label,
+      y = DV_label
+    ) +
+    theme_minimal() 
+  #+ geom_text(aes(label = ID), hjust = -0.2)
+  
+  if (!is.null(strategy_colors)) {
+    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+  } else {
+    plot <- plot + scale_color_discrete(name = "Strategy")
+  }
+  
+  print(plot)
+  return(plot)
+}
+
+plotDVbyIV_outdeg <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
+  if (!is.null(lambda_value)) {
+    data <- data %>% filter(steps == lambda_value)
+  }
+  
+  graph_ids <- data.frame(
+    graph = unique(data$adj_mat),
+    ID = 1:length(unique(data$adj_mat))
+  )
+  
+  average_data <- data %>%
     mutate(
       across(all_of(DV), ~scales::rescale(.x, to = c(0, 1)))
     ) %>%
@@ -20,19 +58,18 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
   } else {
     num_nodes <- data$num_nodes[1]
   }
-
+  
   average_data$graph_id <- graph_ids$ID[match(average_data$adj_mat, graph_ids$graph)]
-  average_data <- add_graph_measure(average_data, mean_indegree, "mean_indegree")
-  average_data$mean_indegree <- as.factor(average_data$mean_indegree)
-  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "mean_indegree")) +
+  average_data <- add_graph_measure(average_data, root_outdegree, "root_outdegree")
+  average_data$root_outdegree <- as.factor(average_data$root_outdegree)
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "root_outdegree")) +
     geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
     labs(
       x = IV_label,
       y = DV_label
     ) +
-    theme_minimal() 
-  #+ geom_text(aes(label = ID), hjust = -0.2)
+    theme_minimal() + geom_text(aes(label = graph_id), hjust = -0.2)
   
   # if (!is.null(strategy_colors)) {
   #   plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
@@ -390,13 +427,14 @@ plotDVbyIV_binned <- function(data, DV, DV_label, IV, IV_label, lambda_value, st
   return(plot)
 }
 
-plot_graph_panel <- function(df) {
+plot_graph_panel <- function(df, output_file = "output.pdf") {
   unique_adj_matrices <- df %>% 
     distinct(adj_mat, num_nodes)
   
   plot_list <- list()
   
-  for (i in 1:nrow(unique_adj_matrices)) {
+  #for (i in 1:nrow(unique_adj_matrices)) {
+  for (i in 1:50) {
     adj_string <- unique_adj_matrices$adj_mat[i]
     num_nodes <- unique_adj_matrices$num_nodes[i]
     
@@ -422,13 +460,14 @@ plot_graph_panel <- function(df) {
   n_cols <- ceiling(sqrt(n_plots))
   n_rows <- ceiling(n_plots / n_cols)
   
-  n_cols <- 7
-  n_rows <- 1
-  
   combined_plot <- plot_grid(plotlist = plot_list, ncol = n_cols, nrow = n_rows, align = 'none')
   
-  pdf_width <- n_cols * 1.5
-  pdf_height <- n_rows * 1.5
+  # Calculate PDF dimensions in inches (8K resolution: 7680x4320 pixels at 300 DPI)
+  pdf_width <- 7680 / 300  # Width in inches
+  pdf_height <- 4320 / 300 # Height in inches
+  
+  # Save the combined plot as a high-resolution PDF
+  ggsave(output_file, combined_plot, width = pdf_width, height = pdf_height, dpi = 300)
   
   print(combined_plot)
   combined_plot

@@ -242,3 +242,18 @@ add_ratios <- function(data) {
   
   return(data)
 }
+
+get_default <- function(data) {
+  default_slopes <- list(
+    "Payoff" = 2.0,
+    "Proximal" = 2.0,
+    "Prestige" = 2.0,
+    "Conformity" = 2.0,
+    "Random" = 0.0,
+    "Perfect" = 0.0
+  )
+  
+  data %>% 
+    filter(slope == sapply(as.character(strategy), function(x) default_slopes[[x]]))
+  
+}

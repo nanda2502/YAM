@@ -1,6 +1,7 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
+#include <iostream>
 #include <unordered_map>
 #include <vector>
 #include <string> 
@@ -47,7 +48,13 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
 
 std::string stateToString(const Repertoire& state);
 
-void printVector(const std::vector<double>& vec);
+template <typename T>
+void printVector(const std::vector<T>& vec) {
+    for (const T& value : vec) {
+        std::cout << value << ' ';
+    }
+    std::cout << '\n';
+}
 
 void printStates(const std::vector<Repertoire>& repertoiresList, const std::unordered_map<int, int>& oldToNewIndexMap);
 

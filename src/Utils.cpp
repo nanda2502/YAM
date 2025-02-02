@@ -281,13 +281,6 @@ std::string stateToString(const Repertoire& state) {
     return binaryString;
 }
 
-void printVector(const std::vector<double>& vec) {
-    for (double value : vec) {
-        std::cout << value << ' ';
-    }
-    std::cout << '\n';
-}
-
 void printStates(const std::vector<Repertoire>& repertoiresList, const std::unordered_map<int, int>& oldToNewIndexMap) {
     // Generate reordered list of repertoires
     std::vector<Repertoire> reorderedRepertoires(repertoiresList.size());

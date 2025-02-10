@@ -18,7 +18,7 @@ source("plotting.R")
 
 
 ##### Figures #####
-data_abs <- read_abs(3:8)
+data_fixed <- read_abs(3:8)
 
 data <- read_all(3:8)
 data_abs <- readRDS("data_abs.rds")
@@ -264,6 +264,14 @@ plotDVbyIV(
   DV = "step_payoff", DV_label = "Performance",
   IV = "scaled_outdegree",  IV_label ="Weighted Root Outdegree",
   lambda_value = 5,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+)
+
+plotDVbyIV(
+  get_default(data_abs),
+  DV = "steps", DV_label = "Time until Absorption",
+  IV = "avg_path_length",  IV_label ="Average Path Length",
+  lambda_value = NULL,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
@@ -572,7 +580,7 @@ data_1 <- read_all(99)
 data_learn <- read.csv("../Cassava/results.csv", colClasses = c(adj_mat = "character"))
 data_1 <- get_default(data_1)
 data_learn <- get_default(data_learn)
-data_abs <- merge(data_abs, data_learn, by = c("adj_mat", "strategy", "slope"))
+data_abs <- merge(data_fixed, data_learn, by = c("adj_mat", "strategy", "slope"))
 data_abs <- get_default(data_abs)
 
 

@@ -4,5 +4,7 @@ output/
 yam.exe
 .vscode/
 .cache/
-.rds
+*.rds
 .sh
+*.R
+*.Rmd

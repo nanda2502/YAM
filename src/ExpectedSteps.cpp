@@ -194,9 +194,7 @@ void computeExpectedPayoffAtNSteps(
         }
 
         DEBUG_PRINT(1, "Expected payoff at Step " << step << " : " << expectedPayoffAtNSteps);
-        if (step > 0) {
             expectedPayoffPerStep[step] = expectedPayoffAtNSteps;
-        }
     }
 }
 
@@ -275,10 +273,7 @@ void computeExpectedTransitionsPerStep(
             }
         }
         stateDistribution = nextStateDistribution;
-
-        if (step > 0) {
-            expectedTransitionsPerStep[step] = totalExpectedTransitions / step;
-        }
+        expectedTransitionsPerStep[step] = totalExpectedTransitions / (step + 1); //Add 1 since the index is 0-based
     }
 }
 
@@ -328,9 +323,7 @@ void computeExpectedVariation(const std::vector<std::vector<double>>& transition
             }
         }
 
-        if (step > 0) {
             expectedVariation[step] = (numComparisons == 0) ? 0.0 :totalExpectedJaccardDistance / numComparisons;
-        }
     }
 }
 
@@ -445,7 +438,7 @@ bool computeExpectedSteps(
         for (const auto& [state, index] : transientStateIndices) {
             double frequency = fundamentalMatrix[0][index] / totalTransientTime;
             if (frequency == 0.0) {
-                frequency = 1e-5;  // Set small positive frequency for states that die out
+                frequency = 0.05;  // Frequency of omniscient states
             }
             stateFrequencies[state] = frequency;
         }
@@ -474,8 +467,8 @@ bool computeExpectedSteps(
         // Ensure no zero frequencies
         for (size_t j = 1; j < n; ++j) {
             if (traitFrequencies[j] == 0.0) {
-                traitFrequencies[j] = 1e-5;
-                sum += 1e-5;
+                traitFrequencies[j] = 0.05;
+                sum += 0.05;
             }
         }
 

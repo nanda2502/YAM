@@ -5,7 +5,6 @@
 #include <string>
 #include <filesystem>
 
-#include "Debug.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
 #include "ExpectedSteps.hpp"
@@ -46,6 +45,7 @@ void processRepl(
 
     if (successCount > 0) {
         for (size_t i = 0; i < 20; ++i) {
+            accumResult.count++;
             accumResult.totalExpectedPayoffPerStep[i] += totalExpectedPayoffPerStep[i] / successCount;
             accumResult.totalExpectedTransitionsPerStep[i] += totalExpectedTransitionsPerStep[i] / successCount;
             accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / successCount;
@@ -68,12 +68,12 @@ int main(int argc, char* argv[]) {
     try {
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
-            //Strategy::RandomLearning,
-            //Strategy::PayoffBasedLearning,
+            Strategy::RandomLearning,
+            Strategy::PayoffBasedLearning,
             Strategy::ProximalLearning,
-            Strategy::PrestigeBasedLearning//,
-            //Strategy::ConformityBasedLearning,
-            //Strategy::PerfectLearning
+            Strategy::PrestigeBasedLearning,
+            Strategy::ConformityBasedLearning,
+            Strategy::PerfectLearning
         };
     
         std::string outputDir = "../output";
@@ -94,7 +94,6 @@ int main(int argc, char* argv[]) {
             shuffleSequences.push_back(perm);
         } while (std::next_permutation(perm.begin(), perm.end())); 
     
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * 20 * shuffleSequences.size() * 5 << " runs." << '\n';
     
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
@@ -103,7 +102,7 @@ int main(int argc, char* argv[]) {
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
     
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (size_t i = 0; i < indices.size(); ++i) {
             size_t idx = indices[i];
             const ParamCombination& comb = combinations[idx];
@@ -118,11 +117,6 @@ int main(int argc, char* argv[]) {
             );
         }
     
-        int totalFailures = std::accumulate(failureCounts.begin(), failureCounts.end(), 0, [](int sum, const std::atomic<int>& val) {
-            return sum + val.load();
-        });
-    
-        DEBUG_PRINT(0, "Total failures: " << totalFailures);
 
         std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope";
         std::vector<std::string> csvData;
@@ -131,7 +125,7 @@ int main(int argc, char* argv[]) {
         for (size_t i = 0; i < accumulatedResults.size(); ++i) {
             const AccumulatedResult& accumResult = accumulatedResults[i];
             if (accumResult.count > 0) {
-                for (size_t step = 1; step < 20; step++) {
+                for (size_t step = 0; step < 20; step++) {
                 const ParamCombination& comb = combinations[i];
                 std::string formattedResult = formatResults(
                     n,
@@ -139,7 +133,7 @@ int main(int argc, char* argv[]) {
                     comb.alpha,
                     comb.strategy,
                     comb.repl,
-                    step,
+                    step + 1,// add 1 since the index is 0-based
                     accumResult.totalExpectedPayoffPerStep[step],
                     accumResult.totalExpectedTransitionsPerStep[step],
                     accumResult.totalExpectedVariation[step],

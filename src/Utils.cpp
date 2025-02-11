@@ -98,9 +98,6 @@ std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
     while (std::getline(file, line)) {
         matrices.push_back(binaryStringToAdjacencyMatrix(line));
     }
-    
-    std::cout << "Loaded " << matrices.size() << " adjacency matrices." << '\n';
-
     return matrices;
 }
 
@@ -192,8 +189,6 @@ void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<
     if (std::remove(outputCsvPath.c_str()) != 0) {
         std::cerr << "Failed to remove original file: " << outputCsvPath << '\n';
     }
-
-    std::cout << "Expected steps to absorption saved and compressed to '" << compressedFilePath << "'\n";
 }
 
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {

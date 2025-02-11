@@ -214,7 +214,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
         return slopeVector;
     }
 }
-
+*/
 
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
@@ -228,7 +228,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
     }
 }
 
-*/
+/*
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
         case RandomLearning:
@@ -240,7 +240,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
 
     }
 }
-
+*/
 
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 

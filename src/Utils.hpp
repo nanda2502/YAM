@@ -39,8 +39,7 @@ std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     const std::vector<Strategy>& strategies, 
     const std::vector<double>& alphas, 
-    int replications, 
-    const std::vector<int>& stepVector
+    int replications
 );
 
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);

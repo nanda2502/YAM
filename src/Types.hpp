@@ -26,7 +26,6 @@ struct ParamCombination {
     Strategy strategy;
     double alpha;
     int repl;
-    int steps;
     double slope;
 };
 
@@ -44,9 +43,9 @@ struct Result {
 
 struct AccumulatedResult {
     int count = 0;
-    double totalExpectedPayoffPerStep = 0.0;
-    double totalExpectedTransitionsPerStep = 0.0;
-    double totalExpectedVariation = 0.0;
+    std::vector<double> totalExpectedPayoffPerStep{std::vector<double>(20, 0.0)};
+    std::vector<double> totalExpectedTransitionsPerStep{std::vector<double>(20, 0.0)};
+    std::vector<double> totalExpectedVariation{std::vector<double>(20, 0.0)};
 };
 
 #endif // TYPES_HPP

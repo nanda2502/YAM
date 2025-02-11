@@ -15,29 +15,29 @@ void processRepl(
     const AdjacencyMatrix& adjMatrix,
     const Strategy& strategy,
     double alpha,
-    int steps,
     double slope,
     const std::vector<std::vector<size_t>>& shuffleSequences,
     AccumulatedResult& accumResult,
     std::atomic<int>& failureCount
 ) {
-    double totalExpectedPayoffPerStep = 0.0;
-    double totalExpectedTransitionsPerStep = 0.0;
-    double totalExpectedVariation = 0.0;
+    std::vector<double> totalExpectedPayoffPerStep(20, 0.0);
+    std::vector<double> totalExpectedTransitionsPerStep(20, 0.0);
+    std::vector<double> totalExpectedVariation(20, 0.0);
     int successCount = 0;
 
     for (const auto& shuffleSequence : shuffleSequences) {
-        double expectedSteps = 0.0;
-        double expectedPayoffPerStep = 0.0;
-        double expectedTransitionsPerStep = 0.0;
-        double expectedVariation = 0.0;
+        std::vector<double> expectedPayoffPerStep(20, 0.0);
+        std::vector<double> expectedTransitionsPerStep(20, 0.0);
+        std::vector<double> expectedVariation(20, 0.0);
         std::vector<std::vector<double>> transitionMatrix;
 
 
-        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, steps, slope, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix)) {
-            totalExpectedPayoffPerStep += expectedPayoffPerStep;
-            totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
-            totalExpectedVariation += expectedVariation;
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,  slope,  expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix)) {
+            for (size_t i = 0; i < 20; ++i) {
+                totalExpectedPayoffPerStep[i] += expectedPayoffPerStep[i];
+                totalExpectedTransitionsPerStep[i] += expectedTransitionsPerStep[i];
+                totalExpectedVariation[i] += expectedVariation[i];
+            }
             successCount++;
         } else {
             ++failureCount;
@@ -45,10 +45,11 @@ void processRepl(
     }
 
     if (successCount > 0) {
-        accumResult.count++;
-        accumResult.totalExpectedPayoffPerStep += totalExpectedPayoffPerStep / successCount;
-        accumResult.totalExpectedTransitionsPerStep += totalExpectedTransitionsPerStep / successCount;
-        accumResult.totalExpectedVariation += totalExpectedVariation / successCount;
+        for (size_t i = 0; i < 20; ++i) {
+            accumResult.totalExpectedPayoffPerStep[i] += totalExpectedPayoffPerStep[i] / successCount;
+            accumResult.totalExpectedTransitionsPerStep[i] += totalExpectedTransitionsPerStep[i] / successCount;
+            accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / successCount;
+        }
     }
 }
 
@@ -65,8 +66,6 @@ int main(int argc, char* argv[]) {
     int adj_int = parseArgs(argc, argv, n);
     int replications = 1;
     try {
-        std::vector<int> stepVector(1);
-        std::iota(stepVector.begin(), stepVector.end(), 1);
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
             //Strategy::RandomLearning,
@@ -95,9 +94,9 @@ int main(int argc, char* argv[]) {
             shuffleSequences.push_back(perm);
         } while (std::next_permutation(perm.begin(), perm.end())); 
     
-        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * stepVector.size() * shuffleSequences.size() * 5 << " runs." << '\n';
+        std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * 20 * shuffleSequences.size() * 5 << " runs." << '\n';
     
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, stepVector);
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
         std::vector<std::atomic<int>> failureCounts(combinations.size());
     
@@ -112,7 +111,6 @@ int main(int argc, char* argv[]) {
                 comb.adjMatrix,
                 comb.strategy,
                 comb.alpha,
-                comb.steps,
                 comb.slope,
                 shuffleSequences,
                 accumulatedResults[idx],
@@ -133,6 +131,7 @@ int main(int argc, char* argv[]) {
         for (size_t i = 0; i < accumulatedResults.size(); ++i) {
             const AccumulatedResult& accumResult = accumulatedResults[i];
             if (accumResult.count > 0) {
+                for (size_t step = 1; step < 20; step++) {
                 const ParamCombination& comb = combinations[i];
                 std::string formattedResult = formatResults(
                     n,
@@ -140,13 +139,15 @@ int main(int argc, char* argv[]) {
                     comb.alpha,
                     comb.strategy,
                     comb.repl,
-                    comb.steps,
-                    accumResult.totalExpectedPayoffPerStep,
-                    accumResult.totalExpectedTransitionsPerStep,
-                    accumResult.totalExpectedVariation,
+                    step,
+                    accumResult.totalExpectedPayoffPerStep[step],
+                    accumResult.totalExpectedTransitionsPerStep[step],
+                    accumResult.totalExpectedVariation[step],
                     comb.slope
                 );
                 csvData.push_back(formattedResult);
+                }
+
             }
         }
 

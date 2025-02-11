@@ -157,11 +157,11 @@ std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> 
     return {reorderedTransitionMatrix, oldToNewIndexMap, numTransientStates};
 }
 
-double computeExpectedPayoffOverNSteps(
+void computeExpectedPayoffAtNSteps(
     const std::vector<std::vector<double>>& transitionMatrix,
     const std::vector<double>& statePayoffs,
     int initialStateIndex,
-    double n // Number of steps to simulate
+    std::vector<double>& expectedPayoffPerStep
 ) {
     int numStates = static_cast<int>(transitionMatrix.size());
 
@@ -169,56 +169,12 @@ double computeExpectedPayoffOverNSteps(
     std::vector<double> stateDistribution(numStates, 0.0);
     stateDistribution[initialStateIndex] = 1.0;
 
-    double totalExpectedPayoff = 0.0;
-
-    DEBUG_PRINT(1, "Starting Computation of Expected Payoff Over " << n << " Steps");
-
-    for (int step = 0; step < n; ++step) {
-        // Update state distribution for the next step
-        std::vector<double> nextStateDistribution(numStates, 0.0);
-        for (int i = 0; i < numStates; ++i) {
-            for (int j = 0; j < numStates; ++j) {
-                nextStateDistribution[j] += stateDistribution[i] * transitionMatrix[i][j];
-            }
-        }
-        stateDistribution = nextStateDistribution;
-
-        // Compute expected payoff at this step
-        // Start accumulating payoffs from step 1 and beyond
-        double expectedPayoffThisStep = 0.0;
-        for (int i = 0; i < numStates; ++i) {
-            expectedPayoffThisStep += stateDistribution[i] * statePayoffs[i];
-        }
-        totalExpectedPayoff += expectedPayoffThisStep;
-        DEBUG_PRINT(1, "Expected payoff at Step " << step << " : " << expectedPayoffThisStep);
-    }
-
-    DEBUG_PRINT(1, "Total Expected Payoff: " << totalExpectedPayoff);
-    
-    // Compute expected payoff per step
-    double expectedPayoffPerStep = totalExpectedPayoff / n;
-    return expectedPayoffPerStep;
-}
-
-double computeExpectedPayoffAtNSteps(
-    const std::vector<std::vector<double>>& transitionMatrix,
-    const std::vector<double>& statePayoffs,
-    int initialStateIndex,
-    int n // Number of steps to simulate
-) {
-    int numStates = static_cast<int>(transitionMatrix.size());
-
-    // Initialize the state distribution: start in the initial state
-    std::vector<double> stateDistribution(numStates, 0.0);
-    stateDistribution[initialStateIndex] = 1.0;
-
-    DEBUG_PRINT(1, "Starting Computation of Expected Payoff at " << n << " Steps");
     DEBUG_PRINT(1, "Initial State Distribution:");
     for (int k = 0; k < numStates; ++k) {
         DEBUG_PRINT(1, "State " << k << ": " << stateDistribution[k]);
     }
 
-    for (int step = 0; step < n; ++step) {
+    for (int step = 0; step < 20; ++step) {
         // Update state distribution for the next step
         std::vector<double> nextStateDistribution(numStates, 0.0);
         for (int i = 0; i < numStates; ++i) {
@@ -232,17 +188,16 @@ double computeExpectedPayoffAtNSteps(
         for (int k = 0; k < numStates; ++k) {
             DEBUG_PRINT(1, "State " << k << ": " << stateDistribution[k]);
         }
+        double expectedPayoffAtNSteps = 0.0;
+        for (int i = 0; i < numStates; ++i) {
+            expectedPayoffAtNSteps += stateDistribution[i] * statePayoffs[i];
+        }
+
+        DEBUG_PRINT(1, "Expected payoff at Step " << step << " : " << expectedPayoffAtNSteps);
+        if (step > 0) {
+            expectedPayoffPerStep[step] = expectedPayoffAtNSteps;
+        }
     }
-
-    // Compute expected payoff at step n
-    double expectedPayoffAtNSteps = 0.0;
-    for (int i = 0; i < numStates; ++i) {
-        expectedPayoffAtNSteps += stateDistribution[i] * statePayoffs[i];
-    }
-
-    DEBUG_PRINT(1, "Expected payoff at Step " << n << " : " << expectedPayoffAtNSteps);
-
-    return expectedPayoffAtNSteps;
 }
 
 
@@ -283,10 +238,10 @@ void adjustTraitFrequencies(std::vector<double>& traitFrequencies, double adjust
     }
 }
 
-double computeExpectedTransitionsPerStep(
+void computeExpectedTransitionsPerStep(
     const std::vector<std::vector<double>>& transitionMatrix,
     int initialStateIndex,
-    double n // Number of steps to simulate
+    std::vector<double>& expectedTransitionsPerStep
 ) {
     int numStates = static_cast<int>(transitionMatrix.size());
 
@@ -296,9 +251,7 @@ double computeExpectedTransitionsPerStep(
 
     double totalExpectedTransitions = 0.0;
 
-    DEBUG_PRINT(1, "Starting Computation of Expected Transitions Over " << n << " Steps");
-
-    for (int step = 0; step < n; ++step) {
+    for (int step = 0; step < 20; ++step) {
         // Compute expected number of transitions at this step
         double expectedTransitionsThisStep = 0.0;
 
@@ -322,13 +275,11 @@ double computeExpectedTransitionsPerStep(
             }
         }
         stateDistribution = nextStateDistribution;
-    }
 
-    DEBUG_PRINT(1, "Total Expected Transitions: " << totalExpectedTransitions);
-    
-    // Compute expected transitions per step
-    double expectedTransitionsPerStep = totalExpectedTransitions / n;
-    return expectedTransitionsPerStep;
+        if (step > 0) {
+            expectedTransitionsPerStep[step] = totalExpectedTransitions / step;
+        }
+    }
 }
 
 double computeJaccardDistance(const Repertoire& state1, const Repertoire& state2) {
@@ -347,15 +298,15 @@ double computeJaccardDistance(const Repertoire& state1, const Repertoire& state2
     return 1.0 - static_cast<double>(intersectionCount) / static_cast<double>(unionCount);
 }
 
-double computeExpectedVariation(const std::vector<std::vector<double>>& transitionMatrix,
+void computeExpectedVariation(const std::vector<std::vector<double>>& transitionMatrix,
                                 const std::vector<Repertoire>& repertoires,
-                                int num_steps) {
+                                std::vector<double>& expectedVariation) {
     size_t numStates = transitionMatrix.size();
     std::vector<double> stateProbabilities(numStates, 0.0);
     stateProbabilities[0] = 1.0; 
 
     // Evolve state probabilities over num_steps
-    for (int step = 0; step < num_steps; ++step) {
+    for (int step = 0; step < 20; ++step) {
         std::vector<double> nextStateProbabilities(numStates, 0.0);
 
         for (size_t i = 0; i < numStates; ++i) {
@@ -365,20 +316,22 @@ double computeExpectedVariation(const std::vector<std::vector<double>>& transiti
         }
 
         stateProbabilities = nextStateProbabilities;
-    }
 
-    double totalExpectedJaccardDistance = 0.0;
-    size_t numComparisons = 0;
+        double totalExpectedJaccardDistance = 0.0;
+        size_t numComparisons = 0;
 
-    for (size_t i = 0; i < repertoires.size(); ++i) {
-        for (size_t j = i + 1; j < repertoires.size(); ++j) {
-            double jaccardDistance = computeJaccardDistance(repertoires[i], repertoires[j]);
-            totalExpectedJaccardDistance += stateProbabilities[i] * stateProbabilities[j] * jaccardDistance;
-            ++numComparisons;
+        for (size_t i = 0; i < repertoires.size(); ++i) {
+            for (size_t j = i + 1; j < repertoires.size(); ++j) {
+                double jaccardDistance = computeJaccardDistance(repertoires[i], repertoires[j]);
+                totalExpectedJaccardDistance += stateProbabilities[i] * stateProbabilities[j] * jaccardDistance;
+                ++numComparisons;
+            }
+        }
+
+        if (step > 0) {
+            expectedVariation[step] = (numComparisons == 0) ? 0.0 :totalExpectedJaccardDistance / numComparisons;
         }
     }
-
-    return (numComparisons == 0) ? 0.0 : totalExpectedJaccardDistance / numComparisons;
 }
 
 
@@ -387,12 +340,10 @@ bool computeExpectedSteps(
     Strategy strategy,
     double alpha,
     const std::vector<size_t>& shuffleSequence,
-    int num_steps,
-    double slope, 
-    double& expectedSteps,                             
-    double& expectedPayoffPerStep,
-    double& expectedTransitionsPerStep,
-    double& expectedVariation,                       
+    double slope,                          
+    std::vector<double>& expectedPayoffPerStep,
+    std::vector<double>& expectedTransitionsPerStep,
+    std::vector<double>& expectedVariation,                       
     std::vector<std::vector<double>>& transitionMatrix 
 ) {
     try {
@@ -457,13 +408,6 @@ bool computeExpectedSteps(
 
         DEBUG_PRINT(2, "Initial transition matrix:");        
         if(DEBUG_LEVEL >= 2) printMatrix(reorderedTransitionMatrix);
-
-        if (numTransientStates == 0) {
-            expectedSteps = static_cast<double>(num_steps);
-            expectedPayoffPerStep = std::accumulate(payoffs.begin(), payoffs.end(), 0.0);
-            expectedTransitionsPerStep = 0.0;
-            return true;
-        }
 
         // Compute fundamental matrix
         std::vector<std::vector<double>> iMinusQ = computeIMinusQ(reorderedTransitionMatrix, numTransientStates);
@@ -559,20 +503,10 @@ bool computeExpectedSteps(
             finalRepertoiresList, finalRepertoireIndexMap, finalAllTransitions
         );
 
-        if (transitionMatrix.empty()) {
-            expectedSteps = static_cast<double>(num_steps);
-            expectedPayoffPerStep = std::accumulate(payoffs.begin(), payoffs.end(), 0.0);
-            expectedTransitionsPerStep = 0.0;
-            return true;
-        }
-
         // Find initial state index
         Repertoire initialRepertoire(n, false);
         initialRepertoire[rootNode] = true;
         int initialStateIndex = finalRepertoireIndexMap[initialRepertoire];
-
-        // Expected steps is the number of steps we simulate
-        expectedSteps = static_cast<double>(num_steps);
 
         // Compute expected payoff per step
         std::vector<double> statePayoffs(finalRepertoiresList.size(), 0.0);
@@ -585,25 +519,25 @@ bool computeExpectedSteps(
             }
         }
 
-        expectedPayoffPerStep = computeExpectedPayoffAtNSteps(
+        computeExpectedPayoffAtNSteps(
             transitionMatrix,
             statePayoffs,
             initialStateIndex,
-            num_steps
+            expectedPayoffPerStep
         );
 
         // Compute expected transitions per step
-        expectedTransitionsPerStep = computeExpectedTransitionsPerStep(
+        computeExpectedTransitionsPerStep(
             transitionMatrix,
             initialStateIndex,
-            num_steps
+            expectedTransitionsPerStep
         );
 
         // Compute expected variation in traits
-        expectedVariation = computeExpectedVariation(
+        computeExpectedVariation(
             transitionMatrix, 
             finalRepertoiresList, 
-            num_steps
+            expectedVariation
         );
 
         return true;

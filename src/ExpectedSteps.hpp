@@ -60,12 +60,10 @@ bool computeExpectedSteps(
     Strategy strategy,
     double alpha,
     const std::vector<size_t>& shuffleSequence,
-    int num_steps,
     double slope,
-    double& expectedSteps,                             // Output parameter for expected steps
-    double& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
-    double& expectedTransitionsPerStep,                // Output parameter for expected transitions per step
-    double& expectedVariation,
+    std::vector<double>& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
+    std::vector<double>& expectedTransitionsPerStep,                // Output parameter for expected transitions per step
+    std::vector<double>& expectedVariation,
     std::vector<std::vector<double>>& transitionMatrix // Output parameter for the transition matrix
 );
 

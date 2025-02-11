@@ -251,8 +251,7 @@ std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     const std::vector<Strategy>& strategies, 
     const std::vector<double>& alphas,
-    int replications, 
-    const std::vector<int>& stepVector
+    int replications
 ) {
     std::vector<ParamCombination> combinations;
     for (const auto& adjMatrix : adjacencyMatrices) {
@@ -261,10 +260,8 @@ std::vector<ParamCombination> makeCombinations(
             auto slopes = returnSlopeVector(strategy);
             for (const auto& alpha : alphas) {
                 for (int repl = 0; repl < replications; ++repl) {
-                    for (const auto& steps : stepVector) {
-                        for (const auto& slope : slopes) {
-                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, steps, slope});
-                        }
+                    for (const auto& slope : slopes) {
+                        combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, slope});
                     }
                 }
             }

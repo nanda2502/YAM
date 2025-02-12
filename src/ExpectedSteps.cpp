@@ -247,8 +247,6 @@ void computeExpectedTransitionsPerStep(
     std::vector<double> stateDistribution(numStates, 0.0);
     stateDistribution[initialStateIndex] = 1.0;
 
-    double totalExpectedTransitions = 0.0;
-
     for (int step = 0; step < 20; ++step) {
         // Compute expected number of transitions at this step
         double expectedTransitionsThisStep = 0.0;
@@ -262,8 +260,10 @@ void computeExpectedTransitionsPerStep(
             expectedTransitionsThisStep += probInStateI * (1.0 - selfTransitionProb);
         }
 
-        totalExpectedTransitions += expectedTransitionsThisStep;
         DEBUG_PRINT(1, "Expected transitions at Step " << (step + 1) << " : " << expectedTransitionsThisStep);
+
+        // Store the number of transitions for this step directly in the output vector
+        expectedTransitionsPerStep[step] = expectedTransitionsThisStep;
 
         // Update state distribution for the next step
         std::vector<double> nextStateDistribution(numStates, 0.0);
@@ -273,7 +273,6 @@ void computeExpectedTransitionsPerStep(
             }
         }
         stateDistribution = nextStateDistribution;
-        expectedTransitionsPerStep[step] = totalExpectedTransitions / (step + 1); //Add 1 since the index is 0-based
     }
 }
 

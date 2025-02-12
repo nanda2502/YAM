@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -p rome
-#SBATCH -n 553
-#SBATCH --cpus-per-task 2
+#SBATCH -n 554
+#SBATCH --cpus-per-task 6
 #SBATCH -t 01:00:00
 
-export OMP_NUM_THREADS=2
+export OMP_NUM_THREADS=6
 
 cd build
 

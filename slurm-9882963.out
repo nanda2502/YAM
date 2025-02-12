@@ -1,0 +1,128 @@
+Loaded 57 adjacency matrices.
+Total failures: 342
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 374
+Loaded 57 adjacency matrices.
+Total failures: 342
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 412
+Loaded 57 adjacency matrices.
+Total failures: 364
+Loaded 57 adjacency matrices.
+Total failures: 342
+Loaded 57 adjacency matrices.
+Total failures: 388
+Loaded 57 adjacency matrices.
+Total failures: 374
+Loaded 57 adjacency matrices.
+Total failures: 304
+Loaded 57 adjacency matrices.
+Total failures: 304
+Loaded 57 adjacency matrices.
+Total failures: 400
+Loaded 57 adjacency matrices.
+Total failures: 380
+Loaded 57 adjacency matrices.
+Total failures: 328
+Loaded 57 adjacency matrices.
+Total failures: 344
+Loaded 57 adjacency matrices.
+Total failures: 328
+Loaded 57 adjacency matrices.
+Total failures: 312
+Loaded 57 adjacency matrices.
+Total failures: 472
+Loaded 57 adjacency matrices.
+Total failures: 288
+Loaded 57 adjacency matrices.
+Total failures: 394
+Loaded 57 adjacency matrices.
+Total failures: 372
+Loaded 57 adjacency matrices.
+Total failures: 342
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 364
+Loaded 57 adjacency matrices.
+Total failures: 394
+Loaded 57 adjacency matrices.
+Total failures: 304
+Loaded 57 adjacency matrices.
+Total failures: 356
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 312
+Loaded 57 adjacency matrices.
+Total failures: 342
+Loaded 57 adjacency matrices.
+Total failures: 312
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 304
+Loaded 57 adjacency matrices.
+Total failures: 344
+Loaded 57 adjacency matrices.
+Total failures: 288
+Loaded 57 adjacency matrices.
+Total failures: 342
+Loaded 57 adjacency matrices.
+Total failures: 342
+Loaded 57 adjacency matrices.
+Total failures: 312
+Loaded 57 adjacency matrices.
+Total failures: 288
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 342
+Loaded 57 adjacency matrices.
+Total failures: 350
+Loaded 57 adjacency matrices.
+Total failures: 344
+Loaded 57 adjacency matrices.
+Total failures: 328
+Loaded 57 adjacency matrices.
+Total failures: 328
+Loaded 57 adjacency matrices.
+Total failures: 288
+Loaded 57 adjacency matrices.
+Total failures: 304
+Loaded 57 adjacency matrices.
+Total failures: 288
+Loaded 57 adjacency matrices.
+Total failures: 312
+Loaded 57 adjacency matrices.
+Total failures: 328
+Loaded 57 adjacency matrices.
+Total failures: 240
+Loaded 57 adjacency matrices.
+Total failures: 304
+Loaded 57 adjacency matrices.
+Total failures: 288
+
+JOB STATISTICS
+==============
+Job ID: 9882963
+Cluster: snellius
+User/Group: njafarian1/njafarian1
+State: COMPLETED (exit code 0)
+Nodes: 4
+Cores per node: 128
+CPU Utilized: 00:01:09
+CPU Efficiency: 1.04% of 01:50:56 core-walltime
+Job Wall-clock time: 00:00:13
+Memory Utilized: 2.66 MB
+Memory Efficiency: 0.00% of 896.00 GB

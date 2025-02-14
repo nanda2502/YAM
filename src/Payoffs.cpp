@@ -34,10 +34,34 @@ PayoffVector generateRawPayoffs(const std::vector<int>& distances, const std::ve
 }
 
 void addDistanceBonuses(PayoffVector& payoffs, const std::vector<int>& distances, double alpha) {
+    double original_mean = 0.0;
+    size_t non_root_count = 0;
+    
+    // Calculate original mean of non-root payoffs
+    for (size_t trait = 1; trait < payoffs.size(); ++trait) {
+        original_mean += payoffs[trait];
+        non_root_count++;
+    }
+    original_mean /= non_root_count;
+
+    // Add distance bonuses
     for (size_t trait = 0; trait < payoffs.size(); ++trait) {
         if (distances[trait] != 0) {
             payoffs[trait] += alpha * distances[trait];
         }
+    }
+
+    // Calculate new mean after adding bonuses
+    double new_mean = 0.0;
+    for (size_t trait = 1; trait < payoffs.size(); ++trait) {
+        new_mean += payoffs[trait];
+    }
+    new_mean /= non_root_count;
+
+    // Scale payoffs to maintain original mean
+    double scaling_factor = original_mean / new_mean;
+    for (size_t trait = 0; trait < payoffs.size(); ++trait) {
+        payoffs[trait] *= scaling_factor;
     }
 }
 

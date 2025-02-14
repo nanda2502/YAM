@@ -2,7 +2,6 @@
 #define LEARNING_HPP
 
 #include "Types.hpp"
-#include <unordered_map>
 #include <vector>
 #include <string>
 #include <random>
@@ -28,7 +27,6 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
-    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,  
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope

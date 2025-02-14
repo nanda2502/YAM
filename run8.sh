@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -p rome
-#SBATCH -n 554
+#SBATCH -p genoa
+#SBATCH -n 1
 #SBATCH --cpus-per-task 6
-#SBATCH -t 01:00:00
+#SBATCH -t 00:45:00
 
 export OMP_NUM_THREADS=6
 

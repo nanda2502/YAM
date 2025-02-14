@@ -72,7 +72,7 @@ std::string formatResults(
 }
 
 AdjacencyMatrix binaryStringToAdjacencyMatrix(const std::string& str) {
-    std::string binaryStr = str;
+    const std::string& binaryStr = str;
 
     int n = static_cast<int>(std::sqrt(binaryStr.size()));
 
@@ -81,7 +81,7 @@ AdjacencyMatrix binaryStringToAdjacencyMatrix(const std::string& str) {
     AdjacencyMatrix matrix(n, std::vector<bool>(n));
     for (int row = 0; row < n; ++row) {
         for (int column = 0; column < n; ++column) {
-            matrix[row][column] = charToBool(binaryStr[row * n + column]);
+            matrix[row][column] = charToBool(binaryStr[(row * n) + column]);
         }
     }
 
@@ -216,6 +216,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
 }
 */
 
+
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
         case RandomLearning:
@@ -223,7 +224,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
         case PerfectLearning:
             return {0.0};
         default:
-            return {0.0, 1.0, 1.25, 2.5, 5.0, 10.0, 20.0, 40.0};	
+            return {0.0, 1.0, 1.25, 2.0, 2.5, 5.0, 10.0, 20.0, 40.0};	
 
     }
 }
@@ -241,7 +242,6 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
     }
 }
 */
-
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     const std::vector<Strategy>& strategies, 

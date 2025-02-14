@@ -39,16 +39,16 @@ void processRepl(
             }
             successCount++;
         } else {
-            ++failureCount;
+            failureCount++;
         }
     }
 
     if (successCount > 0) {
         for (size_t i = 0; i < 20; ++i) {
             accumResult.count++;
-            accumResult.totalExpectedPayoffPerStep[i] += totalExpectedPayoffPerStep[i] / successCount;
-            accumResult.totalExpectedTransitionsPerStep[i] += totalExpectedTransitionsPerStep[i] / successCount;
-            accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / successCount;
+            accumResult.totalExpectedPayoffPerStep[i] += totalExpectedPayoffPerStep[i] / shuffleSequences.size();
+            accumResult.totalExpectedTransitionsPerStep[i] += totalExpectedTransitionsPerStep[i] / shuffleSequences.size();
+            accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / shuffleSequences.size();
         }
     }
 }
@@ -103,9 +103,8 @@ int main(int argc, char* argv[]) {
         std::iota(indices.begin(), indices.end(), 0);
     
         //#pragma omp parallel for
-        for (size_t i = 0; i < indices.size(); ++i) {
-            size_t idx = indices[i];
-            const ParamCombination& comb = combinations[idx];
+        for (unsigned long idx : indices) {
+             const ParamCombination& comb = combinations[idx];
             processRepl(
                 comb.adjMatrix,
                 comb.strategy,

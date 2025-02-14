@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <numeric>
 #include <cmath>
+#include <map>
 
 
 // Helper function to extract Q matrix and compute (I - Q)
@@ -289,7 +290,7 @@ double computeJaccardDistance(const Repertoire& state1, const Repertoire& state2
         }
     }
 
-    return 1.0 - static_cast<double>(intersectionCount) / static_cast<double>(unionCount);
+    return 1.0 - (static_cast<double>(intersectionCount) / static_cast<double>(unionCount));
 }
 
 void computeExpectedVariation(const std::vector<std::vector<double>>& transitionMatrix,
@@ -311,21 +312,171 @@ void computeExpectedVariation(const std::vector<std::vector<double>>& transition
 
         stateProbabilities = nextStateProbabilities;
 
-        double totalExpectedJaccardDistance = 0.0;
-        size_t numComparisons = 0;
-
-        for (size_t i = 0; i < repertoires.size(); ++i) {
-            for (size_t j = i + 1; j < repertoires.size(); ++j) {
-                double jaccardDistance = computeJaccardDistance(repertoires[i], repertoires[j]);
-                totalExpectedJaccardDistance += stateProbabilities[i] * stateProbabilities[j] * jaccardDistance;
-                ++numComparisons;
+        // Calculate total probability mass for active states
+        double totalActiveProbability = 0.0;
+        for (size_t i = 0; i < numStates; ++i) {
+            if (stateProbabilities[i] > 1e-10) {  // Only consider states with non-negligible probability
+                totalActiveProbability += stateProbabilities[i];
             }
         }
 
-            expectedVariation[step] = (numComparisons == 0) ? 0.0 :totalExpectedJaccardDistance / numComparisons;
+        // Normalize state probabilities to sum to 1
+        std::vector<double> normalizedProbabilities;
+        for (size_t i = 0; i < numStates; ++i) {
+            if (stateProbabilities[i] > 1e-10) {
+                normalizedProbabilities.push_back(stateProbabilities[i] / totalActiveProbability);
+            }
+        }
+
+        double totalExpectedJaccardDistance = 0.0;
+        size_t numComparisons = 0;
+
+        // Calculate average pairwise Jaccard distance between states
+        // weighted by their normalized probabilities
+        for (size_t i = 0; i < repertoires.size(); ++i) {
+            for (size_t j = i + 1; j < repertoires.size(); ++j) {
+                if (stateProbabilities[i] > 1e-10 && stateProbabilities[j] > 1e-10) {
+                    double jaccardDistance = computeJaccardDistance(repertoires[i], repertoires[j]);
+                    double normalizedProb_i = stateProbabilities[i] / totalActiveProbability;
+                    double normalizedProb_j = stateProbabilities[j] / totalActiveProbability;
+                    totalExpectedJaccardDistance += normalizedProb_i * normalizedProb_j * jaccardDistance;
+                    ++numComparisons;
+                }
+            }
+        }
+
+        expectedVariation[step] = (numComparisons == 0) ? 0.0 : totalExpectedJaccardDistance;
     }
 }
 
+size_t countLearnedTraits(const Repertoire& repertoire) {
+    return std::count(repertoire.begin(), repertoire.end(), true);
+}
+
+std::unordered_map<Repertoire, double, RepertoireHash> reverseStateFrequencies(
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies
+) {
+    std::unordered_map<Repertoire, double, RepertoireHash> reversedFrequencies;
+    
+    // Group states by number of learned traits
+    std::map<size_t, std::vector<std::pair<Repertoire, double>>> statesByTraitCount;
+    size_t totalTraits = 0;
+    
+    // First pass: group states and find total number of traits
+    for (const auto& [state, freq] : stateFrequencies) {
+        size_t learnedTraits = countLearnedTraits(state);
+        statesByTraitCount[learnedTraits].push_back({state, freq});
+        totalTraits = std::max(state.size(), totalTraits);
+    }
+    
+    // Second pass: match states and swap frequencies
+    for (size_t i = 0; i <= totalTraits; ++i) {
+        size_t complementCount = totalTraits - i;
+        
+        // Skip if either group is empty
+        if (statesByTraitCount.find(i) == statesByTraitCount.end() || 
+            statesByTraitCount.find(complementCount) == statesByTraitCount.end()) {
+            continue;
+        }
+        
+        auto& lowStates = statesByTraitCount[i];
+        auto& highStates = statesByTraitCount[complementCount];
+        
+        // Match states from both groups and swap their frequencies
+        size_t pairCount = std::min(lowStates.size(), highStates.size());
+        for (size_t j = 0; j < pairCount; ++j) {
+            reversedFrequencies[lowStates[j].first] = highStates[j].second;
+            reversedFrequencies[highStates[j].first] = lowStates[j].second;
+        }
+        
+        // Handle any remaining unmatched states (keep original frequency)
+        for (size_t j = pairCount; j < lowStates.size(); ++j) {
+            reversedFrequencies[lowStates[j].first] = lowStates[j].second;
+        }
+        for (size_t j = pairCount; j < highStates.size(); ++j) {
+            reversedFrequencies[highStates[j].first] = highStates[j].second;
+        }
+    }
+    
+    return reversedFrequencies;
+}
+
+std::vector<double> reverseTraitFrequencies(
+    const std::vector<double>& traitFrequencies,
+    const AdjacencyMatrix& adjMatrix,
+    Trait rootNode
+) {
+    // Compute distances from root for all traits
+    std::vector<int> distances = computeDistances(adjMatrix, rootNode);
+    
+    // Find maximum distance from root
+    int maxDistance = *std::max_element(distances.begin(), distances.end());
+    
+    // Group traits by their distance from root
+    std::map<int, std::vector<std::pair<Trait, double>>> traitsByDistance;
+    
+    // Skip root node (index 0) when grouping
+    for (Trait trait = 1; trait < traitFrequencies.size(); ++trait) {
+        traitsByDistance[distances[trait]].push_back({trait, traitFrequencies[trait]});
+    }
+    
+    // Create reversed frequencies vector, initialize with original frequencies
+    std::vector<double> reversedFrequencies = traitFrequencies;
+    
+    // Match and swap frequencies for traits based on complementary distances
+    for (int dist = 1; dist <= maxDistance; ++dist) {
+        int complementDist = maxDistance - dist + 1;
+        
+        // Skip if either distance group is empty
+        if (traitsByDistance.find(dist) == traitsByDistance.end() || 
+            traitsByDistance.find(complementDist) == traitsByDistance.end()) {
+            continue;
+        }
+        
+        auto& nearTraits = traitsByDistance[dist];
+        auto& farTraits = traitsByDistance[complementDist];
+        
+        // Match traits from both groups and swap their frequencies
+        size_t pairCount = std::min(nearTraits.size(), farTraits.size());
+        for (size_t i = 0; i < pairCount; ++i) {
+            reversedFrequencies[nearTraits[i].first] = farTraits[i].second;
+            reversedFrequencies[farTraits[i].first] = nearTraits[i].second;
+        }
+        
+        // Keep original frequencies for unmatched traits
+        for (size_t i = pairCount; i < nearTraits.size(); ++i) {
+            reversedFrequencies[nearTraits[i].first] = nearTraits[i].second;
+        }
+        for (size_t i = pairCount; i < farTraits.size(); ++i) {
+            reversedFrequencies[farTraits[i].first] = farTraits[i].second;
+        }
+    }
+    
+    // Normalize the frequencies (excluding root node)
+    double sum = std::accumulate(
+        reversedFrequencies.begin() + 1,  // Skip root node
+        reversedFrequencies.end(),
+        0.0
+    );
+    
+    // Ensure no zero frequencies and normalize
+    for (size_t i = 1; i < reversedFrequencies.size(); ++i) {
+        if (reversedFrequencies[i] == 0.0) {
+            reversedFrequencies[i] = 1e-5;
+            sum += 1e-5;
+        }
+    }
+    
+    // Normalize all non-root frequencies
+    for (size_t i = 1; i < reversedFrequencies.size(); ++i) {
+        reversedFrequencies[i] /= sum;
+    }
+    
+    // Keep root node frequency unchanged at 1.0
+    reversedFrequencies[rootNode] = 1.0;
+    
+    return reversedFrequencies;
+}
 
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
@@ -374,10 +525,11 @@ bool computeExpectedSteps(
         }
 
         // Generate repertoires based on initial traitFrequencies
-        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents,slope);
+        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents,slope);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
-        for (size_t i = 0; i < repertoiresList.size(); ++i) {
+        repertoiresWithIndices.reserve(repertoiresList.size());
+for (size_t i = 0; i < repertoiresList.size(); ++i) {
             repertoiresWithIndices.emplace_back(repertoiresList[i], static_cast<int>(i));
         }
 
@@ -479,10 +631,13 @@ bool computeExpectedSteps(
         Repertoire absorbingState(n, true);  // All traits learned
         stateFrequencies[absorbingState] = 1e-5;
 
+        //traitFrequencies = reverseTraitFrequencies(traitFrequencies, adjacencyMatrix, 0);
+        //stateFrequencies = reverseStateFrequencies(stateFrequencies);
+
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
-            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope
+            strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents, slope
         );
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
 

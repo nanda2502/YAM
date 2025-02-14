@@ -15,22 +15,22 @@ library(lattice)
 source("preprocessing.R")
 source("plotting.R")
 
-
+plot_graph("0110000010000010000000000")
 
 ##### Figures #####
-data_fixed <- read_abs(3:8)
+data_abs <- read_abs(3:8)
 
-data <- read_all(3:8)
+datap <- read_all(3:8)
+
+data<- read_all(8)
+
+
 data_abs <- readRDS("data_abs.rds")
 data <- readRDS("data_merged.rds")
-
-
-
 
 saveRDS(data, "data.rds")
 
 data <- average_over_lambda(data)
-
 
 data <- data %>%
   left_join(data_abs %>% select(strategy, adj_mat, slope, steps), 
@@ -124,6 +124,26 @@ root_outdegree <- function(graph) {
   degree(graph, 1, mode = "out")
 }
 
+avg_root_distance <- function(g) {
+  vertices <- setdiff(V(g), 0)
+  
+  all_paths <- lapply(vertices, function(v) {
+    all_simple_paths(g, from = 1, to = v)
+  })
+
+  path_lengths <- unlist(lapply(all_paths, function(paths) {
+    if (length(paths) == 0) {
+      return(NA)
+    }
+    lengths <- sapply(paths, length)
+    lengths - 1
+  }))
+  
+  mean(path_lengths, na.rm = TRUE)
+}
+
+data <- add_graph_measure(data, avg_root_distance, "total_distance")
+
 data_1 <- add_graph_measure(data_1, root_outdegree, "root_outdegree")
 
 data <- add_graph_measure(data, root_outdegree, "root_outdegree")
@@ -175,42 +195,18 @@ success_slow <- plotDVbyIV(
 )
 
 plotDVbyIV(
-  default_data,
+  get_default(data),
   DV = "step_payoff", DV_label = "Performance",
   IV = "avg_path_length",  IV_label ="Average Path Length",
+  lambda_value = 5,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+)
+
+plotDVbyIV(
+  get_default(data),
+  DV = "step_transitions", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Average Path Length",
   lambda_value = 1,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
-)
-
-plotDVbyIV(
-  data,
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_indegree",  IV_label ="Average In-Degree",
-  lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
-)
-
-plotDVbyIV(
-  data,
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_total_path_length",  IV_label ="Average Product",
-  lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
-)
-
-plotDVbyIV(
-  data,
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_product",  IV_label ="Average Product",
-  lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
-)
-
-plotDVbyIV(
-  default_data[default_data$num_nodes == 8,],
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "unlocking_degree",  IV_label ="Locking",
-  lambda_value = 5,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
 
@@ -222,11 +218,43 @@ graph_ids <- data.frame(
 plot_graph(graph_ids$graph[graph_ids$ID == 615])
 
 plotDVbyIV(
-  data_perf,
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Average path length",
-  lambda_value = NULL,
-  strategy_colors = c("Perfect" = "blue" )
+  get_default(data[data$strategy != "Perfect" & data$num_nodes == 8,]),
+  DV = "step_payoff", DV_label = "performance",
+  IV = "avg_path_length",  IV_label ="mean distance to root",
+  lambda_value = 4,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
+)
+
+plotDVbyIV(
+  get_default(data[data$strategy != "Perfect" & data$num_nodes == 8,]),
+  DV = "absorbing", DV_label = "total learning time",
+  IV = "avg_path_length",  IV_label ="mean distance to root",
+  lambda_value = 4,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
+)
+
+plotDVbyIV(
+  get_default(data[data$strategy != "Perfect" & data$num_nodes == 8,]),
+  DV = "step_variation", DV_label = "cultural diversity",
+  IV = "avg_path_length",  IV_label ="mean distance to root",
+  lambda_value = 20,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
+)
+
+plotDVbyIV(
+  get_default(data_rev[data_rev$strategy != "Perfect",]),
+  DV = "step_payoff", DV_label = "performance",
+  IV = "avg_path_length",  IV_label ="mean distance to root",
+  lambda_value = 4,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
+)
+
+plotDVbyIV(
+  get_default(data_alpha[data_rev$strategy != "Perfect",]),
+  DV = "step_payoff", DV_label = "performance",
+  IV = "avg_path_length",  IV_label ="mean distance to root",
+  lambda_value = 4,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
 )
 
 plotDVbyIV(
@@ -268,12 +296,29 @@ plotDVbyIV(
 )
 
 plotDVbyIV(
-  get_default(data_abs),
-  DV = "steps", DV_label = "Time until Absorption",
+  data[!data$strategy %in% c("Payoff", "Conformity"),],
+  DV = "absorbing", DV_label = "Total Learning Time",
   IV = "avg_path_length",  IV_label ="Average Path Length",
   lambda_value = NULL,
   strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
 )
+
+plotDVbyIV(
+  data,
+  DV = "step_transitions", DV_label = "Performance",
+  IV = "avg_path_length",  IV_label ="Average path length",
+  lambda_value = 1,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+)
+
+plotDVbyIV_outdeg(
+  data[data$strategy == "Payoff", ],
+  DV = "absorbing", DV_label = "total learning time",
+  IV = "avg_path_length",  IV_label ="Average path length",
+  lambda_value = 1,
+  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+)
+
 
 plot_graph("0101000101000000000000000")
 
@@ -456,16 +501,12 @@ ggplot() +
 ## varying the slopes 
 
 plot_slopes <- function(strategy, data) {
-  plot <- ggplot(data[data$steps == 5 & data$strategy == strategy,], aes(x = avg_path_length, y = step_payoff, color = as.factor(slope), group = slope)) +
-    geom_point(alpha = 0.2) +
+  plot <- ggplot(data[data$steps == 4 & data$strategy == strategy,], aes(x = avg_path_length, y = step_payoff, color = as.factor(slope), group = slope)) +
     geom_smooth(method = "loess", se = FALSE) +
-    geom_smooth(data = data[data$steps == 5 & data$strategy == "Random", ],
+    geom_smooth(data = data[data$steps == 4 & data$strategy == "Random", ],
                 aes(x = avg_path_length, y = step_payoff), 
                 method = "loess", se = FALSE, color = "black", linetype = "dashed") + 
-    geom_smooth(data = data[data$steps == 5 & data$strategy == "Perfect", ],
-                aes(x = avg_path_length, y = step_payoff), 
-                method = "loess", se = FALSE, color = "black") + 
-    labs(x = "Average Path Length", y = "Performance", color = "Slope") +
+    labs(x = "mean distance to root", y = "performance", color = "strength of bias") +
     ggtitle(strategy) +
     theme_minimal() + 
     ylim(min(data$step_payoff), max(data$step_payoff))
@@ -476,7 +517,7 @@ plot_slopes <- function(strategy, data) {
 strategies <- c("Payoff", "Proximal", "Prestige", "Conformity")
 plots <- vector("list", length(strategies))
 for (i in 1:length(strategies)) {
-  plots[[i]] <- plot_slopes(strategies[i], data[data$num_nodes == 8,])
+  plots[[i]] <- plot_slopes(strategies[i], data[data$num_nodes == 8 & !(data$strategy == "Conformity" & data$slope == 0),])
 }
 
 grid.arrange(grobs = plots, ncol = 2)

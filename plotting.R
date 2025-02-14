@@ -16,20 +16,20 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
     summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
   
 
-  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy")) +
-    geom_point(alpha = 0.2) +
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy", fill = "strategy")) +
+    #geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
     labs(
       x = IV_label,
       y = DV_label
     ) +
-    theme_minimal() 
+    theme_minimal() + ylim(0, 1)
   #+ geom_text(aes(label = ID), hjust = -0.2)
   
   if (!is.null(strategy_colors)) {
-    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
+    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors) + scale_fill_manual(name = "Strategy", values = strategy_colors)
   } else {
-    plot <- plot + scale_color_discrete(name = "Strategy")
+    plot <- plot + scale_color_discrete(name = "Strategy") + scale_fill_discrete(name = "Strategy")
   }
   
   print(plot)
@@ -47,9 +47,9 @@ plotDVbyIV_outdeg <- function(data, DV, DV_label, IV, IV_label, lambda_value, st
   )
   
   average_data <- data %>%
-    mutate(
-      across(all_of(DV), ~scales::rescale(.x, to = c(0, 1)))
-    ) %>%
+    # mutate(
+    #   across(all_of(DV), ~scales::rescale(.x, to = c(0, 1)))
+    # ) %>%
     group_by(adj_mat, strategy, !!sym(IV)) %>%
     summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
   
@@ -60,7 +60,7 @@ plotDVbyIV_outdeg <- function(data, DV, DV_label, IV, IV_label, lambda_value, st
   }
   
   average_data$graph_id <- graph_ids$ID[match(average_data$adj_mat, graph_ids$graph)]
-  average_data <- add_graph_measure(average_data, root_outdegree, "root_outdegree")
+  average_data <- add_graph_measure(average_data, ecount, "root_outdegree")
   average_data$root_outdegree <- as.factor(average_data$root_outdegree)
   plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "root_outdegree")) +
     geom_point(alpha = 0.2) +

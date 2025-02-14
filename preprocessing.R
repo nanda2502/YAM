@@ -47,7 +47,7 @@ add_graph_measure <- function(data, measure_func, measure_name) {
 }
 
 
-calculate_path_lengths_to_root <- function(graph, root) {
+calculate_path_lengths_to_root <- function(graph, root = 0) {
   total_distance <- 0
   
   for(node in V(graph)) {
@@ -144,6 +144,14 @@ average_over_replications <- function(data) {
   return(data)
 }
 
+add_expected_traits <- function(data) {
+  data %>%
+    group_by(adj_mat, strategy, slope) %>%
+    arrange(steps, .by_group = TRUE) %>%
+    mutate(expected_traits = cumsum(step_transitions)) %>%
+    ungroup()
+}
+
 read_abs <- function(numbers) {
   all_data <- lapply(numbers, function(num_nodes) {
     data <- read_file(num_nodes)
@@ -164,6 +172,7 @@ read_all <- function(numbers) {
     data <- clean_file(data)
     data <- average_over_replications(data)
     data <- add_avg_path_length(data)
+    data <- add_expected_traits(data)
     print(paste0("Finished processing data for ", num_nodes, " nodes."))
     return(data)
   })

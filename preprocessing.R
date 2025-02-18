@@ -110,31 +110,12 @@ clean_file <- function(data) {
 
 read_file <- function(num_nodes) {
   data <- read.csv(paste0("./output/expected_steps_", num_nodes, ".csv"), stringsAsFactors = FALSE, colClasses = c(adj_mat = "character"))
-  data$strategy <- factor(
-    data$strategy,
-    levels = c(
-      "RandomLearning",
-      "PayoffBasedLearning",
-      "ProximalLearning",
-      "PrestigeBasedLearning",
-      "ConformityBasedLearning",
-      "PerfectLearning"
-    ),
-    labels = c(
-      "Random",
-      "Payoff",
-      "Proximal",
-      "Prestige",
-      "Conformity",
-      "Perfect"
-    )
-  )
   return(data)
 }
 
 average_over_replications <- function(data) {
   outcome_vars <- c("step_payoff", "step_transitions", "step_variation")
-  grouping_vars <- c("num_nodes", "alpha", "strategy", "adj_mat", "steps", "slope")
+  grouping_vars <- c("num_nodes", "alpha", "strategy", "adj_mat", "steps", "slope", "distribution")
   
   data <- data %>%
     group_by(across(all_of(grouping_vars))) %>%
@@ -146,7 +127,7 @@ average_over_replications <- function(data) {
 
 add_expected_traits <- function(data) {
   data %>%
-    group_by(adj_mat, strategy, slope) %>%
+    group_by(adj_mat, strategy, slope, distribution) %>%
     arrange(steps, .by_group = TRUE) %>%
     mutate(expected_traits = cumsum(step_transitions)) %>%
     ungroup()

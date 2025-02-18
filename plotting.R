@@ -23,7 +23,7 @@ plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_
       x = IV_label,
       y = DV_label
     ) +
-    theme_minimal() + ylim(0, 1)
+    theme_minimal() + ylim(0, 7)
   #+ geom_text(aes(label = ID), hjust = -0.2)
   
   if (!is.null(strategy_colors)) {

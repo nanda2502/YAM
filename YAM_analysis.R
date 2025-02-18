@@ -22,8 +22,7 @@ data_abs <- read_abs(3:8)
 
 datap <- read_all(3:8)
 
-data<- read_all(8)
-
+data <- read_all(8)
 
 data_abs <- readRDS("data_abs.rds")
 data <- readRDS("data_merged.rds")
@@ -33,7 +32,7 @@ saveRDS(data, "data.rds")
 data <- average_over_lambda(data)
 
 data <- data %>%
-  left_join(data_abs %>% select(strategy, adj_mat, slope, steps), 
+  left_join(data_abs %>% select(strategy, adj_mat, slope, steps, distribution), 
             by = c("strategy", "adj_mat", "slope")) %>%
   rename(absorbing = steps.y,
          steps = steps.x) 
@@ -185,15 +184,6 @@ payoff_slow <- plotDVbyIV_binned(
 )
 
 ###### Success ~ Constraints ####
-
-success_slow <- plotDVbyIV(
-  data[data$avg_path_length == 2,],
-  DV = "step_transitions", DV_label = "Learning Success Rate",
-  IV = "avg_path_length",  IV_label ="Constraints on Learning",
-  lambda_value = 10,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
-)
-
 plotDVbyIV(
   get_default(data),
   DV = "step_payoff", DV_label = "Performance",

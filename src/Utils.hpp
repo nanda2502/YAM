@@ -10,6 +10,8 @@ void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector
 
 std::string strategyToString(Strategy strategy);
 
+std::string distributionToString(traitDistribution distribution);
+
 std::string formatResults(
     int n, 
     const std::string& adjMatrixBinary, 
@@ -20,7 +22,8 @@ std::string formatResults(
     double expectedPayoffPerStep, 
     double expectedTransitionsPerStep,
     double expectedVariation,
-    double slope
+    double slope,
+    traitDistribution distribution
 );
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
@@ -39,7 +42,8 @@ std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     const std::vector<Strategy>& strategies, 
     const std::vector<double>& alphas, 
-    int replications
+    int replications,
+    const std::vector<traitDistribution>& distributions
 );
 
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);

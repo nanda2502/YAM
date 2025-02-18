@@ -15,14 +15,21 @@ void processRepl(
     const Strategy& strategy,
     double alpha,
     double slope,
-    const std::vector<std::vector<size_t>>& shuffleSequences,
+    std::vector<std::vector<size_t>>& shuffleSequences,
     AccumulatedResult& accumResult,
-    std::atomic<int>& failureCount
+    std::atomic<int>& failureCount,
+    int adj_int,
+    traitDistribution distribution
 ) {
     std::vector<double> totalExpectedPayoffPerStep(20, 0.0);
     std::vector<double> totalExpectedTransitionsPerStep(20, 0.0);
     std::vector<double> totalExpectedVariation(20, 0.0);
     int successCount = 0;
+
+    // adj_int 0 is the unconstrained structure, which means that there is no need to shuffle the payoffs
+    if (adj_int == 0) {
+        shuffleSequences = {shuffleSequences[0]};
+    }
 
     for (const auto& shuffleSequence : shuffleSequences) {
         std::vector<double> expectedPayoffPerStep(20, 0.0);
@@ -31,7 +38,7 @@ void processRepl(
         std::vector<std::vector<double>> transitionMatrix;
 
 
-        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,  slope,  expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix)) {
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,  slope,  expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix, distribution)) {
             for (size_t i = 0; i < 20; ++i) {
                 totalExpectedPayoffPerStep[i] += expectedPayoffPerStep[i];
                 totalExpectedTransitionsPerStep[i] += expectedTransitionsPerStep[i];
@@ -68,12 +75,20 @@ int main(int argc, char* argv[]) {
     try {
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
-            Strategy::RandomLearning,
-            Strategy::PayoffBasedLearning,
-            Strategy::ProximalLearning,
-            Strategy::PrestigeBasedLearning,
-            Strategy::ConformityBasedLearning,
-            Strategy::PerfectLearning
+            Strategy::Random,
+            Strategy::Payoff,
+            Strategy::Proximal,
+            Strategy::Prestige,
+            Strategy::Conformity,
+            Strategy::Perfect
+        };
+
+        std::vector<traitDistribution> distributions = {
+            traitDistribution::Learnability,
+            traitDistribution::Uniform,
+            traitDistribution::Depth,
+            traitDistribution::Shallowness,
+            traitDistribution::Payoffs
         };
     
         std::string outputDir = "../output";
@@ -95,14 +110,14 @@ int main(int argc, char* argv[]) {
         } while (std::next_permutation(perm.begin(), perm.end())); 
     
     
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, distributions);
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
         std::vector<std::atomic<int>> failureCounts(combinations.size());
     
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
     
-        //#pragma omp parallel for
+        #pragma omp parallel for
         for (unsigned long idx : indices) {
              const ParamCombination& comb = combinations[idx];
             processRepl(
@@ -112,12 +127,14 @@ int main(int argc, char* argv[]) {
                 comb.slope,
                 shuffleSequences,
                 accumulatedResults[idx],
-                failureCounts[idx]
+                failureCounts[idx],
+                adj_int,
+                comb.distribution
             );
         }
     
 
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -136,7 +153,8 @@ int main(int argc, char* argv[]) {
                     accumResult.totalExpectedPayoffPerStep[step],
                     accumResult.totalExpectedTransitionsPerStep[step],
                     accumResult.totalExpectedVariation[step],
-                    comb.slope
+                    comb.slope,
+                    comb.distribution
                 );
                 csvData.push_back(formattedResult);
                 }

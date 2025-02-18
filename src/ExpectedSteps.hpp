@@ -61,10 +61,11 @@ bool computeExpectedSteps(
     double alpha,
     const std::vector<size_t>& shuffleSequence,
     double slope,
-    std::vector<double>& expectedPayoffPerStep,                     // Output parameter for expected payoff per step
-    std::vector<double>& expectedTransitionsPerStep,                // Output parameter for expected transitions per step
+    std::vector<double>& expectedPayoffPerStep,                     
+    std::vector<double>& expectedTransitionsPerStep,                
     std::vector<double>& expectedVariation,
-    std::vector<std::vector<double>>& transitionMatrix // Output parameter for the transition matrix
+    std::vector<std::vector<double>>& transitionMatrix,
+    traitDistribution distribution 
 );
 
 #endif // EXPECTEDSTEPS_HPP

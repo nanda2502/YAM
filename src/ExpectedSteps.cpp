@@ -353,129 +353,64 @@ size_t countLearnedTraits(const Repertoire& repertoire) {
     return std::count(repertoire.begin(), repertoire.end(), true);
 }
 
-std::unordered_map<Repertoire, double, RepertoireHash> reverseStateFrequencies(
-    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies
-) {
-    std::unordered_map<Repertoire, double, RepertoireHash> reversedFrequencies;
-    
-    // Group states by number of learned traits
-    std::map<size_t, std::vector<std::pair<Repertoire, double>>> statesByTraitCount;
-    size_t totalTraits = 0;
-    
-    // First pass: group states and find total number of traits
-    for (const auto& [state, freq] : stateFrequencies) {
-        size_t learnedTraits = countLearnedTraits(state);
-        statesByTraitCount[learnedTraits].push_back({state, freq});
-        totalTraits = std::max(state.size(), totalTraits);
-    }
-    
-    // Second pass: match states and swap frequencies
-    for (size_t i = 0; i <= totalTraits; ++i) {
-        size_t complementCount = totalTraits - i;
-        
-        // Skip if either group is empty
-        if (statesByTraitCount.find(i) == statesByTraitCount.end() || 
-            statesByTraitCount.find(complementCount) == statesByTraitCount.end()) {
-            continue;
-        }
-        
-        auto& lowStates = statesByTraitCount[i];
-        auto& highStates = statesByTraitCount[complementCount];
-        
-        // Match states from both groups and swap their frequencies
-        size_t pairCount = std::min(lowStates.size(), highStates.size());
-        for (size_t j = 0; j < pairCount; ++j) {
-            reversedFrequencies[lowStates[j].first] = highStates[j].second;
-            reversedFrequencies[highStates[j].first] = lowStates[j].second;
-        }
-        
-        // Handle any remaining unmatched states (keep original frequency)
-        for (size_t j = pairCount; j < lowStates.size(); ++j) {
-            reversedFrequencies[lowStates[j].first] = lowStates[j].second;
-        }
-        for (size_t j = pairCount; j < highStates.size(); ++j) {
-            reversedFrequencies[highStates[j].first] = highStates[j].second;
-        }
-    }
-    
-    return reversedFrequencies;
-}
-
-std::vector<double> reverseTraitFrequencies(
+std::vector<double> adjustTraitFrequencies(
     const std::vector<double>& traitFrequencies,
     const AdjacencyMatrix& adjMatrix,
-    Trait rootNode
-) {
+    Trait rootNode,
+    bool deepHigh       // false: shallow nodes get higher frequencies
+                        // true: deep nodes get higher frequencies
+) {   
+    // Get the number of traits
+    size_t n = traitFrequencies.size();
+    
     // Compute distances from root for all traits
     std::vector<int> distances = computeDistances(adjMatrix, rootNode);
     
-    // Find maximum distance from root
-    int maxDistance = *std::max_element(distances.begin(), distances.end());
+    // Create vector of trait indices (excluding root node)
+    std::vector<size_t> traitIndices;
+    for (size_t i = 1; i < n; ++i) {
+        traitIndices.push_back(i);
+    }
+    
+    // Sort traits by distance from root (ascending)
+    std::sort(traitIndices.begin(), traitIndices.end(),
+        [&distances](size_t a, size_t b) {
+            return distances[a] < distances[b];
+        });
     
     // Group traits by their distance from root
-    std::map<int, std::vector<std::pair<Trait, double>>> traitsByDistance;
-    
-    // Skip root node (index 0) when grouping
-    for (Trait trait = 1; trait < traitFrequencies.size(); ++trait) {
-        traitsByDistance[distances[trait]].push_back({trait, traitFrequencies[trait]});
+    std::map<int, std::vector<size_t>> traitsByDistance;
+    for (size_t trait : traitIndices) {
+        traitsByDistance[distances[trait]].push_back(trait);
     }
     
-    // Create reversed frequencies vector, initialize with original frequencies
-    std::vector<double> reversedFrequencies = traitFrequencies;
+    // Create vector of non-root frequencies sorted in ascending order
+    std::vector<double> sortedFrequencies;
+    for (size_t i = 1; i < n; ++i) {
+        sortedFrequencies.push_back(traitFrequencies[i]);
+    }
+    std::sort(sortedFrequencies.begin(), sortedFrequencies.end());
     
-    // Match and swap frequencies for traits based on complementary distances
-    for (int dist = 1; dist <= maxDistance; ++dist) {
-        int complementDist = maxDistance - dist + 1;
-        
-        // Skip if either distance group is empty
-        if (traitsByDistance.find(dist) == traitsByDistance.end() || 
-            traitsByDistance.find(complementDist) == traitsByDistance.end()) {
-            continue;
-        }
-        
-        auto& nearTraits = traitsByDistance[dist];
-        auto& farTraits = traitsByDistance[complementDist];
-        
-        // Match traits from both groups and swap their frequencies
-        size_t pairCount = std::min(nearTraits.size(), farTraits.size());
-        for (size_t i = 0; i < pairCount; ++i) {
-            reversedFrequencies[nearTraits[i].first] = farTraits[i].second;
-            reversedFrequencies[farTraits[i].first] = nearTraits[i].second;
-        }
-        
-        // Keep original frequencies for unmatched traits
-        for (size_t i = pairCount; i < nearTraits.size(); ++i) {
-            reversedFrequencies[nearTraits[i].first] = nearTraits[i].second;
-        }
-        for (size_t i = pairCount; i < farTraits.size(); ++i) {
-            reversedFrequencies[farTraits[i].first] = farTraits[i].second;
+    // If deepHigh is false, reverse the sorted frequencies
+    // This way, when deepHigh is true, deeper traits get higher frequencies
+    if (!deepHigh) {
+        std::reverse(sortedFrequencies.begin(), sortedFrequencies.end());
+    }
+    
+    // Initialize output vector with root node frequency unchanged
+    std::vector<double> adjustedFrequencies(n);
+    adjustedFrequencies[rootNode] = traitFrequencies[rootNode];
+    
+    // Assign frequencies based on distance from root
+    size_t freqIndex = 0;
+    for (const auto& [distance, traits] : traitsByDistance) {
+        // For traits at the same distance, assign frequencies in order
+        for (size_t trait : traits) {
+            adjustedFrequencies[trait] = sortedFrequencies[freqIndex++];
         }
     }
     
-    // Normalize the frequencies (excluding root node)
-    double sum = std::accumulate(
-        reversedFrequencies.begin() + 1,  // Skip root node
-        reversedFrequencies.end(),
-        0.0
-    );
-    
-    // Ensure no zero frequencies and normalize
-    for (size_t i = 1; i < reversedFrequencies.size(); ++i) {
-        if (reversedFrequencies[i] == 0.0) {
-            reversedFrequencies[i] = 1e-5;
-            sum += 1e-5;
-        }
-    }
-    
-    // Normalize all non-root frequencies
-    for (size_t i = 1; i < reversedFrequencies.size(); ++i) {
-        reversedFrequencies[i] /= sum;
-    }
-    
-    // Keep root node frequency unchanged at 1.0
-    reversedFrequencies[rootNode] = 1.0;
-    
-    return reversedFrequencies;
+    return adjustedFrequencies;
 }
 
 bool computeExpectedSteps(
@@ -487,11 +422,12 @@ bool computeExpectedSteps(
     std::vector<double>& expectedPayoffPerStep,
     std::vector<double>& expectedTransitionsPerStep,
     std::vector<double>& expectedVariation,                       
-    std::vector<std::vector<double>>& transitionMatrix 
+    std::vector<std::vector<double>>& transitionMatrix,
+    traitDistribution distribution 
 ) {
     try {
         // Initialization
-        Strategy baseStrategy = RandomLearning;
+        Strategy baseStrategy = Random;
         Trait rootNode = 0;
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
         PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence);
@@ -631,9 +567,25 @@ for (size_t i = 0; i < repertoiresList.size(); ++i) {
         Repertoire absorbingState(n, true);  // All traits learned
         stateFrequencies[absorbingState] = 1e-5;
 
-        //traitFrequencies = reverseTraitFrequencies(traitFrequencies, adjacencyMatrix, 0);
-        //stateFrequencies = reverseStateFrequencies(stateFrequencies);
 
+        switch (distribution) {
+            case Learnability:
+                break;
+            case Depth:
+                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, false);
+                break;
+            case Shallowness:
+                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, true);
+                break;
+            case Uniform:
+                std::ranges::fill(traitFrequencies, 1.0);
+                break;
+            case Payoffs:
+                traitFrequencies = payoffs;
+                break;
+
+        }
+        
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(

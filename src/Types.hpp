@@ -10,19 +10,29 @@ using PayoffVector = std::vector<double>;
 using AdjacencyMatrix = std::vector<std::vector<bool>>;
 using Parents = std::vector<std::vector<Trait>>;
 
-enum Strategy {
-    RandomLearning,
-    PayoffBasedLearning,
-    ProximalLearning,
-    PrestigeBasedLearning,
-    ConformityBasedLearning,
-    PerfectLearning
+enum Strategy : std::uint8_t {
+    Random,
+    Payoff,
+    Proximal,
+    Prestige,
+    Conformity,
+    Perfect
 };
+
+enum TraitDistribution : std::uint8_t {
+    Learnability,
+    Uniform,
+    Depth,
+    Shallowness,
+    Payoffs
+};
+
 
 struct ParamCombination {
     AdjacencyMatrix adjMatrix;
     std::string adjMatrixBinary;
     Strategy strategy;
+    TraitDistribution distribution;
     double alpha;
     int repl;
     double slope;

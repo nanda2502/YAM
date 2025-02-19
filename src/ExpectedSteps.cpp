@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 #include <unordered_map>
 #include <numeric>
@@ -248,6 +249,67 @@ double computeExpectedTransitionsPerStep(
     return expectedTransitionsPerStep;
 }
 
+std::vector<double> adjustTraitFrequencies(
+    const std::vector<double>& traitFrequencies,
+    const AdjacencyMatrix& adjMatrix,
+    Trait rootNode,
+    bool deepHigh       // false: shallow nodes get higher frequencies
+                        // true: deep nodes get higher frequencies
+) {   
+    // Get the number of traits
+    size_t n = traitFrequencies.size();
+    
+    // Compute distances from root for all traits
+    std::vector<int> distances = computeDistances(adjMatrix, rootNode);
+    
+    // Create vector of trait indices (excluding root node)
+    std::vector<size_t> traitIndices;
+    for (size_t i = 1; i < n; ++i) {
+        traitIndices.push_back(i);
+    }
+    
+    // Sort traits by distance from root (ascending)
+    std::sort(traitIndices.begin(), traitIndices.end(),
+        [&distances](size_t a, size_t b) {
+            return distances[a] < distances[b];
+        });
+    
+    // Group traits by their distance from root
+    std::map<int, std::vector<size_t>> traitsByDistance;
+    for (size_t trait : traitIndices) {
+        traitsByDistance[distances[trait]].push_back(trait);
+    }
+    
+    // Create vector of non-root frequencies sorted in ascending order
+    std::vector<double> sortedFrequencies;
+    for (size_t i = 1; i < n; ++i) {
+        sortedFrequencies.push_back(traitFrequencies[i]);
+    }
+    std::sort(sortedFrequencies.begin(), sortedFrequencies.end());
+    
+    // If deepHigh is false, reverse the sorted frequencies
+    // This way, when deepHigh is true, deeper traits get higher frequencies
+    if (!deepHigh) {
+        std::reverse(sortedFrequencies.begin(), sortedFrequencies.end());
+    }
+    
+    // Initialize output vector with root node frequency unchanged
+    std::vector<double> adjustedFrequencies(n);
+    adjustedFrequencies[rootNode] = traitFrequencies[rootNode];
+    
+    // Assign frequencies based on distance from root
+    size_t freqIndex = 0;
+    for (const auto& [distance, traits] : traitsByDistance) {
+        // For traits at the same distance, assign frequencies in order
+        for (size_t trait : traits) {
+            adjustedFrequencies[trait] = sortedFrequencies[freqIndex++];
+        }
+    }
+    
+    return adjustedFrequencies;
+}
+
+
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
@@ -257,11 +319,12 @@ bool computeExpectedSteps(
     double& expectedSteps,                             
     double& expectedPayoffPerStep,
     double& expectedTransitionsPerStep,                     
-    std::vector<std::vector<double>>& transitionMatrix 
+    std::vector<std::vector<double>>& transitionMatrix,
+    TraitDistribution distribution 
 ) {
     try {
         // Initialization
-        Strategy baseStrategy = RandomLearning;
+        Strategy baseStrategy = Random;
         Trait rootNode = 0;
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
         PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence);
@@ -297,6 +360,7 @@ bool computeExpectedSteps(
         std::vector<Repertoire> repertoiresList = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents, slope);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
+        repertoiresWithIndices.reserve(repertoiresList.size());
         for (size_t i = 0; i < repertoiresList.size(); ++i) {
             repertoiresWithIndices.emplace_back(repertoiresList[i], static_cast<int>(i));
         }
@@ -399,6 +463,24 @@ bool computeExpectedSteps(
         Repertoire absorbingState(n, true);  // All traits learned
         stateFrequencies[absorbingState] = 0.05;
 
+        switch (distribution) {
+            case Learnability:
+                break;
+            case Depth:
+                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, false);
+                break;
+            case Shallowness:
+                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, true);
+                break;
+            case Uniform:
+                std::ranges::fill(traitFrequencies, 1.0);
+                break;
+            case Payoffs:
+                traitFrequencies = payoffs;
+                break;
+
+        }
+
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         std::vector<Repertoire> finalRepertoiresList = generateReachableRepertoires(strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope);
@@ -409,6 +491,7 @@ bool computeExpectedSteps(
         }
 
         std::vector<std::pair<Repertoire, int>> finalRepertoiresWithIndices;
+        finalRepertoiresWithIndices.reserve(finalRepertoiresList.size());
         for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
             finalRepertoiresWithIndices.emplace_back(finalRepertoiresList[i], static_cast<int>(i));
         }

@@ -135,9 +135,9 @@ std::vector<double> baseWeights(
     const Parents& parents   
 ) {
     switch (strategy) {
-    case RandomLearning:
+    case Random:
         return traitFrequencies;
-    case PayoffBasedLearning:
+    case Payoff:
         {
             std::vector<double> result(payoffs.size());
             std::transform(payoffs.begin(), payoffs.end(), traitFrequencies.begin(), result.begin(),
@@ -146,13 +146,13 @@ std::vector<double> baseWeights(
                });
             return result;
         }
-    case ProximalLearning:
+    case Proximal:
         return proximalBaseWeights(repertoire, stateFrequencies, allStates, slope);
-    case PrestigeBasedLearning:
+    case Prestige:
         return prestigeBaseWeights(repertoire, stateFrequencies, allStates, slope);
-    case ConformityBasedLearning:
+    case Conformity:
         return conformityBaseWeights(traitFrequencies, slope);
-    case PerfectLearning:
+    case Perfect:
         return perfectBaseWeights(repertoire, payoffs, parents);
     default:
         throw std::runtime_error("Unknown strategy");

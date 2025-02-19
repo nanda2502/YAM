@@ -14,15 +14,20 @@ void processRepl(
     const Strategy& strategy,
     double alpha,
     double slope,
-    const std::vector<std::vector<size_t>>& shuffleSequences,
+    std::vector<std::vector<size_t>>& shuffleSequences,
     AccumulatedResult& accumResult,
-    std::atomic<int>& failureCount
+    std::atomic<int>& failureCount,
+    int adj_int,
+    TraitDistribution distribution
 ) {
     double totalExpectedSteps = 0.0;
     double totalExpectedPayoffPerStep = 0.0;
     double totalExpectedTransitionsPerStep = 0.0;
     int successCount = 0;
 
+    if (adj_int == 0) {
+        shuffleSequences = {shuffleSequences[0]};
+    }
 
     for (const auto& shuffleSequence : shuffleSequences) {
         // Compute expected steps
@@ -31,7 +36,7 @@ void processRepl(
         double expectedTransitionsPerStep = 0.0;
         std::vector<std::vector<double>> transitionMatrix;
 
-        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, slope, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix)) {
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence, slope, expectedSteps, expectedPayoffPerStep, expectedTransitionsPerStep, transitionMatrix, distribution)) {
             totalExpectedSteps += expectedSteps;
             totalExpectedPayoffPerStep += expectedPayoffPerStep;
             totalExpectedTransitionsPerStep += expectedTransitionsPerStep;
@@ -68,12 +73,20 @@ int main(int argc, char* argv[]) {
         // Define alphas and strategies
         std::vector<double> alphas = {0.0};
         std::vector<Strategy> strategies = {
-            Strategy::RandomLearning,
-            Strategy::PayoffBasedLearning, 
-            Strategy::ProximalLearning, 
-            Strategy::PrestigeBasedLearning, 
-            Strategy::ConformityBasedLearning,
-            Strategy::PerfectLearning
+            Strategy::Random,
+            Strategy::Payoff, 
+            Strategy::Proximal, 
+            Strategy::Prestige, 
+            Strategy::Conformity,
+            Strategy::Perfect
+        };
+
+        std::vector<TraitDistribution> distributions = {
+            TraitDistribution::Learnability,
+            TraitDistribution::Uniform,
+            TraitDistribution::Depth,
+            TraitDistribution::Shallowness,
+            TraitDistribution::Payoffs
         };
     
         // Prepare output directory
@@ -98,7 +111,7 @@ int main(int argc, char* argv[]) {
     
         //std::cout << "Starting " << alphas.size() * strategies.size() * adjacencyMatrices.size() * replications * shuffleSequences.size() * 5 << " runs." << '\n';
     
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications);
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, distributions);
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
         std::vector<std::atomic<int>> failureCounts(combinations.size());
     
@@ -116,7 +129,9 @@ int main(int argc, char* argv[]) {
                 comb.slope,
                 shuffleSequences,
                 accumulatedResults[idx],
-                failureCounts[idx]  
+                failureCounts[idx],
+                adj_int,
+                comb.distribution  
             );
         }
     
@@ -128,7 +143,7 @@ int main(int argc, char* argv[]) {
         DEBUG_PRINT(0, "Total failures: " << totalFailures);
     
         // Prepare CSV data with header
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,slope";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,slope,distribution";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
     
@@ -145,7 +160,8 @@ int main(int argc, char* argv[]) {
                     accumResult.totalExpectedSteps,
                     accumResult.totalExpectedPayoffPerStep,
                     accumResult.totalExpectedTransitionsPerStep,
-                    comb.slope
+                    comb.slope,
+                    comb.distribution
                 );
                 csvData.push_back(formattedResult);
             }

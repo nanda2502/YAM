@@ -104,11 +104,11 @@ read_file <- function(num_nodes) {
   data$strategy <- factor(
     data$strategy,
     levels = c(
-    "RandomLearning",
-    "PayoffBasedLearning",
-    "ProximalLearning",
-    "PrestigeBasedLearning",
-    "ConformityBasedLearning"
+    "Random",
+    "Payoff",
+    "Proximal",
+    "Prestige",
+    "Conformity"
     ),
     labels = c(
       "Random",

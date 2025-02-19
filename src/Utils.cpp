@@ -25,20 +25,37 @@ void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector
 
 std::string strategyToString(Strategy strategy) {
     switch (strategy) {
-        case RandomLearning:
-            return "RandomLearning";
-        case PayoffBasedLearning:
-            return "PayoffBasedLearning";
-        case ProximalLearning:
-            return "ProximalLearning";
-        case PrestigeBasedLearning:
-            return "PrestigeBasedLearning";
-        case ConformityBasedLearning:
-            return "ConformityBasedLearning";
-        case PerfectLearning:
-            return "PerfectLearning";
+        case Random:
+            return "Random";
+        case Payoff:
+            return "Payoff";
+        case Proximal:
+            return "Proximal";
+        case Prestige:
+            return "Prestige";
+        case Conformity:
+            return "Conformity";
+        case Perfect:
+            return "Perfect";
         default:
             throw std::invalid_argument("Unknown strategy");
+    }
+}
+
+std::string distributionToString(TraitDistribution distribution) {
+    switch (distribution) {
+        case Learnability:
+            return "Learnability";
+        case Uniform:
+            return "Uniform";
+        case Depth:
+            return "Depth";
+        case Shallowness:
+            return "Shallowness";
+        case Payoffs:
+            return "Payoffs";
+        default:
+            throw std::invalid_argument("Unknown distribution");
     }
 }
 
@@ -52,7 +69,8 @@ std::string formatResults
     double expectedSteps, 
     double expectedPayoffPerStep, 
     double expectedTransitionsPerStep,
-    double slope
+    double slope,
+    TraitDistribution distribution
 ) {
     std::ostringstream oss;
     oss << n << ',' <<
@@ -63,7 +81,8 @@ std::string formatResults
     std::fixed << std::setprecision(4) << expectedSteps << ',' << 
     expectedPayoffPerStep << ',' << 
     expectedTransitionsPerStep << ',' <<
-    slope;
+    slope << ',' <<
+    distributionToString(distribution);
     return oss.str();
 }
 
@@ -84,7 +103,7 @@ std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
 }
 
 AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str) {
-    std::string binaryStr = str;
+    const std::string& binaryStr = str;
 
     if (binaryStr.length() != static_cast<size_t>(n * n)) {
         throw std::invalid_argument("Invalid length: Expected " + std::to_string(n * n) + 
@@ -94,7 +113,7 @@ AdjacencyMatrix binaryStringToAdjacencyMatrix(int n, const std::string& str) {
     AdjacencyMatrix matrix(n, std::vector<bool>(n));
     for (int row = 0; row < n; ++row) {
         for (int column = 0; column < n; ++column) {
-            matrix[row][column] = charToBool(binaryStr[row * n + column]);
+            matrix[row][column] = charToBool(binaryStr[(row * n) + column]);
         }
     }
 
@@ -205,26 +224,34 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
 
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
-        case RandomLearning:
+        case Random: case Perfect:
             return {0.0};
-        case PerfectLearning:
-            return {0.0};
+        case Payoff: case Conformity:
+            return {0.0, 1.0, 1.25, 2.0, 2.5, 5.0};	
         default:
-            return {0.0, 1.0, 1.25, 2.0, 2.5, 5.0, 10.0, 20.0, 40.0};	
+            return {1.0, 1.25, 2.0, 2.5, 5.0};	// Proximal and Prestige don't have 0.0 slope
 
     }
 }
 
-std::vector<ParamCombination> makeCombinations(std::vector<AdjacencyMatrix>& adjacencyMatrices, std::vector<Strategy>& strategies, std::vector<double>& alphas, int replications) {
+std::vector<ParamCombination> makeCombinations(
+    const std::vector<AdjacencyMatrix>& adjacencyMatrices,
+    const std::vector<Strategy>& strategies,
+    const std::vector<double>& alphas,
+    int replications,
+    const std::vector<TraitDistribution>& distributions
+) {
     std::vector<ParamCombination> combinations;
     for (const auto& adjMatrix : adjacencyMatrices) {
         std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
         for (const auto& strategy : strategies) {
             auto slopes = returnSlopeVector(strategy);
-            for (const auto& alpha : alphas) {
-                for (int repl = 0; repl < replications; ++repl) {
-                    for (const auto& slope : slopes) {
-                    combinations.push_back({adjMatrix, adjMatrixBinary, strategy, alpha, repl, slope});
+            for (const auto& distribution : distributions) {
+                for (const auto& alpha : alphas) {
+                    for (int repl = 0; repl < replications; ++repl) {
+                        for (const auto& slope : slopes) {
+                            combinations.push_back({adjMatrix, adjMatrixBinary, strategy, distribution, alpha, repl, slope});
+                        }
                     }
                 }
             }

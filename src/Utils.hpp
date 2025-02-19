@@ -23,7 +23,8 @@ std::string formatResults(
     double expectedTransitionsPerStep,
     double expectedVariation,
     double slope,
-    traitDistribution distribution
+    traitDistribution distribution,
+    double absorbing
 );
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);

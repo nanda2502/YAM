@@ -16,7 +16,6 @@
 #include <cmath>
 #include <map>
 
-
 // Helper function to extract Q matrix and compute (I - Q)
 std::vector<std::vector<double>> computeIMinusQ(
     const std::vector<std::vector<double>>& reorderedTransitionMatrix,
@@ -78,7 +77,7 @@ std::vector<std::vector<double>> buildTransitionMatrix(
 }
 
 bool isAbsorbingState(const Repertoire& repertoire, const std::vector<double>& traitFrequencies) {
-    if (std::all_of(repertoire.begin(), repertoire.end(), [](bool learned) { return learned; })) {
+    if (std::ranges::all_of(repertoire, [](bool learned) { return learned; })) {
         return true;
     }
     for (Trait i = 1; i < repertoire.size(); ++i) {
@@ -208,7 +207,7 @@ double computeExpectedStepsFromMatrix(const std::vector<std::vector<double>>& LU
     // Solve the system (I - Q) * t = b
     std::vector<double> tSolution = solveUsingLU(LU, p, bVector);
     
-    if (std::any_of(tSolution.begin(), tSolution.end(), [](double val) { return std::isnan(val) || std::isinf(val); })) {
+    if (std::ranges::any_of(tSolution, [](double val) { return std::isnan(val) || std::isinf(val); })) {
         DEBUG_PRINT(1, "NaN or Inf found in tSolution");
     }
 
@@ -373,7 +372,7 @@ std::vector<double> adjustTraitFrequencies(
     }
     
     // Sort traits by distance from root (ascending)
-    std::sort(traitIndices.begin(), traitIndices.end(),
+    std::ranges::sort(traitIndices,
         [&distances](size_t a, size_t b) {
             return distances[a] < distances[b];
         });
@@ -389,12 +388,12 @@ std::vector<double> adjustTraitFrequencies(
     for (size_t i = 1; i < n; ++i) {
         sortedFrequencies.push_back(traitFrequencies[i]);
     }
-    std::sort(sortedFrequencies.begin(), sortedFrequencies.end());
+    std::ranges::sort(sortedFrequencies);
     
     // If deepHigh is false, reverse the sorted frequencies
     // This way, when deepHigh is true, deeper traits get higher frequencies
     if (!deepHigh) {
-        std::reverse(sortedFrequencies.begin(), sortedFrequencies.end());
+        std::ranges::reverse(sortedFrequencies);
     }
     
     // Initialize output vector with root node frequency unchanged
@@ -413,6 +412,52 @@ std::vector<double> adjustTraitFrequencies(
     return adjustedFrequencies;
 }
 
+double computeExpectedTimeToAbsorption(
+    const std::vector<std::vector<double>>& transitionMatrix,
+    int initialStateIndex
+) {
+    size_t numStates = transitionMatrix.size();
+    
+    // Create dummy repertoires and indices for reordering
+    // This is just to satisfy the interface of reorderTransitionMatrix
+    std::vector<std::pair<Repertoire, int>> dummyRepertoires;
+    std::unordered_map<Repertoire, int, RepertoireHash> dummyIndexMap;
+    std::vector<double> dummyFrequencies(numStates, 1.0);
+    Repertoire dummyRepertoire(numStates, false);
+    
+    for (size_t i = 0; i < numStates; ++i) {
+        dummyRepertoires.emplace_back(dummyRepertoire, i);
+        dummyIndexMap[dummyRepertoire] = i;
+    }
+    
+    // Use existing function to reorder matrix and identify transient states
+    auto [reorderedMatrix, oldToNewIndexMap, numTransientStates] = reorderTransitionMatrix(
+        transitionMatrix, dummyRepertoires, dummyIndexMap, 0, dummyFrequencies
+    );
+    
+    if (numTransientStates == 0) {
+        return 0.0; // Already in absorbing state
+    }
+    
+    // Extract Q matrix from reordered transition matrix
+    std::vector<std::vector<double>> IminusQ = computeIMinusQ(reorderedMatrix, numTransientStates);
+    
+    // Use existing LU decomposition
+    auto [LU, p] = decomposeLU(IminusQ);
+    
+    // Create ones vector
+    std::vector<double> ones(numTransientStates, 1.0);
+    
+    // Solve (I - Q)t = 1
+    std::vector<double> t = solveUsingLU(LU, p, ones);
+    
+    // Map initial state to new index
+    int initialStateNewIndex = oldToNewIndexMap.at(initialStateIndex);
+    
+    // Return expected time from initial state if it's transient, 0 if absorbing
+    return initialStateNewIndex < numTransientStates ? t[initialStateNewIndex] : 0.0;
+}
+
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
@@ -423,7 +468,8 @@ bool computeExpectedSteps(
     std::vector<double>& expectedTransitionsPerStep,
     std::vector<double>& expectedVariation,                       
     std::vector<std::vector<double>>& transitionMatrix,
-    traitDistribution distribution 
+    traitDistribution distribution,
+    double& timeToAbsorption 
 ) {
     try {
         // Initialization
@@ -465,7 +511,7 @@ bool computeExpectedSteps(
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         repertoiresWithIndices.reserve(repertoiresList.size());
-for (size_t i = 0; i < repertoiresList.size(); ++i) {
+        for (size_t i = 0; i < repertoiresList.size(); ++i) {
             repertoiresWithIndices.emplace_back(repertoiresList[i], static_cast<int>(i));
         }
 
@@ -572,10 +618,10 @@ for (size_t i = 0; i < repertoiresList.size(); ++i) {
             case Learnability:
                 break;
             case Depth:
-                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, false);
+                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, true);
                 break;
             case Shallowness:
-                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, true);
+                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, false);
                 break;
             case Uniform:
                 std::ranges::fill(traitFrequencies, 1.0);
@@ -583,7 +629,6 @@ for (size_t i = 0; i < repertoiresList.size(); ++i) {
             case Payoffs:
                 traitFrequencies = payoffs;
                 break;
-
         }
         
         // Second pass: rebuild the transition matrix with updated trait frequencies
@@ -617,6 +662,8 @@ for (size_t i = 0; i < repertoiresList.size(); ++i) {
                 }
             }
         }
+
+        timeToAbsorption = computeExpectedTimeToAbsorption(transitionMatrix, initialStateIndex);
 
         computeExpectedPayoffAtNSteps(
             transitionMatrix,

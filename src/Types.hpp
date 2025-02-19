@@ -51,6 +51,7 @@ struct Result {
 
 struct AccumulatedResult {
     int count = 0;
+    double absorbing = 0.0;
     std::vector<double> totalExpectedPayoffPerStep{std::vector<double>(20, 0.0)};
     std::vector<double> totalExpectedTransitionsPerStep{std::vector<double>(20, 0.0)};
     std::vector<double> totalExpectedVariation{std::vector<double>(20, 0.0)};

@@ -1,9 +1,9 @@
 #include "Learning.hpp"
 #include "Debug.hpp"
 #include "Types.hpp"
+#include <algorithm>
 #include <numeric>
 #include <stdexcept>
-#include <algorithm>
 #include <queue>
 #include <unordered_set>
 
@@ -89,7 +89,7 @@ std::vector<double> conformityBaseWeights(
 ) {
     std::vector<double> w_star(traitFrequencies.size());
     
-    std::transform(traitFrequencies.begin(), traitFrequencies.end(), w_star.begin(), [slope](double f) {return std::pow(f, slope);});
+    std::ranges::transform(traitFrequencies, w_star.begin(), [slope](double f) {return std::pow(f, slope);});
 
     return w_star;
 }
@@ -115,6 +115,14 @@ std::vector<double> perfectBaseWeights(
     return w_star;
 }
 
+std::vector<double> payoffBaseWeights(const std::vector<double>& payoffs, const std::vector<double>& traitFrequencies, double slope) {
+    std::vector<double> w_star(payoffs.size());
+    std::ranges::transform(payoffs, traitFrequencies, w_star.begin(),
+        [slope](double payoff, double traitFrequency) {
+            return traitFrequency * std::pow(payoff, slope);
+        });
+    return w_star;
+}
 
 std::vector<double> baseWeights(
     Strategy strategy,
@@ -129,14 +137,7 @@ std::vector<double> baseWeights(
     case Random:
         return traitFrequencies;
     case Payoff:
-        {
-            std::vector<double> result(payoffs.size());
-            std::transform(payoffs.begin(), payoffs.end(), traitFrequencies.begin(), result.begin(),
-               [slope](double payoff, double traitFrequency) {
-                   return traitFrequency * std::pow(payoff, slope);
-               });
-            return result;
-        }
+        return payoffBaseWeights(payoffs, traitFrequencies, slope);
     case Proximal:
         return proximalBaseWeights(repertoire, traitFrequencies, allStates, slope);
     case Prestige:
@@ -209,8 +210,6 @@ std::vector<double> normalizedWeights(
     return w_unlearned;
 }
 
-
-
 Repertoire learnTrait(const Repertoire& repertoire, Trait trait) {
     Repertoire newRepertoire = repertoire;
     newRepertoire[trait] = true;
@@ -226,7 +225,6 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const Parents& parents,
     double slope
 ) {
-
     std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
     std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, newStates, slope, parents);
     std::vector<bool> learnable = learnability(repertoire, parents);
@@ -327,7 +325,6 @@ std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix,
             }
         }
     }
-
     return result;
 }
 

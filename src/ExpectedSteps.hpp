@@ -65,7 +65,8 @@ bool computeExpectedSteps(
     std::vector<double>& expectedTransitionsPerStep,                
     std::vector<double>& expectedVariation,
     std::vector<std::vector<double>>& transitionMatrix,
-    traitDistribution distribution 
+    traitDistribution distribution,
+    double& timeToAbsorption 
 );
 
 #endif // EXPECTEDSTEPS_HPP

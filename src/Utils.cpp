@@ -71,7 +71,8 @@ std::string formatResults(
     double expectedTransitionsPerStep,
     double expectedVariation,
     double slope,
-    traitDistribution distribution
+    traitDistribution distribution,
+    double absorbing
 ) {
     std::ostringstream oss;
     oss << n << ',' << 
@@ -84,7 +85,8 @@ std::string formatResults(
     expectedTransitionsPerStep << ',' <<
     expectedVariation << ',' <<
     slope << ',' <<
-    distributionToString(distribution);
+    distributionToString(distribution) << ',' <<
+    absorbing;
     return oss.str();
 }
 

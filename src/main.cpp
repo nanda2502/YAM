@@ -1,6 +1,6 @@
+#include <algorithm>
 #include <atomic>
 #include <iostream>
-#include <algorithm>
 #include <vector>
 #include <string>
 #include <filesystem>
@@ -24,6 +24,7 @@ void processRepl(
     std::vector<double> totalExpectedPayoffPerStep(20, 0.0);
     std::vector<double> totalExpectedTransitionsPerStep(20, 0.0);
     std::vector<double> totalExpectedVariation(20, 0.0);
+    double totalTimeToAbsorption = 0.0;
     int successCount = 0;
 
     // adj_int 0 is the unconstrained structure, which means that there is no need to shuffle the payoffs
@@ -32,21 +33,27 @@ void processRepl(
     }
 
     for (const auto& shuffleSequence : shuffleSequences) {
+        double timeToAbsorption;
+        timeToAbsorption = shuffleSequence == shuffleSequences[0] ? 0.0 : -1.0; // only compute time to absorption for the first shuffle sequence
         std::vector<double> expectedPayoffPerStep(20, 0.0);
         std::vector<double> expectedTransitionsPerStep(20, 0.0);
         std::vector<double> expectedVariation(20, 0.0);
         std::vector<std::vector<double>> transitionMatrix;
 
-
-        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,  slope,  expectedPayoffPerStep, expectedTransitionsPerStep, expectedVariation, transitionMatrix, distribution)) {
-            for (size_t i = 0; i < 20; ++i) {
-                totalExpectedPayoffPerStep[i] += expectedPayoffPerStep[i];
-                totalExpectedTransitionsPerStep[i] += expectedTransitionsPerStep[i];
-                totalExpectedVariation[i] += expectedVariation[i];
-            }
-            successCount++;
+        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,
+                                 slope, expectedPayoffPerStep,
+                                 expectedTransitionsPerStep, expectedVariation,
+                                 transitionMatrix, distribution,
+                                 timeToAbsorption)) {
+          for (size_t i = 0; i < 20; ++i) {
+            totalTimeToAbsorption += timeToAbsorption;
+            totalExpectedPayoffPerStep[i] += expectedPayoffPerStep[i];
+            totalExpectedTransitionsPerStep[i] += expectedTransitionsPerStep[i];
+            totalExpectedVariation[i] += expectedVariation[i];
+          }
+          successCount++;
         } else {
-            failureCount++;
+          failureCount++;
         }
     }
 
@@ -57,6 +64,7 @@ void processRepl(
             accumResult.totalExpectedTransitionsPerStep[i] += totalExpectedTransitionsPerStep[i] / shuffleSequences.size();
             accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / shuffleSequences.size();
         }
+        accumResult.absorbing += totalTimeToAbsorption / shuffleSequences.size();
     }
 }
 
@@ -107,7 +115,7 @@ int main(int argc, char* argv[]) {
 
         do {
             shuffleSequences.push_back(perm);
-        } while (std::next_permutation(perm.begin(), perm.end())); 
+        } while (std::ranges::next_permutation(perm).found); 
     
     
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, distributions);
@@ -154,7 +162,8 @@ int main(int argc, char* argv[]) {
                     accumResult.totalExpectedTransitionsPerStep[step],
                     accumResult.totalExpectedVariation[step],
                     comb.slope,
-                    comb.distribution
+                    comb.distribution,
+                    accumResult.absorbing
                 );
                 csvData.push_back(formattedResult);
                 }

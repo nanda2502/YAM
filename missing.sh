@@ -11,13 +11,13 @@ num_nodes="$1"
 
 case "$num_nodes" in
     8)
-        max_index=553
+        max_index=2044
         ;;
     7)
-        max_index=149
+        max_index=317
         ;;
     6)
-        max_index=56
+        max_index=62
         ;;
     *)
         echo "Invalid num_nodes. Please provide either 7 or 8."

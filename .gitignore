@@ -4,4 +4,6 @@ output/
 yam.exe
 .vscode/
 .cache/
-.out
+*.out
+*.sh
+*.R

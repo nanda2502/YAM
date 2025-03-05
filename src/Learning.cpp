@@ -5,6 +5,7 @@
 #include <numeric>
 #include <stdexcept>
 #include <queue>
+#include <unordered_map>
 #include <unordered_set>
 
 
@@ -39,7 +40,7 @@ double computeDelta(const Repertoire& r, const Repertoire& s) {
 
 std::vector<double> proximalBaseWeights(
     const Repertoire& repertoire,
-    const std::vector<double>& traitFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope
 ) {
@@ -48,21 +49,23 @@ std::vector<double> proximalBaseWeights(
         if (!repertoire[trait]) {
             for (const auto& state : allStates) {
                 if (state[trait]) {
+                    auto it = stateFrequencies.find(state);
+                    if (it != stateFrequencies.end()) {
                         auto delta = computeDelta(repertoire, state);
                         if (delta > 0) {
-                            w_star[trait] += std::pow(slope, -delta);;
+                            w_star[trait] += it->second * std::pow(slope, -delta); // it->second is the state frequency
                         }
+                    }
                 }
             }
         }
-        w_star[trait] *= traitFrequencies[trait];
     }
     return w_star;
 }
 
 std::vector<double> prestigeBaseWeights(
     const Repertoire& repertoire,
-    const std::vector<double>& traitFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope
 ) {
@@ -71,14 +74,16 @@ std::vector<double> prestigeBaseWeights(
         if (!repertoire[trait]) {
             for (const auto& state : allStates) {
                 if (state[trait]) {
+                    auto it = stateFrequencies.find(state);
+                    if (it != stateFrequencies.end()) {
                         auto delta = computeDelta(repertoire, state);
                         if (delta > 0) {
-                            w_star[trait] += std::pow(slope, delta);;
+                            w_star[trait] += it->second * std::pow(slope, delta); // it->second is the state frequency
                         }
+                    }
                 }
             }
         }
-        w_star[trait] *= traitFrequencies[trait];
     }
     return w_star;
 }
@@ -129,6 +134,7 @@ std::vector<double> baseWeights(
     const Repertoire& repertoire,
     const PayoffVector& payoffs,
     const std::vector<double>& traitFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope,
     const Parents& parents   
@@ -139,9 +145,9 @@ std::vector<double> baseWeights(
     case Payoff:
         return payoffBaseWeights(payoffs, traitFrequencies, slope);
     case Proximal:
-        return proximalBaseWeights(repertoire, traitFrequencies, allStates, slope);
+        return proximalBaseWeights(repertoire, stateFrequencies, allStates, slope);
     case Prestige:
-        return prestigeBaseWeights(repertoire, traitFrequencies, allStates, slope);
+        return prestigeBaseWeights(repertoire, stateFrequencies, allStates, slope);
     case Conformity:
         return conformityBaseWeights(traitFrequencies, slope);
     case Perfect:
@@ -156,11 +162,12 @@ std::vector<double> normalizedWeights(
     const Repertoire& repertoire,
     const PayoffVector& payoffs,
     const std::vector<double>& traitFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope,
     const Parents& parents
 )  {
-    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, allStates, slope, parents);
+    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, slope, parents);
 
     DEBUG_PRINT(2, "Current repertoire:");
     if (DEBUG_LEVEL >= 2) {
@@ -195,10 +202,8 @@ std::vector<double> normalizedWeights(
         return std::vector<double>(repertoire.size(), 0.0);
     }
 
-    std::transform(w_unlearned.begin(), w_unlearned.end(), w_unlearned.begin(),
+    std::ranges::transform(w_unlearned, w_unlearned.begin(),
         [total](double w) { return w / total; });
-    
-
 
     DEBUG_PRINT(2, "Normalized weights:");
     if (DEBUG_LEVEL >= 2) {
@@ -221,12 +226,13 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const Repertoire& repertoire, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope
 ) {
     std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
-    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, newStates, slope, parents);
+    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope, parents);
     std::vector<bool> learnable = learnability(repertoire, parents);
 
     std::vector<std::pair<Repertoire, double>> transitions;
@@ -257,6 +263,7 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const AdjacencyMatrix& adjMatrix, 
     const PayoffVector& payoffs, 
     const std::vector<double>& traitFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope
@@ -280,7 +287,7 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
             visited.insert(r);
             result.push_back(r);
 
-            auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, allStates, parents, slope);
+            auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope);
             allTransitions.push_back(transitions);
 
             for (const auto& transition : transitions) {

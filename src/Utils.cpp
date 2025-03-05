@@ -221,20 +221,6 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
     }
     return binaryString;
 }
-/*
-std::vector<double> returnSlopeVector(Strategy strategy) {
-    if (strategy == Random || strategy == Perfect) {
-        return {0.0};
-    } else {
-        std::vector<double> slopeVector;
-        for (double i = 0.0; i <= 20.0; i += 1.0) {
-            slopeVector.push_back(i);
-        }
-        return slopeVector;
-    }
-}
-*/
-
 
 std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {

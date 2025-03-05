@@ -33,6 +33,37 @@ PayoffVector generateRawPayoffs(const std::vector<int>& distances, const std::ve
     return payoffs;
 }
 
+PayoffVector generateRawPayoffsSkewed(const std::vector<int>& distances, const std::vector<size_t>& shuffleSequence) {
+    size_t n = distances.size();
+    size_t non_root_count = n - 1;
+
+    // Set low payoff value
+    double low_payoff = 0.2;  
+    
+
+    double high_payoff = non_root_count - ((non_root_count - 1) * low_payoff);
+
+    std::vector<double> non_root_payoffs(non_root_count, low_payoff);
+    non_root_payoffs[0] = high_payoff;
+
+    // Create a new vector for shuffled payoffs
+    std::vector<double> shuffled_non_root_payoffs(non_root_count);
+
+    // Reorder the non_root_payoffs according to the shuffle sequence
+    for (size_t i = 0; i < non_root_count; ++i) {
+        shuffled_non_root_payoffs[i] = non_root_payoffs[shuffleSequence[i]];
+    }
+
+    PayoffVector payoffs(n, 0.0);
+
+    size_t non_root_idx = 0;
+    for (size_t trait = 1; trait < n; ++trait) {
+        payoffs[trait] = shuffled_non_root_payoffs[non_root_idx++];
+    }
+
+    return payoffs;
+}
+
 void addDistanceBonuses(PayoffVector& payoffs, const std::vector<int>& distances, double alpha) {
     double original_mean = 0.0;
     size_t non_root_count = 0;
@@ -66,7 +97,7 @@ void addDistanceBonuses(PayoffVector& payoffs, const std::vector<int>& distances
 }
 
 PayoffVector generatePayoffs(const std::vector<int>& distances, double alpha, const std::vector<size_t>& shuffleSequence) {
-    PayoffVector payoffs = generateRawPayoffs(distances, shuffleSequence);
+    PayoffVector payoffs = generateRawPayoffsSkewed(distances, shuffleSequence);
     addDistanceBonuses(payoffs, distances, alpha);
     return payoffs;
 }

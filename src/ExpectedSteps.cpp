@@ -198,24 +198,6 @@ void computeExpectedPayoffAtNSteps(
     }
 }
 
-
-double computeExpectedStepsFromMatrix(const std::vector<std::vector<double>>& LU, const std::vector<int>& p,  int initialStateNewIndex) {
-    // Set up the b vector (ones)
-    int numTransientStates = static_cast<int>(LU.size());
-    std::vector<double> bVector(numTransientStates, 1.0);
-
-    // Solve the system (I - Q) * t = b
-    std::vector<double> tSolution = solveUsingLU(LU, p, bVector);
-    
-    if (std::ranges::any_of(tSolution, [](double val) { return std::isnan(val) || std::isinf(val); })) {
-        DEBUG_PRINT(1, "NaN or Inf found in tSolution");
-    }
-
-    double expectedSteps = tSolution[initialStateNewIndex];
-    if(DEBUG_LEVEL >= 1) std::cout << "Expected steps: " << expectedSteps << '\n';
-    return expectedSteps;
-}
-
 void adjustTraitFrequencies(std::vector<double>& traitFrequencies, double adjustmentFactor) {
     // Adjust the frequencies slightly to avoid singularity
     size_t n = traitFrequencies.size();
@@ -438,24 +420,19 @@ double computeExpectedTimeToAbsorption(
     if (numTransientStates == 0) {
         return 0.0; // Already in absorbing state
     }
+        
+    auto iMinusQ = computeIMinusQ(reorderedMatrix, numTransientStates);
+
+    auto [LU, P] = decomposeLU(iMinusQ);
     
-    // Extract Q matrix from reordered transition matrix
-    std::vector<std::vector<double>> IminusQ = computeIMinusQ(reorderedMatrix, numTransientStates);
+    std::vector<double> bVector(numTransientStates, 1.0);
     
-    // Use existing LU decomposition
-    auto [LU, p] = decomposeLU(IminusQ);
-    
-    // Create ones vector
-    std::vector<double> ones(numTransientStates, 1.0);
-    
-    // Solve (I - Q)t = 1
-    std::vector<double> t = solveUsingLU(LU, p, ones);
+    std::vector<double> tSolution = solveUsingLU(LU, P, bVector);
     
     // Map initial state to new index
     int initialStateNewIndex = oldToNewIndexMap.at(initialStateIndex);
     
-    // Return expected time from initial state if it's transient, 0 if absorbing
-    return initialStateNewIndex < numTransientStates ? t[initialStateNewIndex] : 0.0;
+    return tSolution[initialStateNewIndex];
 }
 
 bool computeExpectedSteps(
@@ -507,7 +484,7 @@ bool computeExpectedSteps(
         }
 
         // Generate repertoires based on initial traitFrequencies
-        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents,slope);
+        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents,slope);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         repertoiresWithIndices.reserve(repertoiresList.size());
@@ -535,9 +512,12 @@ bool computeExpectedSteps(
         DEBUG_PRINT(2, "Initial transition matrix:");        
         if(DEBUG_LEVEL >= 2) printMatrix(reorderedTransitionMatrix);
 
-        // Compute fundamental matrix
-        std::vector<std::vector<double>> iMinusQ = computeIMinusQ(reorderedTransitionMatrix, numTransientStates);
+        // Extract Q matrix from reordered transition matrix
+        auto iMinusQ = computeIMinusQ(reorderedTransitionMatrix, numTransientStates);
+        
         auto [LU, p] = decomposeLU(iMinusQ);
+        
+        // Compute fundamental matrix
         std::vector<std::vector<double>> fundamentalMatrix(numTransientStates, std::vector<double>(numTransientStates));
 
         for (int i = 0; i < numTransientStates; ++i) {
@@ -570,10 +550,18 @@ bool computeExpectedSteps(
 
         for (const auto& [state, index] : transientStateIndices) {
             double frequency = fundamentalMatrix[0][index] / totalTransientTime;
-            if (frequency == 0.0) {
-                frequency = 0.05;  // Frequency of omniscient states
-            }
             stateFrequencies[state] = frequency;
+        }
+
+        Repertoire absorbingState(n, true);
+        stateFrequencies[absorbingState] = 0.05;
+
+        double totalStateFreq = 0.0;
+        for (const auto& [state, freq] : stateFrequencies) {
+            totalStateFreq += freq;
+        }
+        for (auto& [state, freq] : stateFrequencies) {
+            freq /= totalStateFreq;
         }
 
         DEBUG_PRINT(2, "State Frequencies:");
@@ -593,26 +581,6 @@ bool computeExpectedSteps(
             }
             traitFrequencies[trait] = timeTraitKnown;
         }
-
-        // Normalize trait frequencies
-        double sum = std::accumulate(traitFrequencies.begin() + 1, traitFrequencies.end(), 0.0);
-
-        // Ensure no zero frequencies
-        for (size_t j = 1; j < n; ++j) {
-            if (traitFrequencies[j] == 0.0) {
-                traitFrequencies[j] = 0.05;
-                sum += 0.05;
-            }
-        }
-
-        for (size_t j = 1; j < n; ++j) {
-            traitFrequencies[j] /= sum;
-        }
-
-        // Add trait frequency for absorbing state
-        Repertoire absorbingState(n, true);  // All traits learned
-        stateFrequencies[absorbingState] = 1e-5;
-
 
         switch (distribution) {
             case Learnability:
@@ -634,7 +602,7 @@ bool computeExpectedSteps(
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
-            strategy, adjacencyMatrix, payoffs, traitFrequencies, allStates, parents, slope
+            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope
         );
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
 

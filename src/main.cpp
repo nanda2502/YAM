@@ -92,11 +92,11 @@ int main(int argc, char* argv[]) {
         };
 
         std::vector<traitDistribution> distributions = {
-            traitDistribution::Learnability,
-            traitDistribution::Uniform,
-            traitDistribution::Depth,
-            traitDistribution::Shallowness,
-            traitDistribution::Payoffs
+            traitDistribution::Learnability//,
+            //traitDistribution::Uniform,
+            //traitDistribution::Depth,
+            //traitDistribution::Shallowness,
+            //traitDistribution::Payoffs
         };
     
         std::string outputDir = "../output";

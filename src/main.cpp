@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <atomic>
 #include <iostream>
 #include <vector>
@@ -15,22 +14,17 @@ void processRepl(
     const Strategy& strategy,
     double alpha,
     double slope,
-    std::vector<std::vector<size_t>>& shuffleSequences,
+    const std::vector<std::vector<size_t>>& shuffleSequences,
     AccumulatedResult& accumResult,
     std::atomic<int>& failureCount,
-    int adj_int,
-    traitDistribution distribution
+    traitDistribution distribution,
+    int payoffDist
 ) {
     std::vector<double> totalExpectedPayoffPerStep(20, 0.0);
     std::vector<double> totalExpectedTransitionsPerStep(20, 0.0);
     std::vector<double> totalExpectedVariation(20, 0.0);
     double totalTimeToAbsorption = 0.0;
     int successCount = 0;
-
-    // adj_int 0 is the unconstrained structure, which means that there is no need to shuffle the payoffs
-    if (adj_int == 0) {
-        shuffleSequences = {shuffleSequences[0]};
-    }
 
     for (const auto& shuffleSequence : shuffleSequences) {
         double timeToAbsorption;
@@ -41,7 +35,7 @@ void processRepl(
         std::vector<std::vector<double>> transitionMatrix;
 
         if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,
-                                 slope, expectedPayoffPerStep,
+                                 slope, payoffDist, expectedPayoffPerStep,
                                  expectedTransitionsPerStep, expectedVariation,
                                  transitionMatrix, distribution,
                                  timeToAbsorption)) {
@@ -68,37 +62,12 @@ void processRepl(
     }
 }
 
-size_t factorial(size_t num) {
-    size_t result = 1;
-    for (size_t i = 2; i <= num; ++i) {
-        result *= i;
-    }
-    return result;
-}
-
 int main(int argc, char* argv[]) {
     int n;
     int adj_int = parseArgs(argc, argv, n);
     int replications = 1;
     try {
-        std::vector<double> alphas = {0.0};
-        std::vector<Strategy> strategies = {
-            Strategy::Random,
-            Strategy::Payoff,
-            Strategy::Proximal,
-            Strategy::Prestige,
-            Strategy::Conformity,
-            Strategy::Perfect
-        };
-
-        std::vector<traitDistribution> distributions = {
-            traitDistribution::Learnability//,
-            //traitDistribution::Uniform,
-            //traitDistribution::Depth,
-            //traitDistribution::Shallowness,
-            //traitDistribution::Payoffs
-        };
-    
+   
         std::string outputDir = "../output";
         if (!std::filesystem::exists(outputDir)) {
             std::filesystem::create_directory(outputDir);
@@ -107,18 +76,8 @@ int main(int argc, char* argv[]) {
         std::vector<AdjacencyMatrix> adjacencyMatricesAll = readAdjacencyMatrices(n);
         std::vector<AdjacencyMatrix> adjacencyMatrices(1, adjacencyMatricesAll[adj_int]);
 
-        std::vector<size_t> perm(n - 1);
-        std::iota(perm.begin(), perm.end(), 0);
-        size_t sequenceCount = factorial(n - 1);
-        std::vector<std::vector<size_t>> shuffleSequences;
-        shuffleSequences.reserve(sequenceCount);  
-
-        do {
-            shuffleSequences.push_back(perm);
-        } while (std::ranges::next_permutation(perm).found); 
     
-    
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices, strategies, alphas, replications, distributions);
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices,replications);
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
         std::vector<std::atomic<int>> failureCounts(combinations.size());
     
@@ -133,16 +92,16 @@ int main(int argc, char* argv[]) {
                 comb.strategy,
                 comb.alpha,
                 comb.slope,
-                shuffleSequences,
+                comb.shuffleSequences,
                 accumulatedResults[idx],
                 failureCounts[idx],
-                adj_int,
-                comb.distribution
+                comb.distribution,
+                comb.payoffDist
             );
         }
     
 
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,payoffdist";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -152,7 +111,7 @@ int main(int argc, char* argv[]) {
                 for (size_t step = 0; step < 20; step++) {
                 const ParamCombination& comb = combinations[i];
                 std::string formattedResult = formatResults(
-                    n,
+                    comb.adjMatrix.size(),
                     adjMatrixToBinaryString(comb.adjMatrix),
                     comb.alpha,
                     comb.strategy,
@@ -163,7 +122,8 @@ int main(int argc, char* argv[]) {
                     accumResult.totalExpectedVariation[step],
                     comb.slope,
                     comb.distribution,
-                    accumResult.absorbing
+                    accumResult.absorbing,
+                    comb.payoffDist
                 );
                 csvData.push_back(formattedResult);
                 }

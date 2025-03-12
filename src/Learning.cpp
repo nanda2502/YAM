@@ -36,8 +36,6 @@ double computeDelta(const Repertoire& r, const Repertoire& s) {
         std::plus<>(), [](bool s_i, bool r_i) { return (s_i && !r_i) ? 1 : 0; });
 }
 
-
-
 std::vector<double> proximalBaseWeights(
     const Repertoire& repertoire,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
@@ -53,7 +51,7 @@ std::vector<double> proximalBaseWeights(
                     if (it != stateFrequencies.end()) {
                         auto delta = computeDelta(repertoire, state);
                         if (delta > 0) {
-                            w_star[trait] += it->second * std::pow(slope, -delta); // it->second is the state frequency
+                            w_star[trait] += it->second * std::pow(delta, -slope); // it->second is the state frequency
                         }
                     }
                 }
@@ -70,21 +68,28 @@ std::vector<double> prestigeBaseWeights(
     double slope
 ) {
     std::vector<double> w_star(repertoire.size(), 0.0);
-    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        if (!repertoire[trait]) {
-            for (const auto& state : allStates) {
-                if (state[trait]) {
-                    auto it = stateFrequencies.find(state);
-                    if (it != stateFrequencies.end()) {
-                        auto delta = computeDelta(repertoire, state);
-                        if (delta > 0) {
-                            w_star[trait] += it->second * std::pow(slope, delta); // it->second is the state frequency
-                        }
+    
+    // First loop over all potential demonstrator states
+    for (const auto& state : allStates) {
+        auto it = stateFrequencies.find(state);
+        if (it != stateFrequencies.end()) {
+            auto delta = computeDelta(repertoire, state);
+            if (delta > 0) {  // State has at least one trait not in repertoire
+                // Count total traits in the demonstrator state
+                int totalTraits = std::count(state.begin(), state.end(), true);
+                // Weight using total traits
+                double stateWeight = it->second * std::pow(totalTraits, slope);
+                
+                // Then loop over traits to assign weights
+                for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+                    if (!repertoire[trait] && state[trait]) {  // Trait is unlearned by agent but present in demonstrator
+                        w_star[trait] += stateWeight;
                     }
                 }
             }
         }
     }
+    
     return w_star;
 }
 

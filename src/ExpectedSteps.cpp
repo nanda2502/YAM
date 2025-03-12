@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <numeric>
 #include <cmath>
-#include <map>
+
 
 // Helper function to extract Q matrix and compute (I - Q)
 std::vector<std::vector<double>> computeIMinusQ(
@@ -334,105 +334,309 @@ size_t countLearnedTraits(const Repertoire& repertoire) {
     return std::count(repertoire.begin(), repertoire.end(), true);
 }
 
-std::vector<double> adjustTraitFrequencies(
-    const std::vector<double>& traitFrequencies,
-    const AdjacencyMatrix& adjMatrix,
-    Trait rootNode,
-    bool deepHigh       // false: shallow nodes get higher frequencies
-                        // true: deep nodes get higher frequencies
-) {   
-    // Get the number of traits
-    size_t n = traitFrequencies.size();
-    
-    // Compute distances from root for all traits
-    std::vector<int> distances = computeDistances(adjMatrix, rootNode);
-    
-    // Create vector of trait indices (excluding root node)
-    std::vector<size_t> traitIndices;
-    for (size_t i = 1; i < n; ++i) {
-        traitIndices.push_back(i);
-    }
-    
-    // Sort traits by distance from root (ascending)
-    std::ranges::sort(traitIndices,
-        [&distances](size_t a, size_t b) {
-            return distances[a] < distances[b];
-        });
-    
-    // Group traits by their distance from root
-    std::map<int, std::vector<size_t>> traitsByDistance;
-    for (size_t trait : traitIndices) {
-        traitsByDistance[distances[trait]].push_back(trait);
-    }
-    
-    // Create vector of non-root frequencies sorted in ascending order
-    std::vector<double> sortedFrequencies;
-    for (size_t i = 1; i < n; ++i) {
-        sortedFrequencies.push_back(traitFrequencies[i]);
-    }
-    std::ranges::sort(sortedFrequencies);
-    
-    // If deepHigh is false, reverse the sorted frequencies
-    // This way, when deepHigh is true, deeper traits get higher frequencies
-    if (!deepHigh) {
-        std::ranges::reverse(sortedFrequencies);
-    }
-    
-    // Initialize output vector with root node frequency unchanged
-    std::vector<double> adjustedFrequencies(n);
-    adjustedFrequencies[rootNode] = traitFrequencies[rootNode];
-    
-    // Assign frequencies based on distance from root
-    size_t freqIndex = 0;
-    for (const auto& [distance, traits] : traitsByDistance) {
-        // For traits at the same distance, assign frequencies in order
-        for (size_t trait : traits) {
-            adjustedFrequencies[trait] = sortedFrequencies[freqIndex++];
-        }
-    }
-    
-    return adjustedFrequencies;
-}
-
 double computeExpectedTimeToAbsorption(
     const std::vector<std::vector<double>>& transitionMatrix,
     int initialStateIndex
 ) {
     size_t numStates = transitionMatrix.size();
     
-    // Create dummy repertoires and indices for reordering
-    // This is just to satisfy the interface of reorderTransitionMatrix
-    std::vector<std::pair<Repertoire, int>> dummyRepertoires;
-    std::unordered_map<Repertoire, int, RepertoireHash> dummyIndexMap;
-    std::vector<double> dummyFrequencies(numStates, 1.0);
-    Repertoire dummyRepertoire(numStates, false);
-    
+    // First, identify which states are absorbing directly from the transition matrix
+    std::vector<bool> isAbsorbing(numStates, false);
     for (size_t i = 0; i < numStates; ++i) {
-        dummyRepertoires.emplace_back(dummyRepertoire, i);
-        dummyIndexMap[dummyRepertoire] = i;
+        // A state is absorbing if it has a self-transition probability of 1.0 (or very close to it)
+        isAbsorbing[i] = (std::abs(transitionMatrix[i][i] - 1.0) < 1e-10);
+        
+        // Double-check by ensuring all other transitions from this state are ~0
+        if (isAbsorbing[i]) {
+            for (size_t j = 0; j < numStates; ++j) {
+                if (i != j && transitionMatrix[i][j] > 1e-10) {
+                    isAbsorbing[i] = false;
+                    break;
+                }
+            }
+        }
     }
     
-    // Use existing function to reorder matrix and identify transient states
-    auto [reorderedMatrix, oldToNewIndexMap, numTransientStates] = reorderTransitionMatrix(
-        transitionMatrix, dummyRepertoires, dummyIndexMap, 0, dummyFrequencies
-    );
+    // Count and identify transient states
+    std::vector<int> transientStates;
+    for (size_t i = 0; i < numStates; ++i) {
+        if (!isAbsorbing[i]) {
+            transientStates.push_back(i);
+        }
+    }
     
-    if (numTransientStates == 0) {
+    int numTransientStates = transientStates.size();
+    if (numTransientStates == 0 || isAbsorbing[initialStateIndex]) {
         return 0.0; // Already in absorbing state
     }
-        
-    auto iMinusQ = computeIMinusQ(reorderedMatrix, numTransientStates);
-
+    
+    // Create mapping from original state indices to condensed transient matrix indices
+    std::unordered_map<int, int> stateToQIndex;
+    for (int i = 0; i < numTransientStates; ++i) {
+        stateToQIndex[transientStates[i]] = i;
+    }
+    
+    // Build the Q matrix (transitions between transient states)
+    std::vector<std::vector<double>> qMatrix(numTransientStates, std::vector<double>(numTransientStates));
+    for (int i = 0; i < numTransientStates; ++i) {
+        for (int j = 0; j < numTransientStates; ++j) {
+            qMatrix[i][j] = transitionMatrix[transientStates[i]][transientStates[j]];
+        }
+    }
+    
+    // Compute (I - Q) matrix
+    std::vector<std::vector<double>> iMinusQ(numTransientStates, std::vector<double>(numTransientStates));
+    for (int i = 0; i < numTransientStates; ++i) {
+        for (int j = 0; j < numTransientStates; ++j) {
+            iMinusQ[i][j] = (i == j ? 1.0 : 0.0) - qMatrix[i][j];
+        }
+    }
+    
+    // LU decomposition to solve the system
     auto [LU, P] = decomposeLU(iMinusQ);
     
+    // Solve (I-Q)t = 1 for t
     std::vector<double> bVector(numTransientStates, 1.0);
-    
     std::vector<double> tSolution = solveUsingLU(LU, P, bVector);
     
-    // Map initial state to new index
-    int initialStateNewIndex = oldToNewIndexMap.at(initialStateIndex);
+    // Return time to absorption for initial state
+    int qIndex = stateToQIndex[initialStateIndex];
+    return tSolution[qIndex];
+}
+
+std::vector<double> biasTraitFrequencies(
+    const std::vector<Repertoire>& allStates,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
+    const AdjacencyMatrix& adjMatrix,
+    const PayoffVector& payoffs,
+    traitDistribution distribution,
+    Trait rootNode,
+    double biasStrength = 2.0
+) {
+    size_t n = adjMatrix.size();
+    std::vector<double> biasedFrequencies(n, 0.0);
+    biasedFrequencies[rootNode] = 1.0;  // Root trait is always present
     
-    return tSolution[initialStateNewIndex];
+    // Handle special cases
+    if (distribution == Learnability) {
+        for (const auto& state : allStates) {
+            auto it = stateFrequencies.find(state);
+            if (it == stateFrequencies.end() || it->second <= 0.0) continue;
+            
+            double stateFreq = it->second;
+            for (Trait trait = 0; trait < n; ++trait) {
+                if (trait != rootNode && state[trait]) {
+                    biasedFrequencies[trait] += stateFreq;
+                }
+            }
+        }
+        return biasedFrequencies;
+    }
+    
+    if (distribution == Uniform) {
+        double totalFreq = 0.0;
+        for (const auto& [state, freq] : stateFrequencies) {
+            totalFreq += freq;
+        }
+        
+        double uniformValue = totalFreq / (n - 1);
+        for (Trait trait = 0; trait < n; ++trait) {
+            if (trait != rootNode) {
+                biasedFrequencies[trait] = uniformValue;
+            }
+        }
+        return biasedFrequencies;
+    }
+    
+    // Precalculate values needed for normalization
+    std::vector<int> distances;
+    int maxDist = 0;
+    if (distribution == Depth || distribution == Shallowness) {
+        distances = computeDistances(adjMatrix, rootNode);
+        maxDist = *std::ranges::max_element(distances);
+    }
+    
+    // Calculate original trait frequencies to preserve total
+    std::vector<double> originalFrequencies(n, 0.0);
+    originalFrequencies[rootNode] = 1.0;
+    for (const auto& state : allStates) {
+        auto it = stateFrequencies.find(state);
+        if (it == stateFrequencies.end() || it->second <= 0.0) continue;
+        
+        double stateFreq = it->second;
+        for (Trait trait = 0; trait < n; ++trait) {
+            if (trait != rootNode && state[trait]) {
+                originalFrequencies[trait] += stateFreq;
+            }
+        }
+    }
+    
+    // Apply bias according to the plan
+    for (const auto& state : allStates) {
+        auto it = stateFrequencies.find(state);
+        if (it == stateFrequencies.end() || it->second <= 0.0) continue;
+        
+        double stateFreq = it->second;
+        
+        // Get measure values for all traits in this state
+        std::vector<std::pair<Trait, double>> traitsWithMeasures;
+        
+        for (Trait trait = 0; trait < n; ++trait) {
+            if (trait == rootNode || !state[trait]) continue;
+            
+            double measureValue = 0.0;
+            switch (distribution) {
+                case Depth:
+                    measureValue = (maxDist > 0) ? 
+                        static_cast<double>(distances[trait]) / maxDist : 0.0;
+                    break;
+                    
+                case Shallowness:
+                    measureValue = (maxDist > 0) ? 
+                        1.0 - (static_cast<double>(distances[trait]) / maxDist) : 0.0;
+                    break;
+                    
+                case Payoffs:
+                    measureValue = payoffs[trait];
+                    break;
+                    
+                default:
+                    measureValue = 1.0;
+            }
+            
+            // Apply bias strength
+            measureValue = std::pow(measureValue, biasStrength);
+            
+            traitsWithMeasures.emplace_back(trait, measureValue);
+        }
+        
+        // Normalize measure values within this state
+        double totalMeasure = 0.0;
+        for (const auto& [trait, measure] : traitsWithMeasures) {
+            totalMeasure += measure;
+        }
+        
+        if (totalMeasure > 0.0) {
+            for (const auto& [trait, measure] : traitsWithMeasures) {
+                // Normalized measure * state frequency
+                double normalizedMeasure = measure / totalMeasure;
+                biasedFrequencies[trait] += normalizedMeasure * stateFreq;
+            }
+        } else if (!traitsWithMeasures.empty()) {
+            // If measures are all zero, distribute equally
+            double equalShare = 1.0 / traitsWithMeasures.size();
+            for (const auto& [trait, _] : traitsWithMeasures) {
+                biasedFrequencies[trait] += equalShare * stateFreq;
+            }
+        }
+    }
+    
+    // Normalize to preserve the sum of original frequencies
+    double originalSum = 0.0;
+    double biasedSum = 0.0;
+    for (Trait trait = 1; trait < n; ++trait) {  // Skip root trait
+        originalSum += originalFrequencies[trait];
+        biasedSum += biasedFrequencies[trait];
+    }
+    
+    if (biasedSum > 0.0) {
+        double normFactor = originalSum / biasedSum;
+        for (Trait trait = 1; trait < n; ++trait) {  // Skip root trait
+            biasedFrequencies[trait] *= normFactor;
+        }
+    } else if (originalSum > 0.0) {
+        // If all biased frequencies are zero, revert to uniform
+        double uniformValue = originalSum / (n - 1);
+        for (Trait trait = 1; trait < n; ++trait) {
+            biasedFrequencies[trait] = uniformValue;
+        }
+    }
+    
+    return biasedFrequencies;
+}
+
+std::unordered_map<Repertoire, double, RepertoireHash> inferStateFrequencies(
+    const std::vector<Repertoire>& allStates,
+    const std::vector<double>& targetTraitFrequencies,
+    int maxIterations = 1000,
+    double convergenceThreshold = 1e-5
+) {
+    const size_t numStates = allStates.size();
+    const size_t numTraits = targetTraitFrequencies.size();
+    
+    // Start with uniform distribution
+    std::vector<double> stateFreqs(numStates, 1.0 / numStates);
+    
+    // Set up trait-state matrix: A[t][s] = 1 if state s has trait t, 0 otherwise
+    std::vector<std::vector<double>> A(numTraits, std::vector<double>(numStates, 0.0));
+    
+    for (size_t t = 0; t < numTraits; ++t) {
+        for (size_t s = 0; s < numStates; ++s) {
+            A[t][s] = allStates[s][t] ? 1.0 : 0.0;
+        }
+    }
+    
+    // Iterative adjustment to minimize ||Ax - b||^2 subject to x >= 0, sum(x) = 1
+    const double learningRate = 0.05;
+    
+    for (int iter = 0; iter < maxIterations; ++iter) {
+        // Compute current trait frequencies: A * x
+        std::vector<double> currentTraitFreqs(numTraits, 0.0);
+        for (size_t t = 0; t < numTraits; ++t) {
+            for (size_t s = 0; s < numStates; ++s) {
+                currentTraitFreqs[t] += A[t][s] * stateFreqs[s];
+            }
+        }
+        
+        // Compute error: b - A * x
+        std::vector<double> error(numTraits);
+        for (size_t t = 0; t < numTraits; ++t) {
+            error[t] = targetTraitFrequencies[t] - currentTraitFreqs[t];
+        }
+        
+        // Compute total squared error
+        double totalError = 0.0;
+        for (size_t t = 0; t < numTraits; ++t) {
+            totalError += error[t] * error[t];
+        }
+        
+        DEBUG_PRINT(3, "Iteration " << iter << ", error: " << totalError);
+        
+        // Check convergence
+        if (totalError < convergenceThreshold) {
+            DEBUG_PRINT(2, "State frequency inference converged after " << iter << " iterations");
+            break;
+        }
+        
+        // Compute gradient: A^T * (b - A * x)
+        std::vector<double> gradient(numStates, 0.0);
+        for (size_t s = 0; s < numStates; ++s) {
+            for (size_t t = 0; t < numTraits; ++t) {
+                gradient[s] += A[t][s] * error[t];
+            }
+        }
+        
+        // Update state frequencies with gradient step
+        for (size_t s = 0; s < numStates; ++s) {
+            stateFreqs[s] += learningRate * gradient[s];
+            // Ensure non-negativity
+            stateFreqs[s] = std::max(0.0, stateFreqs[s]);
+        }
+        
+        // Normalize to ensure sum(x) = 1
+        double sum = std::accumulate(stateFreqs.begin(), stateFreqs.end(), 0.0);
+        for (size_t s = 0; s < numStates; ++s) {
+            stateFreqs[s] /= sum;
+        }
+    }
+    
+    // Convert vector result to unordered_map
+    std::unordered_map<Repertoire, double, RepertoireHash> stateFrequencies;
+    for (size_t s = 0; s < numStates; ++s) {
+        stateFrequencies[allStates[s]] = stateFreqs[s];
+    }
+    
+    return stateFrequencies;
 }
 
 bool computeExpectedSteps(
@@ -440,7 +644,8 @@ bool computeExpectedSteps(
     Strategy strategy,
     double alpha,
     const std::vector<size_t>& shuffleSequence,
-    double slope,                          
+    double slope, 
+    int payoffDist,                          
     std::vector<double>& expectedPayoffPerStep,
     std::vector<double>& expectedTransitionsPerStep,
     std::vector<double>& expectedVariation,                       
@@ -453,7 +658,7 @@ bool computeExpectedSteps(
         Strategy baseStrategy = Random;
         Trait rootNode = 0;
         std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
-        PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence);
+        PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence, payoffDist);
 
         // print payoffs
         DEBUG_PRINT(2, "Payoffs:");
@@ -582,23 +787,19 @@ bool computeExpectedSteps(
             traitFrequencies[trait] = timeTraitKnown;
         }
 
-        switch (distribution) {
-            case Learnability:
-                break;
-            case Depth:
-                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, true);
-                break;
-            case Shallowness:
-                traitFrequencies = adjustTraitFrequencies(traitFrequencies, adjacencyMatrix, rootNode, false);
-                break;
-            case Uniform:
-                std::ranges::fill(traitFrequencies, 1.0);
-                break;
-            case Payoffs:
-                traitFrequencies = payoffs;
-                break;
-        }
+        traitFrequencies = biasTraitFrequencies(allStates, stateFrequencies, adjacencyMatrix, payoffs, distribution, rootNode);
         
+        // After adjusting trait frequencies, infer compatible state frequencies
+        // This is important for strategies like Proximal and Prestige which depend on state frequencies
+        std::unordered_map<Repertoire, double, RepertoireHash> inferredStateFrequencies;
+        if (strategy == Strategy::Proximal || strategy == Strategy::Prestige) {
+            DEBUG_PRINT(1, "Inferring state frequencies from target trait frequencies for Proximal/Prestige strategy");
+            inferredStateFrequencies = inferStateFrequencies(allStates, traitFrequencies);
+        } else {
+            // For other strategies, use the original state frequencies
+            inferredStateFrequencies = stateFrequencies;
+        }
+
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(

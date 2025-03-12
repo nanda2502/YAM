@@ -1,12 +1,15 @@
 #include "Utils.hpp"
 #include "Types.hpp"
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <random>
 #include <stdexcept>
 #include <iostream>
 #include <cstdio>
 #include <unordered_map>
+#include <unordered_set>
 #include <zlib.h>
 
 void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector<double>>& matrix) {
@@ -72,7 +75,8 @@ std::string formatResults(
     double expectedVariation,
     double slope,
     traitDistribution distribution,
-    double absorbing
+    double absorbing,
+    int payoffDist
 ) {
     std::ostringstream oss;
     oss << n << ',' << 
@@ -86,7 +90,8 @@ std::string formatResults(
     expectedVariation << ',' <<
     slope << ',' <<
     distributionToString(distribution) << ',' <<
-    absorbing;
+    absorbing << ',' <<
+    payoffDist;
     return oss.str();
 }
 
@@ -226,10 +231,8 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
     switch (strategy) {
         case Random: case Perfect:
             return {0.0};
-        case Payoff: case Conformity:
-            return {0.0, 1.0, 1.25, 2.0, 2.5, 5.0};	
         default:
-            return {1.0, 1.25, 2.0, 2.5, 5.0};	// Proximal and Prestige don't have 0.0 slope
+            return {0.0, 1.0, 1.25, 2.0, 2.5, 5.0};	
 
     }
 }
@@ -247,32 +250,236 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
     }
 }
 */
+bool isUnconstrained(const AdjacencyMatrix& adjMatrix) {
+    // Skip the first row
+    for (size_t row = 1; row < adjMatrix.size(); ++row) {
+        // Check each element in this row
+        for (bool col : adjMatrix[row]) {
+            // If any element is true (nonzero), return false
+            if (col) {
+                return false;
+            }
+        }
+    }
+    // If we've checked all rows and found no nonzero values, return true
+    return true;
+}
+
+size_t factorial(size_t num) {
+    size_t result = 1;
+    for (size_t i = 2; i <= num; ++i) {
+        result *= i;
+    }
+    return result;
+}
+
+std::vector<std::vector<size_t>> makeShuffles(int n) {
+    std::vector<std::vector<size_t>> shuffleSequences;
+    
+    // For small n (10 or less), generate all permutations
+    if (n <= 10) {
+        std::vector<size_t> perm(n - 1);
+        std::iota(perm.begin(), perm.end(), 0);
+        size_t sequenceCount = factorial(n - 1);
+        shuffleSequences.reserve(sequenceCount);
+        
+        do {
+            shuffleSequences.push_back(perm);
+        } while (std::ranges::next_permutation(perm).found);
+    }
+    // For larger n, generate a limited number of random permutations
+    else {
+        // Generate random unique permutations of trait indices (excluding root)
+        size_t maxPermutations = 10000;
+        
+        // Create a set to store unique permutations (as strings for easy comparison)
+        std::unordered_set<std::string> uniquePermsSet;
+        
+        // Create a random number generator
+        std::random_device rd;
+        std::mt19937 g(rd());
+        
+        // Generate the base permutation
+        std::vector<size_t> basePerm(n - 1);
+        std::iota(basePerm.begin(), basePerm.end(), 0);
+        
+        // Try to generate maxPermutations unique permutations
+        while (uniquePermsSet.size() < maxPermutations) {
+            // Create a new permutation by shuffling the base
+            std::vector<size_t> perm = basePerm;
+            std::shuffle(perm.begin(), perm.end(), g);
+            
+            // Convert to string for uniqueness check
+            std::string permStr;
+            for (size_t val : perm) {
+                permStr += std::to_string(val) + ",";
+            }
+            
+            // Add to set and vector if unique
+            if (uniquePermsSet.insert(permStr).second) {
+                shuffleSequences.push_back(perm);
+                
+                // Progress output
+                if (shuffleSequences.size() % 500 == 0) {
+                    std::cout << "Generated " << shuffleSequences.size() << " unique permutations..." << '\n';
+                }
+            }
+            
+            // Safety check to avoid infinite loop
+            if (uniquePermsSet.size() == factorial(n - 1)) {
+                std::cout << "Generated all possible permutations (" << uniquePermsSet.size() << ")" << '\n';
+                break;
+            }
+        }
+    }
+    
+    return shuffleSequences;
+}
+
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
-    const std::vector<Strategy>& strategies, 
-    const std::vector<double>& alphas,
-    int replications,
-    const std::vector<traitDistribution>& distributions
+    int replications
 ) {
     std::vector<ParamCombination> combinations;
+    
+    // Define default values
+    traitDistribution defaultDistribution = traitDistribution::Learnability;
+    int defaultPayoffDist = 0;
+    double defaultAlpha = 0.0;
+    double alternativeAlpha = 1.0;
+    
+    std::vector<Strategy> strategies = {
+        Strategy::Random,
+        Strategy::Payoff,
+        Strategy::Proximal,
+        Strategy::Prestige,
+        Strategy::Conformity
+    };
+
+    std::vector<traitDistribution> distributions = {
+        traitDistribution::Learnability,
+        traitDistribution::Uniform,
+        traitDistribution::Depth,
+        traitDistribution::Shallowness,
+        traitDistribution::Payoffs
+    };
+
     for (const auto& adjMatrix : adjacencyMatrices) {
         std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
+        size_t n = adjMatrix.size();
+        auto shuffleSequences = makeShuffles(n);
+        // Determine which shuffle sequences to use
+        std::vector<std::vector<size_t>> usedShuffleSequences;
+        if (isUnconstrained(adjMatrix)) {
+            // For unconstrained adjacency matrix, use only the first shuffle sequence
+            usedShuffleSequences = {shuffleSequences[0]};
+        } else {
+            // For constrained adjacency matrix, use all shuffle sequences
+            usedShuffleSequences = shuffleSequences;
+        }
+        
+        // Create combinations with default parameters
         for (const auto& strategy : strategies) {
-            for (const auto& distribution : distributions) {
+            if (n <= 8) {
+                // For n <= 8, use all slopes
                 auto slopes = returnSlopeVector(strategy);
-                for (const auto& alpha : alphas) {
+                
+                // Base cases: default values for all parameters, but vary the slopes
+                for (const auto& slope : slopes) {
                     for (int repl = 0; repl < replications; ++repl) {
-                        for (const auto& slope : slopes) {
-                            combinations.push_back({adjMatrix, adjMatrixBinary, strategy, distribution, alpha, repl, slope});
+                        combinations.push_back({
+                            adjMatrix, 
+                            adjMatrixBinary, 
+                            strategy, 
+                            defaultDistribution, 
+                            defaultAlpha, 
+                            repl, 
+                            slope, 
+                            defaultPayoffDist, 
+                            usedShuffleSequences
+                        });
+                    }
+                }
+                
+                // Only continue with parameter variation if the adjacency matrix is size 8
+                if (n == 8) {
+                    // Default slope based on strategy (for parameter variations)
+                    double defaultSlope = (strategy == Strategy::Random || strategy == Strategy::Perfect) ? 0.0 : 2.0;
+                    
+                    // Vary alpha: Add combinations with alternative alpha
+                    for (int repl = 0; repl < replications; ++repl) {
+                        combinations.push_back({
+                            adjMatrix, 
+                            adjMatrixBinary, 
+                            strategy, 
+                            defaultDistribution, 
+                            alternativeAlpha, 
+                            repl, 
+                            defaultSlope, 
+                            defaultPayoffDist, 
+                            usedShuffleSequences
+                        });
+                    }
+                    
+                    // Vary distribution: Add combinations with each non-default distribution
+                    for (const auto& distribution : distributions) {
+                        if (distribution != defaultDistribution) {
+                            for (int repl = 0; repl < replications; ++repl) {
+                                combinations.push_back({
+                                    adjMatrix, 
+                                    adjMatrixBinary, 
+                                    strategy, 
+                                    distribution, 
+                                    defaultAlpha, 
+                                    repl, 
+                                    defaultSlope, 
+                                    defaultPayoffDist, 
+                                    usedShuffleSequences
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Vary payoffDist: Add combinations with each possible payoffDist value (0 to n-1)
+                    for (size_t payoffDist = 1; payoffDist < n; ++payoffDist) {  // Start from 1 since 0 is default
+                        for (int repl = 0; repl < replications; ++repl) {
+                            combinations.push_back({
+                                adjMatrix, 
+                                adjMatrixBinary, 
+                                strategy, 
+                                defaultDistribution, 
+                                defaultAlpha, 
+                                repl, 
+                                defaultSlope, 
+                                static_cast<int>(payoffDist), 
+                                usedShuffleSequences
+                            });
                         }
                     }
                 }
-            }   
+            } else {
+                // For n > 8, use only the default slope
+                double defaultSlope = (strategy == Strategy::Random || strategy == Strategy::Perfect) ? 0.0 : 2.0;
+                
+                for (int repl = 0; repl < replications; ++repl) {
+                    combinations.push_back({
+                        adjMatrix, 
+                        adjMatrixBinary, 
+                        strategy, 
+                        defaultDistribution, 
+                        defaultAlpha, 
+                        repl, 
+                        defaultSlope, 
+                        defaultPayoffDist, 
+                        usedShuffleSequences
+                    });
+                }
+            }
         }
     }
+    
     return combinations;
 }
-
 std::string stateToString(const Repertoire& state) {
     std::string binaryString;
     for (bool value : state) {
@@ -300,3 +507,4 @@ void printStates(const std::vector<Repertoire>& repertoiresList, const std::unor
         std::cout << stateToString(repertoire) << '\n';
     }
 }
+

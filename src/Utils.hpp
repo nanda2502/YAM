@@ -24,7 +24,8 @@ std::string formatResults(
     double expectedVariation,
     double slope,
     traitDistribution distribution,
-    double absorbing
+    double absorbing,
+    int payoffDist
 );
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
@@ -39,12 +40,11 @@ int parseArgs(int argc, char* argv[], int& num_nodes);
 
 void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData);
 
+size_t factorial(size_t num);
+
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
-    const std::vector<Strategy>& strategies, 
-    const std::vector<double>& alphas, 
-    int replications,
-    const std::vector<traitDistribution>& distributions
+    int replications
 );
 
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);

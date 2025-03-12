@@ -61,6 +61,7 @@ bool computeExpectedSteps(
     double alpha,
     const std::vector<size_t>& shuffleSequence,
     double slope,
+    int payoffDist,
     std::vector<double>& expectedPayoffPerStep,                     
     std::vector<double>& expectedTransitionsPerStep,                
     std::vector<double>& expectedVariation,

@@ -35,6 +35,8 @@ struct ParamCombination {
     double alpha;
     int repl;
     double slope;
+    int payoffDist;
+    std::vector<std::vector<size_t>> shuffleSequences;
 };
 
 struct Result {

@@ -10,8 +10,9 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 
 find_package(ZLIB REQUIRED)
 
-file(GLOB_RECURSE SOURCES "src/*.cpp")
-add_executable(yam ${SOURCES})
+# Main executable
+file(GLOB_RECURSE MAIN_SOURCES "src/*.cpp")
+add_executable(yam ${MAIN_SOURCES})
 
 target_include_directories(yam PRIVATE ${ZLIB_INCLUDE_DIRS})
 target_link_libraries(yam PRIVATE ${ZLIB_LIBRARIES})

@@ -1,10 +1,38 @@
 #include "Payoffs.hpp"
 #include <algorithm>
+#include <stdexcept>
+#include <fstream>
 
 PayoffVector generatePayoffs(const std::vector<int>& distances, double alpha, const std::vector<size_t>& shuffleSequence, int payoffDist = 0) {
     size_t n = distances.size();
     size_t non_root_count = n - 1;
     PayoffVector payoffs(n, 0.0);
+
+    if (n == 121) {
+        std::string filePath = "../data/payoffs_121.csv";
+        std::ifstream file(filePath);
+        
+        if (!file.is_open()) {
+            throw std::runtime_error("Could not open payoffs file: " + filePath);
+        }
+        
+        std::string line;
+        size_t index = 0;
+        
+        while (std::getline(file, line) && index < n) {
+            try {
+                payoffs[index++] = std::stod(line);
+            } catch (const std::exception& e) {
+                throw std::runtime_error("Error parsing payoff value at line " + std::to_string(index) + ": " + e.what());
+            }
+        }
+        
+        if (index < n) {
+            throw std::runtime_error("Not enough payoff values in file: expected " + std::to_string(n) + ", got " + std::to_string(index));
+        }
+        
+        return payoffs;
+    }
     
     // Root trait always has zero payoff
     payoffs[0] = 0.0;

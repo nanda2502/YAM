@@ -1,19 +1,20 @@
-num_nodes=$1
+#!/bin/bash
+#SBATCH -p genoa
+#SBATCH --array=0-16
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=192
+#SBATCH -t 04:45:00
+#SBATCH --output=slurm-%A.out
 
-file="./data/adj_mat_${num_nodes}.csv"
+export OMP_NUM_THREADS=192
 
-max_i=$(($(wc -l < "$file") - 1))
+cd build
 
-missing=0
+task_id=${SLURM_ARRAY_TASK_ID}
 
-for i in $(seq 0 $max_i); do
-    if [ ! -f "./output/expected_steps_${i}.csv.gz" ]; then
-        missing=$((missing + 1))
-    fi
-done
-
-run_script="run${num_nodes}.sh"
-
-sed -i "s/^#SBATCH -n .*/#SBATCH -n $missing/" "$run_script"
-
-sbatch "$run_script"
+# Check if the output already exists
+if [ ! -f "../output/expected_steps_${task_id}.csv.gz" ]; then
+    # Run the task
+    ./yam "$task_id" 2
+fi

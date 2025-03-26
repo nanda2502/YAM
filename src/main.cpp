@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
     
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (unsigned long idx : indices) {
              const ParamCombination& comb = combinations[idx];
             processRepl(
@@ -100,7 +100,6 @@ int main(int argc, char* argv[]) {
             );
         }
     
-
         std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,payoffdist";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);

@@ -680,7 +680,7 @@ bool computeExpectedSteps(
         // First pass: build initial transition matrix with initial traitFrequencies
         DEBUG_PRINT(1, "Building initial transition matrix with uniform trait frequencies");
         auto allStates = generateAllRepertoires(adjacencyMatrix, parents);
-
+        std::cout << "Number of states: " << allStates.size() << '\n';
         // this won't be used, but the function requires it as an argument
         std::unordered_map<Repertoire, double, RepertoireHash> initialStateFrequencies;
         double uniformFrequency = 1.0 / static_cast<double>(allStates.size());

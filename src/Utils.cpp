@@ -232,7 +232,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
         case Random: case Perfect:
             return {0.0};
         default:
-            return {0.0, 1.0, 1.25, 2.0, 2.5, 5.0};	
+            return {2.0};	
 
     }
 }
@@ -286,7 +286,7 @@ std::vector<std::vector<size_t>> makeShuffles(int n) {
         do {
             shuffleSequences.push_back(perm);
         } while (std::ranges::next_permutation(perm).found);
-    }
+    } 
     // For larger n, generate a limited number of random permutations
     else {
         // Generate random unique permutations of trait indices (excluding root)
@@ -370,9 +370,10 @@ std::vector<ParamCombination> makeCombinations(
         auto shuffleSequences = makeShuffles(n);
         // Determine which shuffle sequences to use
         std::vector<std::vector<size_t>> usedShuffleSequences;
-        if (isUnconstrained(adjMatrix)) {
+        if (isUnconstrained(adjMatrix) || n == 121) {
             // For unconstrained adjacency matrix, use only the first shuffle sequence
             usedShuffleSequences = {shuffleSequences[0]};
+            std::cout << "Using only the first shuffle sequence" << '\n';
         } else {
             // For constrained adjacency matrix, use all shuffle sequences
             usedShuffleSequences = shuffleSequences;

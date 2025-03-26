@@ -102,10 +102,10 @@ AdjacencyMatrix binaryStringToAdjacencyMatrix(const std::string& str) {
 
     if (n == 0) throw std::invalid_argument("Invalid adjmat string: " + str);
 
-    AdjacencyMatrix matrix(n, std::vector<bool>(n));
+    AdjacencyMatrix matrix(n, std::vector<double>(n));
     for (int row = 0; row < n; ++row) {
         for (int column = 0; column < n; ++column) {
-            matrix[row][column] = charToBool(binaryStr[(row * n) + column]);
+            matrix[row][column] = charToBool(binaryStr[(row * n) + column]) ? 1.0 : 0.0;
         }
     }
 
@@ -220,8 +220,8 @@ std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
     binaryString.reserve(adjMatrix.size() * adjMatrix[0].size());
 
     for (const auto& row : adjMatrix) {
-        for (bool entry : row) {
-            binaryString += entry ? '1' : '0';
+        for (double entry : row) {
+            binaryString += entry == 1.0 ? '1' : '0';
         }
     }
     return binaryString;
@@ -482,11 +482,12 @@ std::vector<ParamCombination> makeCombinations(
     return combinations;
 }
 std::string stateToString(const Repertoire& state) {
-    std::string binaryString;
-    for (bool value : state) {
-        binaryString += (value ? '1' : '0');
+    std::string result;
+    result.reserve(state.size());
+    for (double value : state) {
+        result += value == 1.0 ? '1' : '0';
     }
-    return binaryString;
+    return result;
 }
 
 void printVector(const std::vector<double>& vec) {

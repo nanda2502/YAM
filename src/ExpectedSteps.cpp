@@ -77,11 +77,11 @@ std::vector<std::vector<double>> buildTransitionMatrix(
 }
 
 bool isAbsorbingState(const Repertoire& repertoire, const std::vector<double>& traitFrequencies) {
-    if (std::ranges::all_of(repertoire, [](bool learned) { return learned; })) {
+    if (std::ranges::all_of(repertoire, [](double learned) { return learned > 0.5; })) {
         return true;
     }
     for (Trait i = 1; i < repertoire.size(); ++i) {
-        if (!repertoire[i] && std::abs(traitFrequencies[i]) > 1e-5) {
+        if (repertoire[i] <= 0.5 && std::abs(traitFrequencies[i]) > 1e-5) {
             return false;
         }
     }
@@ -140,8 +140,8 @@ std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> 
 
     // Identify the initial state index and map it to the new index
     int n = static_cast<int>(repertoiresWithIndices[0].first.size());
-    Repertoire initialRepertoire(n, false);
-    initialRepertoire[rootNode] = true;
+    Repertoire initialRepertoire(n, 0.0);
+    initialRepertoire[rootNode] = 1.0;
 
     auto it = repertoireIndexMap.find(initialRepertoire);
     if (it == repertoireIndexMap.end()) {
@@ -259,19 +259,17 @@ void computeExpectedTransitionsPerStep(
 }
 
 double computeJaccardDistance(const Repertoire& state1, const Repertoire& state2) {
-    int intersectionCount = 0;
-    int unionCount = 0;
-
+    double intersection = 0.0;
+    double union_ = 0.0;
     for (size_t i = 0; i < state1.size(); ++i) {
-        if (state1[i] || state2[i]) {
-            ++unionCount;
-            if (state1[i] && state2[i]) {
-                ++intersectionCount;
-            }
+        if (state1[i] > 0.5 && state2[i] > 0.5) {
+            intersection += 1.0;
+        }
+        if (state1[i] > 0.5 || state2[i] > 0.5) {
+            union_ += 1.0;
         }
     }
-
-    return 1.0 - (static_cast<double>(intersectionCount) / static_cast<double>(unionCount));
+    return 1.0 - (intersection / union_);
 }
 
 void computeExpectedVariation(const std::vector<std::vector<double>>& transitionMatrix,
@@ -331,7 +329,7 @@ void computeExpectedVariation(const std::vector<std::vector<double>>& transition
 }
 
 size_t countLearnedTraits(const Repertoire& repertoire) {
-    return std::count(repertoire.begin(), repertoire.end(), true);
+    return std::count_if(repertoire.begin(), repertoire.end(), [](double value) { return value > 0.5; });
 }
 
 double computeExpectedTimeToAbsorption(
@@ -758,7 +756,7 @@ bool computeExpectedSteps(
             stateFrequencies[state] = frequency;
         }
 
-        Repertoire absorbingState(n, true);
+        Repertoire absorbingState(n, 1.0);
         stateFrequencies[absorbingState] = 0.05;
 
         double totalStateFreq = 0.0;
@@ -817,8 +815,8 @@ bool computeExpectedSteps(
         );
 
         // Find initial state index
-        Repertoire initialRepertoire(n, false);
-        initialRepertoire[rootNode] = true;
+        Repertoire initialRepertoire(n, 0.0);
+        initialRepertoire[rootNode] = 1.0;
         int initialStateIndex = finalRepertoireIndexMap[initialRepertoire];
 
         // Compute expected payoff per step

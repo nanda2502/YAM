@@ -18,7 +18,8 @@ void processRepl(
     AccumulatedResult& accumResult,
     std::atomic<int>& failureCount,
     traitDistribution distribution,
-    int payoffDist
+    int payoffDist,
+    double edgeWeight
 ) {
     std::vector<double> totalExpectedPayoffPerStep(20, 0.0);
     std::vector<double> totalExpectedTransitionsPerStep(20, 0.0);
@@ -35,7 +36,7 @@ void processRepl(
         std::vector<std::vector<double>> transitionMatrix;
 
         if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,
-                                 slope, payoffDist, expectedPayoffPerStep,
+                                 slope, payoffDist, edgeWeight, expectedPayoffPerStep,
                                  expectedTransitionsPerStep, expectedVariation,
                                  transitionMatrix, distribution,
                                  timeToAbsorption)) {
@@ -84,7 +85,7 @@ int main(int argc, char* argv[]) {
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
     
-        //#pragma omp parallel for
+        #pragma omp parallel for
         for (unsigned long idx : indices) {
              const ParamCombination& comb = combinations[idx];
             processRepl(
@@ -96,7 +97,8 @@ int main(int argc, char* argv[]) {
                 accumulatedResults[idx],
                 failureCounts[idx],
                 comb.distribution,
-                comb.payoffDist
+                comb.payoffDist,
+                comb.edgeWeight
             );
         }
     

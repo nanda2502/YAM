@@ -10,22 +10,26 @@
 
 
 
-std::vector<bool> learnability(const Repertoire& repertoire, const Parents& parents) {
-    std::vector<bool> learnable(repertoire.size());
+std::vector<double> learnability(
+    const Repertoire& repertoire,
+    const Parents& parents,
+    double edgeWeight //represents the probability that a node with an edge to another node is a parent node of that node
+) {
+    std::vector<double> learnable(repertoire.size());
 
     for (size_t trait = 0; trait < repertoire.size(); ++trait) {
         auto traitParents = parents[trait];
 
-        // true if all parents are in the repertoire
-        bool parent_product = std::accumulate(traitParents.begin(), traitParents.end(), true,
-            [&repertoire](bool acc, Trait parent) {
-                return acc && repertoire[parent];
+        // Calculate probability that all parents are in the repertoire
+        double parent_product = std::accumulate(traitParents.begin(), traitParents.end(), 1.0,
+            [&repertoire, edgeWeight](double acc, Trait parent) {
+                // If parent is in repertoire, multiply by edgeWeight (probability it's actually a parent)
+                // If parent is not in repertoire, multiply by (1 - edgeWeight) (probability it's not a parent)
+                return acc * (repertoire[parent] == 1.0 ? edgeWeight : (1.0 - edgeWeight));
             });
 
-        // true if the trait is not in the repertoire and all parents are in the repertoire
-        bool is_learnable = !repertoire[trait] && parent_product;
-
-        learnable[trait] = is_learnable;
+        // Trait is learnable if it's not in the repertoire and all parents are in the repertoire
+        learnable[trait] = (repertoire[trait] == 0.0) ? parent_product : 0.0;
     }
     return learnable;
 }
@@ -33,7 +37,7 @@ std::vector<bool> learnability(const Repertoire& repertoire, const Parents& pare
 double computeDelta(const Repertoire& r, const Repertoire& s) {
     // count the number of traits that are present in target state s but not in current state r
     return std::inner_product(s.begin(), s.end(), r.begin(), 0.0,
-        std::plus<>(), [](bool s_i, bool r_i) { return (s_i && !r_i) ? 1 : 0; });
+        std::plus<>(), [](double s_i, double r_i) { return (s_i == 1.0 && r_i == 0.0) ? 1 : 0; });
 }
 
 std::vector<double> proximalBaseWeights(
@@ -44,14 +48,14 @@ std::vector<double> proximalBaseWeights(
 ) {
     std::vector<double> w_star(repertoire.size(), 0.0);
     for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        if (!repertoire[trait]) {
+        if (repertoire[trait] == 0.0) {
             for (const auto& state : allStates) {
-                if (state[trait]) {
+                if (state[trait] == 1.0) {
                     auto it = stateFrequencies.find(state);
                     if (it != stateFrequencies.end()) {
                         auto delta = computeDelta(repertoire, state);
                         if (delta > 0) {
-                            w_star[trait] += it->second * std::pow(delta, -slope); // it->second is the state frequency
+                            w_star[trait] += it->second * std::pow(delta, -slope);
                         }
                     }
                 }
@@ -76,13 +80,13 @@ std::vector<double> prestigeBaseWeights(
             auto delta = computeDelta(repertoire, state);
             if (delta > 0) {  // State has at least one trait not in repertoire
                 // Count total traits in the demonstrator state
-                int totalTraits = std::count(state.begin(), state.end(), true);
+                int totalTraits = std::count(state.begin(), state.end(), 1.0);
                 // Weight using total traits
                 double stateWeight = it->second * std::pow(totalTraits, slope);
                 
                 // Then loop over traits to assign weights
                 for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-                    if (!repertoire[trait] && state[trait]) {  // Trait is unlearned by agent but present in demonstrator
+                    if (repertoire[trait] == 0.0 && state[trait] == 1.0) {  // Trait is unlearned by agent but present in demonstrator
                         w_star[trait] += stateWeight;
                     }
                 }
@@ -222,7 +226,7 @@ std::vector<double> normalizedWeights(
 
 Repertoire learnTrait(const Repertoire& repertoire, Trait trait) {
     Repertoire newRepertoire = repertoire;
-    newRepertoire[trait] = true;
+    newRepertoire[trait] = 1.0;
     return newRepertoire;
 }
 
@@ -234,17 +238,20 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
-    double slope
+    double slope,
+    double edgeWeight
 ) {
     std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
     std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope, parents);
-    std::vector<bool> learnable = learnability(repertoire, parents);
+    std::vector<double> learnableProbs = learnability(repertoire, parents, edgeWeight);
 
     std::vector<std::pair<Repertoire, double>> transitions;
 
     for(Trait trait = 0; trait < repertoire.size(); ++trait) {
-        if (learnable[trait] && w[trait] > 0.0) {
-            transitions.emplace_back(learnTrait(repertoire, trait), w[trait]);
+        // Multiply the normalized weight by the probability that the trait is learnable
+        double transitionProb = w[trait] * learnableProbs[trait];
+        if (transitionProb > 0.0) {
+            transitions.emplace_back(learnTrait(repertoire, trait), transitionProb);
         }
     }
 
@@ -274,8 +281,8 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     double slope
 ) {
     size_t n = adjMatrix.size();
-    Repertoire initialRepertoire(n, false);
-    initialRepertoire[0] = true; // root trait is always learned
+    Repertoire initialRepertoire(n, 0.0);
+    initialRepertoire[0] = 1.0; // root trait is always learned
 
     std::queue<Repertoire> queue;
     std::unordered_set<Repertoire, RepertoireHash> visited;
@@ -309,8 +316,8 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
 
 std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix, const Parents& parents) {
     size_t n = adjMatrix.size();
-    Repertoire initialRepertoire(n, false);
-    initialRepertoire[0] = true; // root trait is always learned
+    Repertoire initialRepertoire(n, 0.0);
+    initialRepertoire[0] = 1.0; // root trait is always learned
 
     std::queue<Repertoire> queue;
     std::unordered_set<Repertoire, RepertoireHash> visited;
@@ -344,7 +351,7 @@ std::vector<Repertoire> retrieveBetterRepertoires(const std::vector<Repertoire>&
     std::vector<Repertoire> result;
     for (const Repertoire& r : repertoires) {
         for (size_t trait = 0; trait < r.size(); ++trait) {
-            if (r[trait] && !singleRepertoire[trait]) {
+            if (r[trait] == 1.0 && singleRepertoire[trait] == 0.0) {
                 result.push_back(r);
                 break;
             }

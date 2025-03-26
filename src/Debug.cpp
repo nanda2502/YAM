@@ -5,3 +5,4 @@ std::ostream& setPrecision(std::ostream& os, int precision) {
     os.precision(precision);
     return os;
 }
+

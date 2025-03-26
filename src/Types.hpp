@@ -5,9 +5,9 @@
 #include <string>
 
 using Trait = size_t;
-using Repertoire = std::vector<bool>;
+using Repertoire = std::vector<double>;
 using PayoffVector = std::vector<double>;
-using AdjacencyMatrix = std::vector<std::vector<bool>>;
+using AdjacencyMatrix = std::vector<std::vector<double>>;
 using Parents = std::vector<std::vector<Trait>>;
 
 enum Strategy : std::uint8_t {
@@ -37,6 +37,7 @@ struct ParamCombination {
     double slope;
     int payoffDist;
     std::vector<std::vector<size_t>> shuffleSequences;
+    double edgeWeight = 1.0;
 };
 
 struct Result {

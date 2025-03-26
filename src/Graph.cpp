@@ -17,7 +17,7 @@ std::vector<int> computeDistances(const AdjacencyMatrix& adjMatrix, Trait root) 
         q.pop();
 
         for (size_t neighbor = 0; neighbor < n; ++neighbor) {
-            if (adjMatrix[current][neighbor] && distances[neighbor] == -1) {
+            if (adjMatrix[current][neighbor] == 1.0 && distances[neighbor] == -1) {
                 distances[neighbor] = distances[current] + 1;
                 q.push(neighbor);
             }
@@ -37,7 +37,7 @@ std::vector<Trait> parentTraits(const AdjacencyMatrix& adjMatrix, Trait trait) {
     size_t n = adjMatrix.size();
 
     for (size_t i = 0; i < n; ++i) {
-        if (adjMatrix[i][trait]) {
+        if (adjMatrix[i][trait] == 1.0) {
             parents.push_back(i);
         }
     }

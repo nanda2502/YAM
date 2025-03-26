@@ -5,17 +5,14 @@ calc_avg_path_length <- function(graph) {
 
 add_avg_path_length <- function(data) {
   unique_combinations <- data %>%
-    select(num_nodes, adj_mat) %>%
+    dplyr::select(adj_mat) %>%
     distinct()
   for (i in seq_len(nrow(unique_combinations))) {
     combination <- unique_combinations[i, ]
     adj_string <- combination[[which(colnames(unique_combinations) == "adj_mat")]]
-    num_nodes <- combination[[which(colnames(unique_combinations) == "num_nodes")]]
-    
-    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
-    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
-    graph <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
-    V(graph )$name <- as.character(1:num_nodes)
+   
+    graph <- string_to_igraph(adj_string)
+    V(graph )$name <- as.character(1:vcount(graph))
     
     avg_path_length <- calc_avg_path_length(graph)
     
@@ -26,18 +23,15 @@ add_avg_path_length <- function(data) {
 
 add_graph_measure <- function(data, measure_func, measure_name) {
   unique_combinations <- data %>%
-    select(adj_mat) %>%
+    dplyr::select(adj_mat) %>%
     distinct()
   for (i in seq_len(nrow(unique_combinations))) {
     combination <- unique_combinations[i, ]
     adj_string <- combination[[which(colnames(unique_combinations) == "adj_mat")]]
+    num_nodes <- nchar(adj_string)
 
-    num_nodes <- sqrt(length(unlist(strsplit(adj_string, ""))))
-    
-    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
-    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
-    graph <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
-    V(graph )$name <- as.character(1:num_nodes)
+    graph <- string_to_igraph(adj_string)
+    V(graph )$name <- as.character(1:vcount(graph))
     
     measure <- measure_func(graph)
     
@@ -46,6 +40,12 @@ add_graph_measure <- function(data, measure_func, measure_name) {
   data
 }
 
+
+mean_prereq <- function(g) {
+  r <- if ("name" %in% vertex_attr_names(g)) V(g)[V(g)$name == "1"] else V(g)[1]
+  s <- if ("name" %in% vertex_attr_names(g)) V(g)[V(g)$name != "1"] else V(g)[-1]
+  mean(sapply(s, function(v) length(setdiff(subcomponent(g, v, mode = "in"), c(v, r)))))
+}
 
 calculate_path_lengths_to_root <- function(graph, root = 0) {
   total_distance <- 0
@@ -71,14 +71,9 @@ add_total_distance <- function(data) {
   for (i in seq_len(nrow(unique_combinations))) {
     combination <- unique_combinations[i, ]
     adj_string <- combination[[which(colnames(unique_combinations) == "adj_mat")]]
-    num_nodes <- combination[[which(colnames(unique_combinations) == "num_nodes")]]
-    
-    adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
-    adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
-    
-    rev_adjacency_matrix <- t(adjacency_matrix)
-    graph <- graph_from_adjacency_matrix(rev_adjacency_matrix, mode = "directed")
-    V(graph)$name <- as.character(1:num_nodes)
+
+    graph <- string_to_igraph(adj_string)
+    V(graph )$name <- as.character(1:vcount(graph))
     
     
     
@@ -147,13 +142,12 @@ read_abs <- function(numbers) {
   return(all_data)
 }
 
-read_all <- function(numbers) {
+read_sim <- function(numbers) {
   all_data <- lapply(numbers, function(num_nodes) {
     data <- read_file(num_nodes)
     data <- clean_file(data)
-    data <- average_over_replications(data)
     data <- add_avg_path_length(data)
-    data <- add_expected_traits(data)
+    data <- add_graph_measure(data, mean_prereq, "mean_prereq")
     print(paste0("Finished processing data for ", num_nodes, " nodes."))
     return(data)
   })
@@ -161,33 +155,22 @@ read_all <- function(numbers) {
   all_data <- bind_rows(all_data)
   
   return(all_data)
-}
+} 
 
-average_over_lambda <- function(data) {
-  outcome_vars <- c("step_payoff", "step_transitions", "step_variation")
-  other_vars_to_retain <- c("num_nodes", "avg_path_length")
-  
-  lambda_values <- seq(0.1, 20, by = 0.1)
-  
-  subsets <- lapply(lambda_values, function(lambda) {
-    data <- data %>%
-      mutate(weight = dpois(steps, lambda))
-    
-    weighted_averages <- data %>%
-      group_by(adj_mat, strategy, alpha, slope) %>%
-      summarize(
-        across(all_of(outcome_vars), ~ sum(. * weight) / sum(weight)),
-        across(all_of(other_vars_to_retain), first),
-        lambda = lambda,
-        .groups = 'drop'
-      )
-    
-    return(weighted_averages)
+read_all <- function(numbers) {
+  all_data <- lapply(numbers, function(num_nodes) {
+    data <- read_file(num_nodes)
+    data <- clean_file(data)
+    data <- add_avg_path_length(data)
+    data <- add_expected_traits(data)
+    data <- add_graph_measure(data, mean_prereq, "mean_prereq")
+    print(paste0("Finished processing data for ", num_nodes, " nodes."))
+    return(data)
   })
   
-  result <- do.call(rbind, subsets)
+  all_data <- bind_rows(all_data)
   
-  return(result)
+  return(all_data)
 }
 
 add_ratios <- function(data) {
@@ -244,6 +227,91 @@ get_default <- function(data) {
   )
   
   data %>% 
-    filter(slope == sapply(as.character(strategy), function(x) default_slopes[[x]]))
+    filter(
+      slope == sapply(as.character(strategy), function(x) default_slopes[[x]]),
+      distribution == "Learnability",
+      payoffdist == 0,
+      alpha == 0
+           )
   
+}
+
+
+get_default_slopes <- function(data) {
+  default_slopes <- list(
+    "Payoff" = 2.0,
+    "Proximal" = 2.0,
+    "Prestige" = 2.0,
+    "Conformity" = 2.0,
+    "Random" = 0.0,
+    "Perfect" = 0.0
+  )
+  
+  data %>% 
+    filter(
+      slope == sapply(as.character(strategy), function(x) default_slopes[[x]])
+    )
+  
+}
+
+string_to_igraph <- function(adj_string) {
+  # Check if the string contains commas (comma-separated format)
+  if (grepl(",", adj_string)) {
+    # Parse comma-separated format
+    values <- as.numeric(unlist(strsplit(adj_string, ",")))
+    n <- sqrt(length(values))
+    if (n != floor(n)) {
+      stop("Number of values does not form a square matrix")
+    }
+    n <- as.integer(n)
+    
+    adj_matrix <- matrix(values, nrow = n, byrow = TRUE)
+    weighted <- TRUE
+  } else {
+    # Get the length of the string
+    str_length <- nchar(adj_string)
+    
+    # Calculate the dimension of the square matrix
+    n <- sqrt(str_length)
+    if (n != floor(n)) {
+      stop("Input string length is not a perfect square")
+    }
+    n <- as.integer(n)
+    
+    # Initialize adjacency matrix
+    adj_matrix <- matrix(0, nrow = n, ncol = n)
+    
+    # Parse the string and fill the adjacency matrix
+    str_chars <- strsplit(adj_string, "")[[1]]
+    
+    # Check if it's a binary string (contains only 0s and 1s)
+    is_binary <- all(str_chars %in% c("0", "1"))
+    
+    for (i in 1:n) {
+      for (j in 1:n) {
+        index <- (i-1)*n + j
+        if (is_binary) {
+          # Binary interpretation (0 or 1)
+          adj_matrix[i, j] <- as.numeric(str_chars[index])
+        } else {
+          # Convert single digit to a weight (0-9 → 0.0-0.9)
+          adj_matrix[i, j] <- as.numeric(str_chars[index]) / 10
+        }
+      }
+    }
+    
+    weighted <- !is_binary
+  }
+  
+  # Create igraph object from adjacency matrix
+  g <- graph_from_adjacency_matrix(
+    adjmatrix = adj_matrix,
+    mode = "directed",
+    weighted = weighted
+  )
+  
+  # Add a graph attribute indicating whether it's weighted
+  g$is_weighted <- weighted
+  
+  return(g)
 }

@@ -1,492 +1,740 @@
-##### Load Libraries #####
+##### Load Packages #####
 
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
+library(dplyr)
 library(igraph)
 library(combinat)
 library(ggplot2)
 library(gridExtra)
 library(ggraph)
-library(dplyr)
 library(grid)
 library(cowplot)
 library(lattice)
+library(ppcor)
 
 source("preprocessing.R")
 source("plotting.R")
 
-plot_graph("0110000010000010000000000")
-
-##### Figures #####
-data_abs <- read_abs(3:8)
-
-datap <- read_all(3:8)
-
+##### Data ######
 data <- read_all(8)
-
-data_abs <- readRDS("data_abs.rds")
-data <- readRDS("data_merged.rds")
-
 saveRDS(data, "data.rds")
+data <- readRDS("data.rds")
 
-data <- average_over_lambda(data)
+####### Figure 1 #######
+data_1 <- get_default(data)
 
-data <- data %>%
-  left_join(data_abs %>% select(strategy, adj_mat, slope, steps, distribution), 
-            by = c("strategy", "adj_mat", "slope")) %>%
-  rename(absorbing = steps.y,
-         steps = steps.x) 
-
-#data <- add_ratios(data)
-
-data <- readRDS("data_processed_newconf.rds")
-
-average_indegree <- function(graph) {
-  mean(degree(graph, mode = "in"))
-}
-
-calculate_average_product <- function(graph) {
-  distances <- distances(graph, v = 1, mode = "out")
-  indegrees <- degree(graph, mode = "in")
-  average_product <- mean(distances[-1] * indegrees[-1], na.rm = TRUE)
-  return(average_product)
-}
-
-average_path_length_to_root <- function(graph) {
-  all_paths <- list()
-  
-  dfs_paths <- function(node, path) {
-    if (node == 1) {
-      all_paths[[length(all_paths) + 1]] <<- path
-      return()
-    }
-    for (predecessor in neighbors(graph, node, mode = "in")) {
-      dfs_paths(predecessor, c(predecessor, path))
-    }
-  }
-  
-  for (node in V(graph)$name) {
-    if (node != 1) {  # Start pathfinding from every node except the root
-      dfs_paths(node, node)
-    }
-  }
-
-  path_lengths <- sapply(all_paths, length) - 1  # Length minus 1 for number of edges
-  average_length <- mean(path_lengths)
-  return(average_length)
-}
-
-calculate_lock_measure <- function(graph, root = 1) {
-  # Calculate the out-degree for each node
-  out_degrees <- degree(graph, mode = "out")
-  
-  # Calculate the shortest path distances from the root node
-  distances <- distances(graph, v = root, mode = "out")[1, ]
-  
-  # Identify unlocking nodes (those with more than 1 outgoing edge)
-  unlocking_nodes <- which(out_degrees > 1)
-  
-  # Calculate the locking measure
-  lock_measure <- sum(unlist(lapply(unlocking_nodes, function(node) {
-    num_unlocked_nodes <- out_degrees[node]
-    depth_from_root <- distances[node]
-    num_unlocked_nodes * depth_from_root
-  })))
-  
-  return(lock_measure)
-}
-
-unlocking_degree <- function(graph, root = 1) {
-  # Calculate the out-degree for each node
-  out_degrees <- degree(graph, mode = "out")
-  
-  return(sum(out_degrees))
-}
-
-downstream_complexity <- function(g) {
-  root <- V(g)[1]
-  non_root_vertices <- V(g)[-1]
-  
-  downstream_counts <- sapply(non_root_vertices, function(v) {
-    descendants <- subcomponent(g, v, mode="out")
-    length(descendants) - 1  # Exclude the node itself
-  })
-  
-  mean(downstream_counts)
-}
-
-mean_indegree <- function(graph) {
-  mean(degree(graph, mode = "in"))
-}
-
-root_outdegree <- function(graph) {
-  degree(graph, 1, mode = "out")
-}
-
-avg_root_distance <- function(g) {
-  vertices <- setdiff(V(g), 0)
-  
-  all_paths <- lapply(vertices, function(v) {
-    all_simple_paths(g, from = 1, to = v)
-  })
-
-  path_lengths <- unlist(lapply(all_paths, function(paths) {
-    if (length(paths) == 0) {
-      return(NA)
-    }
-    lengths <- sapply(paths, length)
-    lengths - 1
-  }))
-  
-  mean(path_lengths, na.rm = TRUE)
-}
-
-data <- add_graph_measure(data, avg_root_distance, "total_distance")
-
-data_1 <- add_graph_measure(data_1, root_outdegree, "root_outdegree")
-
-data <- add_graph_measure(data, root_outdegree, "root_outdegree")
-
-data_perf <- add_graph_measure(data_perf, mean_indegree, "mean_indegree")
-
-data_abs <- add_graph_measure(data_abs, downstream_complexity, "downstream_complexity")
-
-data <- add_graph_measure(data, unlocking_degree, "unlocking_degree")
-
-data <- add_graph_measure(data, average_indegree, "avg_indegree")
-
-data <- add_graph_measure(data, calculate_average_product, "avg_product")
-
-data <- add_graph_measure(data, average_path_length_to_root, "avg_total_path_length")
-
-data <- add_graph_measure(data, calculate_modularity, "modularity")
-
-data <- add_graph_measure(data, calculate_clustering_coefficient, "clustering")
-
-data <- add_graph_measure(data, calculate_lock_measure, "locking")
-
-###### Figure 1C #####
-
-payoff_fast <- plotDVbyIV_binned(
-  data[data$alpha == 0,],
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Constraints on Learning",
-  lambda_value = 2,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+plotDVbyIVBinned(
+  data = data_1,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  log_scale_y = F,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  show_ci = F,
+  legend_position = "right",
+  show_plot = T
+)
+plotDVbyIVBinnedRelative(
+  data = data_1,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "mean_prereq",
+  IV_label = "Average number of prerequisite traits (R)",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  log_scale_y = F,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  show_ci = F,
+  show_random = F
 )
 
-payoff_slow <- plotDVbyIV_binned(
-  data[data$alpha == 0,],
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Constraints on Learning",
-  lambda_value = 10,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+
+##### Figure 2 ########
+
+###### Figure 2 a-d ######
+# Larger structures
+
+data8 <- read_sim(800)
+
+data_2a <- get_default(data8)
+
+p2a <- plotDVbyIVBinnedRelative(
+  data = data_2a,
+  DV = "step_payoff",
+  DV_label = "Rel. Performance",
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  show_ci = F,
+  show_plot = T,
+  y_range = c(0, 8)
 )
 
-###### Success ~ Constraints ####
-plotDVbyIV(
-  get_default(data),
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Average Path Length",
+data20 <- read_sim(20)
+
+data_2b <- get_default_slopes(data20)
+
+p2b <- plotDVbyIVBinnedRelative(
+  data = data_2b,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  num_bins = 7,
+  show_ci = F,
+  y_range = c(0,8),
+  show_plot = T
+)
+
+data30 <- read_sim(30)
+
+data_2c <- get_default_slopes(data30)
+
+p2c <- plotDVbyIVBinnedRelative(
+  data = data_2c,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  num_bins = 7,
+  show_ci = F,
+  y_range = c(0,8),
+)
+
+data50 <- read_sim(50)
+
+data_2d <- get_default_slopes(data50)
+
+p2d <- plotDVbyIVBinnedRelative(
+  data = data_2d,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  num_bins = 7,
+  show_ci = F,
+  y_range = c(0,8),
+  show_plot = T,
+)
+
+###### Figure 2 e-h ######
+# Varying slopes
+data_2eh <- data %>% 
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Learnability"
+  )
+
+p2e <- plotDVbyIVSlopesRelative(
+  data = data_2eh,
+  strategy = "Payoff",
+  DV = "step_payoff",
+  DV_label = "Rel. Performance",
+  IV = "mean_prereq",
+  IV_label = NULL,
   lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F
 )
 
-plotDVbyIV(
-  get_default(data),
-  DV = "step_transitions", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Average Path Length",
-  lambda_value = 1,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
-)
-
-graph_ids <- data.frame(
-  graph = unique(data$adj_mat),
-  ID = 1:length(unique(data$adj_mat))
-)
-
-plot_graph(graph_ids$graph[graph_ids$ID == 615])
-
-plotDVbyIV(
-  get_default(data[data$strategy != "Perfect" & data$num_nodes == 8,]),
-  DV = "step_payoff", DV_label = "performance",
-  IV = "avg_path_length",  IV_label ="mean distance to root",
-  lambda_value = 4,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
-)
-
-plotDVbyIV(
-  get_default(data[data$strategy != "Perfect" & data$num_nodes == 8,]),
-  DV = "absorbing", DV_label = "total learning time",
-  IV = "avg_path_length",  IV_label ="mean distance to root",
-  lambda_value = 4,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
-)
-
-plotDVbyIV(
-  get_default(data[data$strategy != "Perfect" & data$num_nodes == 8,]),
-  DV = "step_variation", DV_label = "cultural diversity",
-  IV = "avg_path_length",  IV_label ="mean distance to root",
-  lambda_value = 20,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
-)
-
-plotDVbyIV(
-  get_default(data_rev[data_rev$strategy != "Perfect",]),
-  DV = "step_payoff", DV_label = "performance",
-  IV = "avg_path_length",  IV_label ="mean distance to root",
-  lambda_value = 4,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
-)
-
-plotDVbyIV(
-  get_default(data_alpha[data_rev$strategy != "Perfect",]),
-  DV = "step_payoff", DV_label = "performance",
-  IV = "avg_path_length",  IV_label ="mean distance to root",
-  lambda_value = 4,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black")
-)
-
-plotDVbyIV(
-  data_perf,
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Average path length",
-  lambda_value = NULL,
-  strategy_colors = c("Perfect" = "blue" )
-)
-
-plotDVbyIV(
-  default_data,
-  DV = "step_transitions", DV_label = "Success rate",
-  IV = "prop_learnable",  IV_label ="Average Proportion Learnable",
-  lambda_value = NULL,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
-)
-
-plotDVbyIV(
-  data_abs[data_abs$num_nodes == 8 & data_abs$strategy == "Proximal" & data_abs$slope == 2,],
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Average path length",
-  lambda_value = NULL
-)
-
-plotDVbyIV(
-  data,
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "root_outdegree",  IV_label ="Root Outdegree",
-  lambda_value = 5
-)
-
-plotDVbyIV(
-  data,
-  DV = "step_payoff", DV_label = "Performance",
-  IV = "scaled_outdegree",  IV_label ="Weighted Root Outdegree",
+p2f <- plotDVbyIVSlopesRelative(
+  data = data_2eh,
+  strategy = "Prestige",
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
   lambda_value = 5,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F
 )
 
-plotDVbyIV(
-  data[!data$strategy %in% c("Payoff", "Conformity"),],
-  DV = "absorbing", DV_label = "Total Learning Time",
-  IV = "avg_path_length",  IV_label ="Average Path Length",
-  lambda_value = NULL,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+p2g <- plotDVbyIVSlopesRelative(
+  data = data_2eh,
+  strategy = "Conformity",
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_value = 5,
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F
 )
 
-plotDVbyIV(
-  data,
-  DV = "step_transitions", DV_label = "Performance",
-  IV = "avg_path_length",  IV_label ="Average path length",
-  lambda_value = 1,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+p2h <- plotDVbyIVSlopesRelative(
+  data = data_2eh,
+  strategy = "Proximal",
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_value = 5,
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F
 )
 
-plotDVbyIV_outdeg(
-  data[data$strategy == "Payoff", ],
-  DV = "absorbing", DV_label = "total learning time",
-  IV = "avg_path_length",  IV_label ="Average path length",
-  lambda_value = 1,
-  strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C", "Prestige" = "#ED474A", "Conformity" = "#8B80F9","Random" = "black", "Perfect" = "blue" )
+p2legend <- plotDVbyIVSlopes(
+  data = data_2eh,
+  strategy = "Proximal",
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_value = 5,
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  legend_position = "right"
 )
 
 
-plot_graph("0101000101000000000000000")
+###### Figure 2 i #######
+# Advanced traits are more likely to be expressed
 
-summary(lm(step_payoff ~  locking + avg_path_length + avg_indegree + strategy, data = data[data$num_nodes == 8,]))
+data_2i <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Depth"
+  )
 
-flexplot(step_payoff ~ avg_path_length + avg_indegree, data = data[data$num_nodes == 8,], sample = 200)
+p2i <- plotDVbyIVBinnedRelative(
+  data = data_2i,
+  DV = "step_payoff",
+  DV_label = "Rel. Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
 
-cor(data[data$num_nodes == 8,c("avg_path_length", "avg_product", "avg_indegree")])
+###### Figure 2 j #######
+# High payoff traits are more likely to be expressed
+
+data_2j <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Payoffs"
+  )
+
+p2j <- plotDVbyIVBinnedRelative(
+  data = data_2j,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+###### Figure 2 k #######
+# Advanced traits have higher payoffs
+data_2k <- get_default_slopes(data) %>% 
+  filter(alpha == 1,
+         payoffdist == 0,
+         distribution == "Learnability"
+  )
+
+p2k <- plotDVbyIVBinnedRelative(
+  data = data_2k,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+###### Figure 2 l #######
+# Varying the skewness of payoffs
+
+data_2l <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 1,
+         distribution == "Learnability"
+  )
+
+p2l <- plotDVbyIVBinnedRelative(
+  data = data_2l,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
 
 
-### min vs max payoff within a specified range
-max_perf <- max(data$step_payoff[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$num_nodes == 8])
-min_perf <- min(data$step_payoff[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$num_nodes == 8])
 
-par(mfrow = c(1, 2))
-data$adj_mat[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$step_payoff == max_perf] %>%
-  plot_graph()
+######## Panel ########
 
-data$adj_mat[data$avg_path_length == 2 & data$strategy == "Proximal" & data$steps == 5 & data$step_payoff == min_perf] %>%
-  plot_graph()
 
-plot_graphs <- function(data, strategy) {
-  max_perf <- max(data$step_payoff[data$avg_path_length == 2 & data$strategy == strategy & data$steps == 5 & data$num_nodes == 8])
-  min_perf <- min(data$step_payoff[data$avg_path_length == 2 & data$strategy == strategy & data$steps == 5 & data$num_nodes == 8])
-  
-  par(mfrow = c(1, 2))
-  data$adj_mat[data$avg_path_length == 2 & data$strategy == strategy & data$steps == 5 & data$step_payoff == max_perf] %>%
-    plot_graph()
-  mtext("Best", side = 3, line = 0.5, cex = 1.2, at = -0.5)
-  data$adj_mat[data$avg_path_length == 2 & data$strategy == strategy & data$steps == 5 & data$step_payoff == min_perf] %>%
-    plot_graph()
-  mtext("Worst", side = 3, line = 0.5, cex = 1.2, at = -0.5)
+
+combined_plot <- plot_grid(
+  p2a, p2b, p2c, p2d,
+  p2e, p2f, p2g, p2h, 
+  p2i, p2j, p2k, p2l,
+  ncol = 4, nrow = 3,
+  # Ensure equal scaling across plots
+  align = 'h',
+  rel_widths = c(1.15, 1, 1, 1)
+)
+
+combined_plot+ theme(plot.margin = margin(0, 1, 0, 0, "mm"))
+
+##### Fig S1 ##### 
+# Variance decomposition of step_payoff
+
+
+root_outdegree <- function(g) {
+  degree(g, 1, mode = "out")
 }
 
-plot_graphs(data, "Random")
+data <- add_graph_measure(data,root_outdegree, "root_outdeg")
 
-###### Variation ~ Time ####
+# Prepare the dataset
+model_data <- get_default(data[data$steps == 5, ])
 
-data_variation <- readRDS("data_variation.rds")
+full_model <- lm(step_payoff ~ (mean_prereq + root_outdeg) * strategy, data = model_data)
 
-variation <- data_variation %>%
-  filter(strategy %in% c("Payoff", "Proximal"),
-         num_nodes == 8,
-         step_variation < 0.005) %>%
-  mutate(structure = ifelse(avg_path_length < 1.3, "Low Constraints", 
-                            ifelse(avg_path_length > 3, "High Constraints", NA ))) %>%
-  filter(!is.na(structure)) %>%
-  mutate(structure = factor(structure, levels = c("Low Constraints", "High Constraints"))) %>%
-  plotDVbyTime(
-    DV = "step_variation", DV_label = "Cultural Variation",
-    IV = "steps",  IV_label ="Time",
-    strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C")
-  )
+# Basic ANOVA table
+anova_table <- anova(full_model)
 
-variation
+anova_df <- as.data.frame(anova_table)
 
-###### Traits/Performance ~ Time ####
+# Format the Sum Sq column specifically
+anova_df$`Sum Sq` <- format(anova_df$`Sum Sq`, digits = 2, nsmall = 3)
 
-data_traits <- readRDS("data_traits.rds")
+# Print the modified data frame
+print(anova_df)
 
-success <- data_traits %>%
-  filter(strategy %in% c("Payoff", "Proximal"),
-         num_nodes == 8) %>%
-  mutate(structure = ifelse(avg_path_length < 1.3, "Low Constraints", 
-                            ifelse(avg_path_length > 3, "High Constraints", NA ))) %>%
-  filter(!is.na(structure)) %>%
-  mutate(structure = factor(structure, levels = c("Low Constraints", "High Constraints"))) %>%
-  plotDVbyTime(
-    DV = "expected_traits", DV_label = "Number of Traits Learned",
-    IV = "steps",  IV_label ="Time",
-    strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C")
-  )
+# Calculate partial eta squared for each term
+# Formula: SS_effect / (SS_effect + SS_residual)
+SS_residual <- anova_table["Residuals", "Sum Sq"]
+partial_eta_squared <- anova_table[-nrow(anova_table), "Sum Sq"] / 
+  (anova_table[-nrow(anova_table), "Sum Sq"] + SS_residual)
 
-payoff <- data_traits %>%
-  filter(strategy %in% c("Payoff", "Proximal"),
-         num_nodes == 8) %>%
-  mutate(structure = ifelse(avg_path_length == 1, "Low Constraints", 
-                            ifelse(avg_path_length > 3, "High Constraints", NA ))) %>%
-  filter(!is.na(structure)) %>%
-  mutate(structure = factor(structure, levels = c("Low Constraints", "High Constraints"))) %>%
-  plotDVbyTime(
-    DV = "step_payoff", DV_label = "Performance",
-    DV = "step_payoff", DV_label = "Performance",
-    IV = "steps",  IV_label ="Time",
-    strategy_colors = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C")
-  )
+# Add partial eta squared to the table
+anova_table$`Partial eta^2` <- c(partial_eta_squared, NA)
 
+# Print the enhanced ANOVA table
+print(anova_table)
 
-data_combined <- data_traits %>%
-  filter(
-    strategy %in% c("Payoff", "Proximal"),
-    num_nodes == 8
-  ) %>%
-  mutate(structure = case_when(
-    avg_path_length < 1.2 ~ "Low Constraints",
-    avg_path_length > 3 ~ "High Constraints",
-    TRUE ~ NA_character_
-  )) %>%
-  filter(!is.na(structure)) %>%
-  mutate(structure = factor(structure, levels = c("Low Constraints", "High Constraints"))) %>%
-  group_by(strategy, steps, structure) %>%
-  summarize(
-    avg_expected_traits = mean(expected_traits, na.rm = TRUE),
-    avg_cum_payoff = mean(step_payoff, na.rm = TRUE),
-    avg_cum_payoff = mean(step_payoff, na.rm = TRUE),
-    .groups = 'drop'
-  )
+# Fit two nested models (excluding the interaction model)
+# Model 1: Only mean_prereq (with strategy as control)
+model1 <- lm(step_payoff ~ mean_prereq + strategy, data = model_data)
 
-min_expected_traits <- min(data_combined$avg_expected_traits, na.rm = TRUE)
-max_expected_traits <- max(data_combined$avg_expected_traits, na.rm = TRUE)
-range_expected_traits <- max_expected_traits - min_expected_traits
+# Model 2: Both main effects (with strategy as control)
+model2 <- lm(step_payoff ~ mean_prereq + root_outdeg + strategy, data = model_data)
 
-min_cum_payoff <- min(data_combined$avg_cum_payoff, na.rm = TRUE)
-max_cum_payoff <- max(data_combined$avg_cum_payoff, na.rm = TRUE)
-range_cum_payoff <- max_cum_payoff - min_cum_payoff
+# Calculate R-squared for each model
+r2_model1 <- summary(model1)$r.squared
+r2_model2 <- summary(model2)$r.squared
 
-scaling_factor <- range_expected_traits / range_cum_payoff
+# Calculate the incremental R-squared
+r2_increment_prereq <- r2_model1  # mean_prereq alone
+r2_increment_rootdeg <- r2_model2 - r2_model1  # additional from root_outdeg
 
-data_combined <- data_combined %>%
-  mutate(
-    cum_payoff_rescaled = (avg_cum_payoff - min_cum_payoff) * scaling_factor + min_expected_traits
-  )
+# Print R-squared values and increments
+cat("R² values:\n")
+cat("Model 1 (mean_prereq): ", r2_model1, "\n")
+cat("Model 2 (+ root_outdeg): ", r2_model2, "\n\n")
 
-ggplot() +
-  geom_line(
-    data = data_combined,
-    aes(
-      x = steps,
-      y = avg_expected_traits,
-      color = strategy,
-      linetype = "Number of Traits Learned"
-    ),
-    size = 1.2
-    ),
-    size = 1.2
-  ) +
-  geom_line(
-    data = data_combined,
-    aes(
-      x = steps,
-      y = cum_payoff_rescaled,
-      color = strategy,
-      linetype = "Performance"
-    ),
-    size = 1.2
-    ),
-    size = 1.2
-  ) +
-  scale_y_continuous(
-    name = "Number of Traits Learned",
-    sec.axis = sec_axis(
-      trans = ~ (. - min_expected_traits) / scaling_factor + min_cum_payoff,
-      name = "Performance"
-    )
-  ) +
-  scale_color_manual(name = "Strategy",
-                     values = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C")) +
-  scale_color_manual(name = "Strategy",
-                     values = c("Payoff" = "#20BF55", "Proximal" = "#FBB13C")) +
-  scale_linetype_manual(
-    name = "Variable",
-    values = c(
-      "Number of Traits Learned" = "solid",
-      "Performance" = "dotted"
-    ),
-    values = c(
-      "Number of Traits Learned" = "solid",
-      "Performance" = "dotted"
-    )
-  ) +
-  labs(x = "Time", title = "Performance and number of traits learned over time") +
-  labs(x = "Time", title = "Performance and number of traits learned over time") +
-  facet_wrap(~ structure) +
+cat("Incremental R² values:\n")
+cat("mean_prereq: ", r2_increment_prereq, "\n")
+cat("root_outdeg: ", r2_increment_rootdeg, "\n")
+
+# Create data for the stacked bar plot - using actual R² values * 100 for the y-axis
+# For the first bar: just mean_prereq
+bar1 <- data.frame(
+  Model = "Mean Prerequisites",
+  Component = "Mean Prerequisites",
+  Value = r2_model1 * 100  # Convert to percentage (88.4%)
+)
+
+# For the second bar: mean_prereq + root_outdeg
+bar2 <- data.frame(
+  Model = rep("Main Effects", 2),
+  Component = c("Mean Prerequisites", "Root Outdegree"),
+  Value = c(r2_model1 * 100, r2_increment_rootdeg * 100)  # Convert to percentages (88.4% + 6.0%)
+)
+
+# Combine all bars
+plot_data <- rbind(bar1, bar2)
+
+# Set factor levels for proper ordering
+plot_data$Model <- factor(plot_data$Model, 
+                          levels = c("Mean Prerequisites", "Main Effects"))
+plot_data$Component <- factor(plot_data$Component, 
+                              levels = c("Mean Prerequisites", "Root Outdegree"))
+
+# Create the stacked bar plot
+ggplot(plot_data, aes(x = Model, y = Value, fill = Component)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.6) +
+  scale_fill_manual(values = c("Mean Prerequisites" = "#4575B4", 
+                               "Root Outdegree" = "#D73027")) +
   theme_minimal() +
-  theme(panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.text.y = element_text(size = 11),
+    axis.text.x = element_blank(),  # Remove x-axis labels
+    axis.title = element_text(size = 12),
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 10),
+    legend.position = "right"
+  ) +
+  labs(
+    x = NULL,
+    y = "R² Value (%)",
+    fill = "Component",
+    title = "Incremental Variance Explained by Model Components"
+  ) +
+  # Add labels showing the R² values for each model - positioned above bars
+  geom_text(data = data.frame(
+    Model = factor(c("Mean Prerequisites", "Main Effects"), 
+                   levels = c("Mean Prerequisites", "Main Effects")),
+    y = c(91.5, 97.5),
+    label = c("R² = 0.884", "R² = 0.944")
+  ),
+  aes(x = Model, y = y, label = label),
+  size = 3.5,
+  inherit.aes = FALSE) +
+  ylim(0, 100) +
+  scale_y_continuous(breaks = seq(0, 100, by = 20))
 
-##### Extra things #####
+####### Hosseinioun et al. ######
+data_weighted <- read_sim(121)
+
+data_unweighted <- read_sim(122)
+
+plotBarsbyStrategy(
+  data1 = data_weighted,
+  data2 = data_unweighted,
+  label1 = "Weighted",
+  label2 = "Unweighted",
+  DV = "step_payoff",
+  DV_label = "Performance",
+  lambda_ratio = 5/8
+)
+
+
+
+plotBarsbyStrategy(
+  data = data_weighted,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  lambda_ratio = 5/8
+)
+
+plotDVbyIVBinned(
+  data = data_real,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "steps",
+  IV_label = "Time",
+  num_bins = 7,
+  log_scale_y = F,
+  legend_position = "none"
+)
+
+
+##### Heatmap #####
+create_strategy_heatmap <- function(data) {
+  data <- data %>%
+    filter(steps < 11)
+  
+  # Ensure the color map is properly applied
+  col_map <- c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+  
+  # Define strategy levels and priorities
+  strategy_levels <- names(col_map)
+  strategy_priority <- c("Payoff" = 1, "Proximal" = 2, "Prestige" = 3, "Conformity" = 4, "Random" = 5)
+  
+  # Calculate average payoff for each strategy, mean_prereq, and steps
+  payoff_data <- data %>%
+    group_by(mean_prereq, steps, strategy) %>%
+    summarize(avg_payoff = mean(step_payoff), .groups = "drop")
+  
+  # Find the maximum payoff for each coordinate
+  max_payoffs <- payoff_data %>%
+    group_by(mean_prereq, steps) %>%
+    summarize(max_payoff = max(avg_payoff), .groups = "drop")
+  
+  # Join the data and find all strategies that match the maximum payoff
+  tied_strategies <- payoff_data %>%
+    inner_join(max_payoffs, by = c("mean_prereq", "steps")) %>%
+    filter(abs(avg_payoff - max_payoff) < 1e-10)
+  
+  # For each coordinate, select the strategy with highest priority
+  best_strategies <- tied_strategies %>%
+    mutate(priority = strategy_priority[strategy]) %>%
+    group_by(mean_prereq, steps) %>%
+    slice_min(order_by = priority, n = 1) %>%
+    ungroup() %>%
+    dplyr::select(-priority, -max_payoff)
+  
+  # Create a finer grid for visualization
+  prereq_vals <- sort(unique(data$mean_prereq))
+  steps_vals <- 1:10
+  
+  # Create fine grid with increased resolution for smoother appearance
+  grid_size_x <- 300  # Increased from 150
+  grid_size_y <- 300  # Increased from 150
+  grid_x <- seq(min(prereq_vals), max(prereq_vals), length.out = grid_size_x)
+  grid_y <- seq(min(steps_vals), max(steps_vals), length.out = grid_size_y)
+  
+  # Use expand.grid to create all combinations
+  fine_grid <- expand.grid(mean_prereq = grid_x, steps = grid_y)
+  
+  # Convert strategies to numeric
+  best_strategies$strategy_num <- match(best_strategies$strategy, strategy_levels)
+  
+  # Add small random jitter to data points to avoid akima artifacts with duplicates
+  # This is especially important for regions with many ties
+  set.seed(123)  # For reproducibility
+  jittered_data <- best_strategies %>%
+    group_by(mean_prereq, steps) %>%
+    mutate(
+      mean_prereq_jitter = mean_prereq + runif(n(), -0.01, 0.01) * min(diff(sort(unique(prereq_vals)))),
+      steps_jitter = steps + runif(n(), -0.01, 0.01) * 0.05
+    ) %>%
+    ungroup()
+  
+  # Use akima for interpolation with improved smoothing parameters
+  interp_result <- akima::interp(
+    x = jittered_data$mean_prereq_jitter,
+    y = jittered_data$steps_jitter,
+    z = jittered_data$strategy_num,
+    xo = grid_x,
+    yo = grid_y,
+    linear = TRUE,     # Try linear interpolation for smoother transitions
+    extrap = TRUE,     # Allow extrapolation
+    duplicate = "mean" # Handle duplicates by averaging
+  )
+  
+  # Apply a smoothing filter to reduce jaggedness
+  # Use a simple 3x3 mean filter
+  smooth_z <- interp_result$z
+  for (i in 2:(nrow(smooth_z)-1)) {
+    for (j in 2:(ncol(smooth_z)-1)) {
+      window <- smooth_z[(i-1):(i+1), (j-1):(j+1)]
+      smooth_z[i, j] <- mean(window, na.rm = TRUE)
+    }
+  }
+  interp_result$z <- smooth_z
+  
+  # Convert the interpolation result to a data frame
+  fine_grid$strategy_num <- as.vector(interp_result$z)
+  
+  # Convert numeric back to strategy names, ensuring valid indices
+  rounded_indices <- round(pmin(pmax(fine_grid$strategy_num, 1), length(strategy_levels)))
+  fine_grid$strategy <- strategy_levels[rounded_indices]
+  
+  # Create the plot
+  ggplot2::ggplot(fine_grid, ggplot2::aes(x = mean_prereq, y = steps, fill = strategy)) +
+    ggplot2::geom_tile() +
+    ggplot2::scale_fill_manual(values = col_map, name = "Best Strategy") +
+    ggplot2::scale_x_continuous(
+      breaks = prereq_vals,
+      labels = function(x) sprintf("%.1f", x)
+    ) +
+    ggplot2::scale_y_continuous(breaks = steps_vals) +
+    ggplot2::labs(
+      x = "Average number of prerequisite traits",
+      y = "Time constraints"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      panel.grid = ggplot2::element_blank(),
+      axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, vjust = 0.5),
+      legend.position = "bottom"
+    )
+}
+
+create_strategy_heatmap(subset(get_default(data), strategy != "Random"))
+
+
+
+
+
+##### Payoff shuffles sample size #####
+
+data <- read.csv("./output/raw_values.csv") %>% 
+  filter(step == 5)
+
+sample_sizes <- unique(c(50, 100, 200, 500, 1000, 2000, 5000))
+total_shuffles <- max(data$shuffle_idx) + 1  # Add 1 because indices start at 0
+sample_sizes <- sample_sizes[sample_sizes <= total_shuffles]
+
+# Create a dataframe to store results
+convergence_results <- data.frame()
+
+# For each sample size, calculate mean and sd
+for (size in sample_sizes) {
+  # Take a subset of the data (first 'size' shuffles)
+  subset_data <- data[data$shuffle_idx < size, ]
+  
+  # Calculate statistics
+  mean_payoff <- mean(subset_data$payoff)
+  sd_payoff <- sd(subset_data$payoff)
+  cv_payoff <- (sd_payoff / mean_payoff) * 100  # Coefficient of variation in percentage
+  
+  # Calculate 95% confidence interval
+  ci_width <- qt(0.975, df = size - 1) * sd_payoff / sqrt(size)
+  ci_lower <- mean_payoff - ci_width
+  ci_upper <- mean_payoff + ci_width
+  relative_ci_width <- (ci_width / mean_payoff) * 100  # CI width as percentage of mean
+  
+  # Add to results
+  result_row <- data.frame(
+    sample_size = size,
+    mean = mean_payoff,
+    sd = sd_payoff,
+    cv = cv_payoff,
+    ci_lower = ci_lower,
+    ci_upper = ci_upper,
+    relative_ci_width = relative_ci_width
+  )
+  
+  convergence_results <- rbind(convergence_results, result_row)
+}
+
+# Plot mean convergence by step
+ggplot(convergence_results, aes(x = sample_size, y = mean)) +
+  geom_line() +
+  geom_point() +
+  scale_x_log10() +
+  theme_minimal() +
+  labs(title = "Convergence of Mean Payoff at Step 5 with Increasing Sample Size",
+       x = "Sample Size (log scale)",
+       y = "Mean Payoff")
+
+
+# Plot relative CI width convergence
+ggplot(convergence_results, aes(x = sample_size, y = relative_ci_width)) +
+  geom_line() +
+  geom_point() +
+  scale_x_log10() +
+  geom_hline(yintercept = 5, linetype = "dashed", color = "red") +  # 5% reference line
+  geom_hline(yintercept = 1, linetype = "dashed", color = "green") +  # 1% reference line
+  theme_minimal() +
+  labs(title = "Convergence of Relative CI Width at Step 5 with Increasing Sample Size",
+       x = "Sample Size (log scale)",
+       y = "Relative CI Width (%)")
+
+# Calculate percent change in mean and SD between consecutive sample sizes
+convergence_results$mean_change_pct <- c(NA, diff(convergence_results$mean) / convergence_results$mean[-nrow(convergence_results)] * 100)
+convergence_results$sd_change_pct <- c(NA, diff(convergence_results$sd) / convergence_results$sd[-nrow(convergence_results)] * 100)
+
+# Create formatted table for display
+formatted_table <- convergence_results %>%
+  mutate(
+    mean = round(mean, 6),
+    sd = round(sd, 6),
+    cv = round(cv, 2),
+    mean_change_pct = round(mean_change_pct, 2),
+    sd_change_pct = round(sd_change_pct, 2),
+    relative_ci_width = round(relative_ci_width, 2)
+  ) %>%
+  select(sample_size, mean, mean_change_pct, sd, sd_change_pct, cv, relative_ci_width)
+
+# Print the table with percent changes
+print(formatted_table)
+
+# Find the smallest sample size where:
+# 1. The relative CI width is < 5%
+ci_threshold <- 5
+ci_indices <- which(convergence_results$relative_ci_width < ci_threshold)
+min_size_ci <- ifelse(length(ci_indices) > 0, 
+                      convergence_results$sample_size[min(ci_indices)], 
+                      Inf)
+
+# 2. The percent change in mean is < 1%
+mean_change_threshold <- 1
+mean_indices <- which(abs(convergence_results$mean_change_pct) < mean_change_threshold & !is.na(convergence_results$mean_change_pct))
+min_size_mean <- ifelse(length(mean_indices) > 0, 
+                        convergence_results$sample_size[min(mean_indices)], 
+                        Inf)
+
+# 3. The percent change in SD is < 5%
+sd_change_threshold <- 5
+sd_indices <- which(abs(convergence_results$sd_change_pct) < sd_change_threshold & !is.na(convergence_results$sd_change_pct))
+min_size_sd <- ifelse(length(sd_indices) > 0, 
+                      convergence_results$sample_size[min(sd_indices)], 
+                      Inf)
+
+# Print the recommended sample sizes
+cat("\nRecommended minimum sample sizes:\n")
+cat("Based on CI width < 5%:", ifelse(is.finite(min_size_ci), min_size_ci, "Not reached"), "\n")
+cat("Based on mean stability < 1%:", ifelse(is.finite(min_size_mean), min_size_mean, "Not reached"), "\n")
+cat("Based on SD stability < 5%:", ifelse(is.finite(min_size_sd), min_size_sd, "Not reached"), "\n")
+
+# Overall recommendation
+recommended_size <- max(min_size_ci, min_size_mean, min_size_sd)
+cat("\nOverall recommended minimum sample size:", 
+    ifelse(is.finite(recommended_size), recommended_size, "Need more samples"))
+
 
 ## varying the slopes 
 
@@ -603,9 +851,9 @@ plot(s_curve(frequencies[1:4], 1, 1/length(frequencies[1:4])), type = "l", main 
 plot(s_curve(frequencies[1:4], 1, 0.5), type = "l", sub = "Offset = 0.5", xlab = "x", ylab = "y", ylim = c(0, 1))
 
 data_perf <- data[data$strategy == "Perfect", ]
-data_perf$payoff_scaled <- scales::rescale(data_perf$step_payoff, to = c(0, 1))
-plot_graph_panel(data_perf[data_perf$payoff_scaled > 0.6 & data_perf$payoff_scaled < 0.7,])
-plot_graph_panel(data_perf[data_perf$payoff_scaled > 0.4 & data_perf$payoff_scaled < 0.5,])
+data_perf$DV_scaled <- scales::rescale(data_perf$step_payoff, to = c(0, 1))
+plot_graph_panel(data_perf[data_perf$DV_scaled > 0.6 & data_perf$DV_scaled < 0.7,])
+plot_graph_panel(data_perf[data_perf$DV_scaled > 0.4 & data_perf$DV_scaled < 0.5,])
 
 data_1 <- read_all(99)
 data_learn <- read.csv("../Cassava/results.csv", colClasses = c(adj_mat = "character"))
@@ -656,4 +904,18 @@ plot(
   ylab = "Outdegree weight",
   xlab = "structure size"
 )
+
+
+data <- read.csv("adj_mat_20.csv", colClasses = c(adj_mat = "character"))
+
+plot_graph_panel(data)
+
+
+data <- add_graph_measure(data, calc_avg_path_length, "avg_path_length")
+
+
+hist(data$avg_path_length, breaks = 50, main = "Average path length", xlab = "Average path length")
+
+
+
 

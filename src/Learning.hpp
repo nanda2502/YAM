@@ -5,15 +5,13 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <random>
 
-std::vector<bool> learnability(const Repertoire& repertoire, const Parents& parents);
+std::vector<double> learnability(
+    const Repertoire& repertoire,
+    const Parents& parents,
+    const AdjacencyMatrix& adjMatrix
+);
 
-
-// In this version, trait frequency is the probability that a trait is considered for learning
-std::vector<double> normalizedWeights(Strategy strategy, const Repertoire& repertoire, const PayoffVector& payoffs, const std::vector<double>& traitFrequencies, std::mt19937& gen, double slope);
-
-Repertoire learnTrait(const Repertoire& repertoire, Trait trait);
 
 double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
 
@@ -23,6 +21,18 @@ struct RepertoireHash {
     }
 };
 
+std::vector<double> baseWeights(
+    Strategy strategy,
+    const Repertoire& repertoire,
+    const PayoffVector& payoffs,
+    const std::vector<double>& traitFrequencies,
+    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
+    const std::vector<Repertoire>& allStates,
+    double slope,
+    const Parents& parents,
+    const std::vector<double>& statePayoffs   
+);
+
 std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire, double>>>>  generateReachableRepertoires(
     Strategy strategy, 
     const AdjacencyMatrix& adjMatrix, 
@@ -31,10 +41,11 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
-    double slope
+    double slope,
+    const std::vector<double>& statePayoffs
 );
 
-std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix, const Parents& parents);
+std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix);
 
 size_t countLearnedTraits(const Repertoire& r);
 

@@ -25,7 +25,9 @@ std::string formatResults(
     double slope,
     traitDistribution distribution,
     double absorbing,
-    int payoffDist
+    double stationaryVariation,
+    int payoffDist,
+    double edgeWeight
 );
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
@@ -54,5 +56,7 @@ std::string stateToString(const Repertoire& state);
 void printVector(const std::vector<double>& vec);
 
 void printStates(const std::vector<Repertoire>& repertoiresList, const std::unordered_map<int, int>& oldToNewIndexMap);
+
+AdjacencyMatrix adjustMatrix(const AdjacencyMatrix& adjMatrix, double edgeWeight);
 
 #endif // UTILS_HPP

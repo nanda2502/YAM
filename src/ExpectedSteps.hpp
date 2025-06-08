@@ -8,7 +8,6 @@
 #include <unordered_map>
 #include <tuple>
 
-
 std::vector<std::vector<double>> computeIMinusQ(
     const std::vector<std::vector<double>>& reorderedTransitionMatrix,
     int numTransientStates
@@ -30,7 +29,6 @@ std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> 
     Trait rootNode,
     const std::vector<double>& traitFrequencies
 );
-
 
 double computeExpectedStepsFromMatrix(
     const std::vector<std::vector<double>>& LU,
@@ -67,7 +65,8 @@ bool computeExpectedSteps(
     std::vector<double>& expectedVariation,
     std::vector<std::vector<double>>& transitionMatrix,
     traitDistribution distribution,
-    double& timeToAbsorption 
+    double& timeToAbsorption,
+    double& stationaryVariation
 );
 
 #endif // EXPECTEDSTEPS_HPP

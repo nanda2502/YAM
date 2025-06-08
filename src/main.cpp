@@ -1,5 +1,6 @@
 #include <atomic>
 #include <iostream>
+#include <numeric>
 #include <vector>
 #include <string>
 #include <filesystem>
@@ -21,31 +22,43 @@ void processRepl(
     int payoffDist,
     double edgeWeight
 ) {
+    std::cout << "Processing strategy: " << strategyToString(strategy) << std::endl;
     std::vector<double> totalExpectedPayoffPerStep(20, 0.0);
     std::vector<double> totalExpectedTransitionsPerStep(20, 0.0);
     std::vector<double> totalExpectedVariation(20, 0.0);
     double totalTimeToAbsorption = 0.0;
+    double totalStationaryVariation = 0.0;
     int successCount = 0;
+
+    AdjacencyMatrix weightedMatrix;
+    if (edgeWeight != 1.0) {
+        weightedMatrix = adjustMatrix(adjMatrix, edgeWeight);
+    } else {
+        weightedMatrix = adjMatrix;
+    }
 
     for (const auto& shuffleSequence : shuffleSequences) {
         double timeToAbsorption;
+        double stationaryVariation;
         timeToAbsorption = shuffleSequence == shuffleSequences[0] ? 0.0 : -1.0; // only compute time to absorption for the first shuffle sequence
         std::vector<double> expectedPayoffPerStep(20, 0.0);
         std::vector<double> expectedTransitionsPerStep(20, 0.0);
         std::vector<double> expectedVariation(20, 0.0);
         std::vector<std::vector<double>> transitionMatrix;
 
-        if (computeExpectedSteps(adjMatrix, strategy, alpha, shuffleSequence,
-                                 slope, payoffDist, edgeWeight, expectedPayoffPerStep,
+        std::cout << "About to process matrix with edge weight: " << weightedMatrix[0][1] << std::endl;
+        if (computeExpectedSteps(weightedMatrix, strategy, alpha, shuffleSequence,
+                                 slope, payoffDist, expectedPayoffPerStep,
                                  expectedTransitionsPerStep, expectedVariation,
                                  transitionMatrix, distribution,
-                                 timeToAbsorption)) {
-          for (size_t i = 0; i < 20; ++i) {
+                                 timeToAbsorption, stationaryVariation)) {
             totalTimeToAbsorption += timeToAbsorption;
-            totalExpectedPayoffPerStep[i] += expectedPayoffPerStep[i];
-            totalExpectedTransitionsPerStep[i] += expectedTransitionsPerStep[i];
-            totalExpectedVariation[i] += expectedVariation[i];
-          }
+            totalStationaryVariation += stationaryVariation;
+            for (size_t i = 0; i < 20; ++i) {
+                totalExpectedPayoffPerStep[i] += expectedPayoffPerStep[i];
+                totalExpectedTransitionsPerStep[i] += expectedTransitionsPerStep[i];
+                totalExpectedVariation[i] += expectedVariation[i];
+            }
           successCount++;
         } else {
           failureCount++;
@@ -60,7 +73,10 @@ void processRepl(
             accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / shuffleSequences.size();
         }
         accumResult.absorbing += totalTimeToAbsorption / shuffleSequences.size();
+        accumResult.stationaryVariation += totalStationaryVariation / shuffleSequences.size();
     }
+
+    std::cout << "Failures: " << failureCount.load() << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -85,7 +101,7 @@ int main(int argc, char* argv[]) {
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
     
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (unsigned long idx : indices) {
              const ParamCombination& comb = combinations[idx];
             processRepl(
@@ -102,7 +118,7 @@ int main(int argc, char* argv[]) {
             );
         }
     
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,payoffdist";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,stationary_variation,payoffdist,edge_weight";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -124,7 +140,9 @@ int main(int argc, char* argv[]) {
                     comb.slope,
                     comb.distribution,
                     accumResult.absorbing,
-                    comb.payoffDist
+                    accumResult.stationaryVariation,
+                    comb.payoffDist,
+                    comb.edgeWeight
                 );
                 csvData.push_back(formattedResult);
                 }

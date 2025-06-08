@@ -169,9 +169,9 @@ void computeExpectedPayoffAtNSteps(
     std::vector<double> stateDistribution(numStates, 0.0);
     stateDistribution[initialStateIndex] = 1.0;
 
-    DEBUG_PRINT(1, "Initial State Distribution:");
+    DEBUG_PRINT(2, "Initial State Distribution:");
     for (int k = 0; k < numStates; ++k) {
-        DEBUG_PRINT(1, "State " << k << ": " << stateDistribution[k]);
+        DEBUG_PRINT(2, "State " << k << ": " << stateDistribution[k]);
     }
 
     for (int step = 0; step < 20; ++step) {
@@ -184,9 +184,9 @@ void computeExpectedPayoffAtNSteps(
         }
         stateDistribution = nextStateDistribution; // Update the state distribution
 
-        DEBUG_PRINT(1, "State Distribution at Step " << step + 1 << ":");
+        DEBUG_PRINT(2, "State Distribution at Step " << step + 1 << ":");
         for (int k = 0; k < numStates; ++k) {
-            DEBUG_PRINT(1, "State " << k << ": " << stateDistribution[k]);
+            DEBUG_PRINT(2, "State " << k << ": " << stateDistribution[k]);
         }
         double expectedPayoffAtNSteps = 0.0;
         for (int i = 0; i < numStates; ++i) {
@@ -328,6 +328,146 @@ void computeExpectedVariation(const std::vector<std::vector<double>>& transition
     }
 }
 
+double computeStationaryVariation(std::vector<std::vector<double>>& transitionMatrix,
+                                  const std::vector<Repertoire>& finalRepertoiresList) {
+    size_t numStates = transitionMatrix.size();
+    
+    // Identify absorbing states directly from the transition matrix
+    std::vector<bool> isAbsorbing(numStates, false);
+    for (size_t i = 0; i < numStates; ++i) {
+        isAbsorbing[i] = (std::abs(transitionMatrix[i][i] - 1.0) < 1e-10);
+        // Double-check by ensuring all other transitions are ~0
+        if (isAbsorbing[i]) {
+            for (size_t j = 0; j < numStates; ++j) {
+                if (i != j && transitionMatrix[i][j] > 1e-10) {
+                    isAbsorbing[i] = false;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Count transient states and create mapping
+    std::vector<int> transientStates;
+    for (size_t i = 0; i < numStates; ++i) {
+        if (!isAbsorbing[i]) {
+            transientStates.push_back(i);
+        }
+    }
+    
+    int numTransientStates = transientStates.size();
+    if (numTransientStates == 0) {
+        return 0.0; // No variation if all states are absorbing
+    }
+    
+    // Create mapping from original state indices to condensed transient matrix indices
+    std::unordered_map<int, int> stateToQIndex;
+    for (int i = 0; i < numTransientStates; ++i) {
+        stateToQIndex[transientStates[i]] = i;
+    }
+    
+    // Build the Q matrix (transitions between transient states)
+    std::vector<std::vector<double>> qMatrix(numTransientStates, std::vector<double>(numTransientStates));
+    for (int i = 0; i < numTransientStates; ++i) {
+        for (int j = 0; j < numTransientStates; ++j) {
+            qMatrix[i][j] = transitionMatrix[transientStates[i]][transientStates[j]];
+        }
+    }
+    
+    // Compute (I - Q) matrix
+    std::vector<std::vector<double>> iMinusQ(numTransientStates, std::vector<double>(numTransientStates));
+    for (int i = 0; i < numTransientStates; ++i) {
+        for (int j = 0; j < numTransientStates; ++j) {
+            iMinusQ[i][j] = (i == j ? 1.0 : 0.0) - qMatrix[i][j];
+        }
+    }
+    
+    // Compute fundamental matrix using LinAlg module
+    auto [LU, p] = decomposeLU(iMinusQ);
+    
+    // Compute fundamental matrix N = (I-Q)^(-1)
+    std::vector<std::vector<double>> fundamentalMatrix(numTransientStates, std::vector<double>(numTransientStates));
+    for (int i = 0; i < numTransientStates; ++i) {
+        std::vector<double> e_i(numTransientStates, 0.0);
+        e_i[i] = 1.0;
+        std::vector<double> column = solveUsingLU(LU, p, e_i);
+        
+        for (int j = 0; j < numTransientStates; ++j) {
+            fundamentalMatrix[j][i] = column[j];
+        }
+    }
+    
+    // Use first row of fundamental matrix to compute quasi-stationary distribution
+    std::vector<double> qsd(numStates, 0.0);
+    double totalTime = 0.0;
+    
+    for (int i = 0; i < numTransientStates; ++i) {
+        totalTime += fundamentalMatrix[0][i];
+    }
+    
+    for (int i = 0; i < numTransientStates; ++i) {
+        qsd[transientStates[i]] = fundamentalMatrix[0][i] / totalTime;
+    }
+    
+    // Group states by number of traits
+    std::unordered_map<int, std::vector<size_t>> traitCountGroups;
+    std::unordered_map<int, double> traitCountProbabilities;
+    
+    // Count traits in each state and group states by trait count
+    for (size_t i = 0; i < numStates; ++i) {
+        if (qsd[i] > 1e-10) { // Only consider states with non-negligible probability
+            int traitCount = countLearnedTraits(finalRepertoiresList[i]);
+            traitCountGroups[traitCount].push_back(i);
+            traitCountProbabilities[traitCount] += qsd[i];
+        }
+    }
+    
+    // Calculate variation within each trait count group
+    double totalWeightedVariation = 0.0;
+    double totalProbabilityMass = 0.0;
+    
+    // For each trait count group
+    for (const auto& [traitCount, stateIndices] : traitCountGroups) {
+        // Skip if only one state in this group (no variation possible)
+        if (stateIndices.size() <= 1) {
+            continue;
+        }
+        
+        double groupVariation = 0.0;
+        double groupWeightSum = 0.0;
+        
+        // Calculate pairwise Jaccard distances within this group
+        for (size_t idx = 0; idx < stateIndices.size(); ++idx) {
+            size_t i = stateIndices[idx];
+            for (size_t jdx = idx + 1; jdx < stateIndices.size(); ++jdx) {
+                size_t j = stateIndices[jdx];
+                
+                // Calculate normalized weights within this group
+                double normalizedWeight_i = qsd[i] / traitCountProbabilities[traitCount];
+                double normalizedWeight_j = qsd[j] / traitCountProbabilities[traitCount];
+                double pairWeight = normalizedWeight_i * normalizedWeight_j;
+                
+                double jaccardDistance = computeJaccardDistance(finalRepertoiresList[i], finalRepertoiresList[j]);
+                groupVariation += pairWeight * jaccardDistance;
+                groupWeightSum += pairWeight;
+            }
+        }
+        
+        // Normalize variation within this group
+        double normalizedGroupVariation = (groupWeightSum > 1e-10) ? groupVariation / groupWeightSum : 0.0;
+        
+        // Add to total weighted variation
+        totalWeightedVariation += traitCountProbabilities[traitCount] * normalizedGroupVariation;
+        totalProbabilityMass += traitCountProbabilities[traitCount];
+    }
+    
+    // Return weighted average of variation across groups
+    double result = (totalProbabilityMass > 1e-10) ? totalWeightedVariation / totalProbabilityMass : 0.0;
+    
+    DEBUG_PRINT(1, "Trait-count-controlled stationary variation: " << result);
+    return result;
+}
+
 size_t countLearnedTraits(const Repertoire& repertoire) {
     return std::count_if(repertoire.begin(), repertoire.end(), [](double value) { return value > 0.5; });
 }
@@ -423,7 +563,7 @@ std::vector<double> biasTraitFrequencies(
             
             double stateFreq = it->second;
             for (Trait trait = 0; trait < n; ++trait) {
-                if (trait != rootNode && state[trait]) {
+                if (trait != rootNode && state[trait] == 1.0) {
                     biasedFrequencies[trait] += stateFreq;
                 }
             }
@@ -463,7 +603,7 @@ std::vector<double> biasTraitFrequencies(
         
         double stateFreq = it->second;
         for (Trait trait = 0; trait < n; ++trait) {
-            if (trait != rootNode && state[trait]) {
+            if (trait != rootNode && state[trait] == 1.0) {
                 originalFrequencies[trait] += stateFreq;
             }
         }
@@ -480,7 +620,7 @@ std::vector<double> biasTraitFrequencies(
         std::vector<std::pair<Trait, double>> traitsWithMeasures;
         
         for (Trait trait = 0; trait < n; ++trait) {
-            if (trait == rootNode || !state[trait]) continue;
+            if (trait == rootNode || state[trait] == 0.0) continue;
             
             double measureValue = 0.0;
             switch (distribution) {
@@ -570,7 +710,7 @@ std::unordered_map<Repertoire, double, RepertoireHash> inferStateFrequencies(
     
     for (size_t t = 0; t < numTraits; ++t) {
         for (size_t s = 0; s < numStates; ++s) {
-            A[t][s] = allStates[s][t] ? 1.0 : 0.0;
+            A[t][s] = allStates[s][t] == 1.0 ? 1.0 : 0.0;
         }
     }
     
@@ -649,7 +789,8 @@ bool computeExpectedSteps(
     std::vector<double>& expectedVariation,                       
     std::vector<std::vector<double>>& transitionMatrix,
     traitDistribution distribution,
-    double& timeToAbsorption 
+    double& timeToAbsorption,
+    double& stationaryVariation
 ) {
     try {
         // Initialization
@@ -665,6 +806,19 @@ bool computeExpectedSteps(
                 std::cout << "Trait " << i << ": " << payoffs[i] << '\n';
             }
         }
+        DEBUG_PRINT(1, "Slope: " << slope);
+
+        if (DEBUG_LEVEL >= 1) {
+            std::cout << "Adjacency Matrix:" << std::endl;
+            for (const auto & i : adjacencyMatrix) {
+                for (double j : i) {
+                    std::cout << j << " ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+        }
+
         size_t n = adjacencyMatrix.size();
         std::vector<double> traitFrequencies(n, 1.0);
         traitFrequencies[0] = 1.0; // rootNode trait frequency set to 1
@@ -677,17 +831,20 @@ bool computeExpectedSteps(
 
         // First pass: build initial transition matrix with initial traitFrequencies
         DEBUG_PRINT(1, "Building initial transition matrix with uniform trait frequencies");
-        auto allStates = generateAllRepertoires(adjacencyMatrix, parents);
-        std::cout << "Number of states: " << allStates.size() << '\n';
+        auto allStates = generateAllRepertoires(adjacencyMatrix);
+        if (DEBUG_LEVEL >= 1) std::cout << "Number of states: " << allStates.size() << '\n';
+        
         // this won't be used, but the function requires it as an argument
         std::unordered_map<Repertoire, double, RepertoireHash> initialStateFrequencies;
         double uniformFrequency = 1.0 / static_cast<double>(allStates.size());
         for (const auto& state : allStates) {
             initialStateFrequencies[state] = uniformFrequency;
         }
+        // Won't be used either
+        std::vector<double> initialStatePayoffs(n, 0.0);
 
         // Generate repertoires based on initial traitFrequencies
-        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents,slope);
+        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents,slope, initialStatePayoffs);
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         repertoiresWithIndices.reserve(repertoiresList.size());
@@ -778,7 +935,7 @@ bool computeExpectedSteps(
         for (Trait trait = 1; trait < n; ++trait) {
             double timeTraitKnown = 0.0;
             for (const auto& [state, freq] : stateFrequencies) {
-                if (state[trait]) {
+                if (state[trait] == 1.0) {
                     timeTraitKnown += freq;
                 }
             }
@@ -786,6 +943,13 @@ bool computeExpectedSteps(
         }
 
         traitFrequencies = biasTraitFrequencies(allStates, stateFrequencies, adjacencyMatrix, payoffs, distribution, rootNode);
+
+        DEBUG_PRINT(2, "Adjusted Trait Frequencies:");
+        if (DEBUG_LEVEL >= 2) {
+            for (Trait trait = 0; trait < n; ++trait) {
+                std::cout << "Trait " << trait << ": " << traitFrequencies[trait] << '\n';
+            }
+        }
         
         // After adjusting trait frequencies, infer compatible state frequencies
         // This is important for strategies like Proximal and Prestige which depend on state frequencies
@@ -798,11 +962,23 @@ bool computeExpectedSteps(
             inferredStateFrequencies = stateFrequencies;
         }
 
+        // Compute state payoffs
+        std::vector<double> allStatesPayoffs(allStates.size(), 0.0);
+        for (size_t i = 0; i < allStates.size(); ++i) {
+            const auto& state = allStates[i];
+            for (size_t j = 0; j < state.size(); ++j) {
+                if (state[j] == 1.0) {
+                    allStatesPayoffs[i] += payoffs[j];
+                }
+            }
+        }
+
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
-            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope
+            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope, allStatesPayoffs
         );
+
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
 
         for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
@@ -824,13 +1000,15 @@ bool computeExpectedSteps(
         for (size_t i = 0; i < finalRepertoiresList.size(); ++i) {
             const auto& repertoire = finalRepertoiresList[i];
             for (size_t j = 0; j < repertoire.size(); ++j) {
-                if (repertoire[j]) {
+                if (repertoire[j] == 1.0) {
                     statePayoffs[i] += payoffs[j];
                 }
             }
         }
 
         timeToAbsorption = computeExpectedTimeToAbsorption(transitionMatrix, initialStateIndex);
+
+        stationaryVariation = computeStationaryVariation(transitionMatrix, finalRepertoiresList);
 
         computeExpectedPayoffAtNSteps(
             transitionMatrix,

@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH -p rome
-#SBATCH -n 1
-#SBATCH --cpus-per-task 5
+#SBATCH -p genoa
+#SBATCH -N 1
+#SBATCH --cpus-per-task 192
 #SBATCH -t 24:00:00
 
-export OMP_NUM_THREADS=5
+export OMP_NUM_THREADS=192
 
 cd build
 
-./yam 0 121
+./yam 0 8
 
 
 

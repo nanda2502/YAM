@@ -1,5 +1,6 @@
 #include "Utils.hpp"
 #include "Types.hpp"
+#include "Debug.hpp"
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -76,7 +77,9 @@ std::string formatResults(
     double slope,
     traitDistribution distribution,
     double absorbing,
-    int payoffDist
+    double stationaryVariation,
+    int payoffDist,
+    double edgeWeight
 ) {
     std::ostringstream oss;
     oss << n << ',' << 
@@ -91,38 +94,146 @@ std::string formatResults(
     slope << ',' <<
     distributionToString(distribution) << ',' <<
     absorbing << ',' <<
-    payoffDist;
+    stationaryVariation << ',' <<
+    payoffDist << ',' <<
+    edgeWeight;
     return oss.str();
 }
 
-AdjacencyMatrix binaryStringToAdjacencyMatrix(const std::string& str) {
-    const std::string& binaryStr = str;
-
-    int n = static_cast<int>(std::sqrt(binaryStr.size()));
-
-    if (n == 0) throw std::invalid_argument("Invalid adjmat string: " + str);
-
-    AdjacencyMatrix matrix(n, std::vector<double>(n));
+inline std::vector<std::vector<double>> binaryStringToWeightedMatrix(const std::string& str) {
+    // For backward compatibility, convert binary string to weighted matrix
+    // where 1s become 1.0 and 0s become 0.0
+    
+    int n = static_cast<int>(std::sqrt(str.size()));
+    std::vector<std::vector<double>> matrix(n, std::vector<double>(n));
+    
     for (int row = 0; row < n; ++row) {
         for (int column = 0; column < n; ++column) {
-            matrix[row][column] = charToBool(binaryStr[(row * n) + column]) ? 1.0 : 0.0;
+            // Convert the character '0' or '1' to double 0.0 or 1.0
+            matrix[row][column] = (str[row * n + column] == '1') ? 1.0 : 0.0;
         }
     }
-
+    
     return matrix;
 }
 
-std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n) {
-    std::string filePath = "../data/adj_mat_" + std::to_string(n) + ".csv";
-    std::ifstream file(filePath);
-    if (!file.is_open()) throw std::runtime_error("Could not open file " + filePath);
+AdjacencyMatrix parseMatrixString(const std::string& str) {
+   // Trim whitespace from the string
+   std::string trimmed = str;
+   trimmed.erase(trimmed.find_last_not_of(" \t\r\n") + 1);
+   
+   DEBUG_PRINT(2, "Original string length: " << str.length());
+   DEBUG_PRINT(2, "Trimmed string length: " << trimmed.length());
+   DEBUG_PRINT(2, "Trimmed string: " << trimmed);
+   
+   // Check if the trimmed string contains any commas (weighted comma format)
+   bool isWeightedCommaFormat = trimmed.find(',') != std::string::npos;
+   
+   if (isWeightedCommaFormat) {
+       // Parse as weighted comma-separated format
+       std::vector<double> flatValues;
+       std::stringstream ss(trimmed);
+       std::string cell;
+       
+       while (std::getline(ss, cell, ',')) {
+           // Handle empty cell (if there are consecutive commas)
+           if(cell.empty()) {
+               flatValues.push_back(0.0);
+           } else {
+               try {
+                   flatValues.push_back(std::stod(cell));
+               } catch (const std::exception& e) {
+                   // If conversion fails, default to 0.0
+                   flatValues.push_back(0.0);
+               }
+           }
+       }
+       
+       // Calculate dimension (assuming square matrix)
+       int n = static_cast<int>(std::sqrt(flatValues.size()));
+       
+       // Reshape into n×n matrix
+       std::vector<std::vector<double>> matrix(n, std::vector<double>(n));
+       for (int i = 0; i < n; i++) {
+           for (int j = 0; j < n; j++) {
+               size_t index = i * n + j;
+               if (index < flatValues.size()) {
+                   matrix[i][j] = flatValues[index];
+               } else {
+                   // Handle case where there are not enough values
+                   matrix[i][j] = 0.0;
+               }
+           }
+       }
+       
+       return matrix;
+   } 
+   if (trimmed.find_first_not_of("01") == std::string::npos) {
+       // Parse as binary format (only contains 0s and 1s)
+       int n = static_cast<int>(std::sqrt(trimmed.size()));
+       std::vector<std::vector<double>> matrix(n, std::vector<double>(n));
+       
+       DEBUG_PRINT(2, "Using binary format parser");
+       
+       for (int i = 0; i < n; i++) {
+           for (int j = 0; j < n; j++) {
+               // Convert '0'/'1' character to 0.0/1.0 double
+               matrix[i][j] = (trimmed[i * n + j] == '1') ? 1.0 : 0.0;
+           }
+       }
+       
+       return matrix;
+   }
+   
+   // Parse as compact weighted format (single digits representing tenths)
+   DEBUG_PRINT(2, "Using compact weighted format parser");
+   int n = static_cast<int>(std::sqrt(trimmed.size()));
+   std::vector<std::vector<double>> matrix(n, std::vector<double>(n));
+   
+   for (int i = 0; i < n; i++) {
+       for (int j = 0; j < n; j++) {
+           // Convert single digit character to double value with one decimal
+           char digit = trimmed[i * n + j];
+           int value = digit - '0';  // Convert char to int
+           matrix[i][j] = value / 10.0;  // Convert to double with one decimal
+       }
+   }
+   
+   return matrix;
+}
+std::vector<AdjacencyMatrix> readAdjacencyMatrices(int num_nodes) {
+   std::string filePath = "../data/adj_mat_" + std::to_string(num_nodes) + ".csv";
+   std::ifstream file(filePath);
+   if (!file.is_open()) {
+       throw std::runtime_error("Could not open file " + filePath);
+   }
 
-    std::vector<AdjacencyMatrix> matrices;
-    std::string line;
-    while (std::getline(file, line)) {
-        matrices.push_back(binaryStringToAdjacencyMatrix(line));
-    }
-    return matrices;
+   std::vector<AdjacencyMatrix> matrices;
+   std::string line;
+   int line_index = 0;
+   
+   while (std::getline(file, line)) {
+       auto matrix = parseMatrixString(line);
+       matrices.push_back(matrix);
+       
+       DEBUG_PRINT(2, "Parsed matrix " << line_index << " from line: " << line);
+       if (DEBUG_LEVEL >= 2) {
+           std::cout << "Matrix values:" << std::endl;
+           for (size_t i = 0; i < matrix.size(); ++i) {
+               for (size_t j = 0; j < matrix[i].size(); ++j) {
+                   std::cout << matrix[i][j] << " ";
+               }
+               std::cout << std::endl;
+           }
+           std::cout << std::endl;
+       }
+       
+       line_index++;
+   }
+   
+   std::cout << "Loaded " << matrices.size() << " weighted adjacency matrices." << '\n';
+
+   return matrices;
 }
 
 
@@ -216,15 +327,41 @@ void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<
 }
 
 std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
-    std::string binaryString;
-    binaryString.reserve(adjMatrix.size() * adjMatrix[0].size());
-
-    for (const auto& row : adjMatrix) {
-        for (double entry : row) {
-            binaryString += entry == 1.0 ? '1' : '0';
+    std::stringstream ss;
+    size_t n = adjMatrix.size();
+    
+    // Check if this is a binary matrix (containing only 0.0 and 1.0)
+    bool isBinary = true;
+    for (size_t i = 0; i < n && isBinary; ++i) {
+        for (size_t j = 0; j < n && isBinary; ++j) {
+            if (adjMatrix[i][j] != 0.0 && adjMatrix[i][j] != 1.0) {
+                isBinary = false;
+            }
         }
     }
-    return binaryString;
+    
+    if (isBinary) {
+        // For binary matrices, output as 0s and 1s directly
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                ss << (adjMatrix[i][j] == 1.0 ? '1' : '0');
+            }
+        }
+    } else {
+        // For weighted matrices, use the compact weighted format
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                // Clamp the value between 0 and 0.9
+                double clamped = std::max(0.0, std::min(0.9, adjMatrix[i][j]));
+                // Round to 1 decimal place and convert to single digit (0-9)
+                int digit = static_cast<int>(std::round(clamped * 10.0));
+                if (digit == 10) digit = 9; // Handle potential rounding edge case
+                ss << digit;
+            }
+        }
+    }
+    
+    return ss.str();
 }
 
 std::vector<double> returnSlopeVector(Strategy strategy) {
@@ -254,9 +391,9 @@ bool isUnconstrained(const AdjacencyMatrix& adjMatrix) {
     // Skip the first row
     for (size_t row = 1; row < adjMatrix.size(); ++row) {
         // Check each element in this row
-        for (bool col : adjMatrix[row]) {
+        for (double col : adjMatrix[row]) {
             // If any element is true (nonzero), return false
-            if (col) {
+            if (col > 0.0) {
                 return false;
             }
         }
@@ -336,6 +473,27 @@ std::vector<std::vector<size_t>> makeShuffles(int n) {
     return shuffleSequences;
 }
 
+AdjacencyMatrix computeTransitiveClosure(const AdjacencyMatrix& adjacencyMatrix) {
+    size_t n = adjacencyMatrix.size();
+    
+    // Make a copy of the original matrix to work with
+    AdjacencyMatrix result = adjacencyMatrix;
+    
+    // Floyd-Warshall algorithm for transitive closure
+    for (size_t k = 0; k < n; ++k) {
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                // If there's a path from i to k and from k to j, then there's a path from i to j
+                if (result[i][k] > 0.0 && result[k][j] > 0.0) {
+                    result[i][j] = 1.0; // Set to 1.0 to indicate a path exists
+                }
+            }
+        }
+    }
+    
+    return result;
+}
+
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     int replications
@@ -347,6 +505,7 @@ std::vector<ParamCombination> makeCombinations(
     int defaultPayoffDist = 0;
     double defaultAlpha = 0.0;
     double alternativeAlpha = 1.0;
+    double defaultEdgeWeight = 1.0;
     
     std::vector<Strategy> strategies = {
         Strategy::Random,
@@ -363,6 +522,13 @@ std::vector<ParamCombination> makeCombinations(
         traitDistribution::Shallowness,
         traitDistribution::Payoffs
     };
+
+    std::vector<double> weights = {0.1, 0.5, 0.9};
+
+
+
+    //std::vector<double> weights(26, 0.0);
+    //for (int i = 0; i < 26; ++i) weights[i] = i * 0.04;
 
     for (const auto& adjMatrix : adjacencyMatrices) {
         std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
@@ -384,7 +550,7 @@ std::vector<ParamCombination> makeCombinations(
             if (n <= 8) {
                 // For n <= 8, use all slopes
                 auto slopes = returnSlopeVector(strategy);
-                
+
                 // Base cases: default values for all parameters, but vary the slopes
                 for (const auto& slope : slopes) {
                     for (int repl = 0; repl < replications; ++repl) {
@@ -397,11 +563,12 @@ std::vector<ParamCombination> makeCombinations(
                             repl, 
                             slope, 
                             defaultPayoffDist, 
-                            usedShuffleSequences
+                            usedShuffleSequences,
+                            defaultEdgeWeight
                         });
                     }
                 }
-                
+
                 // Only continue with parameter variation if the adjacency matrix is size 8
                 if (n == 8) {
                     // Default slope based on strategy (for parameter variations)
@@ -418,7 +585,8 @@ std::vector<ParamCombination> makeCombinations(
                             repl, 
                             defaultSlope, 
                             defaultPayoffDist, 
-                            usedShuffleSequences
+                            usedShuffleSequences,
+                            defaultEdgeWeight
                         });
                     }
                     
@@ -435,14 +603,15 @@ std::vector<ParamCombination> makeCombinations(
                                     repl, 
                                     defaultSlope, 
                                     defaultPayoffDist, 
-                                    usedShuffleSequences
+                                    usedShuffleSequences,
+                                    defaultEdgeWeight
                                 });
                             }
                         }
                     }
                     
-                    // Vary payoffDist: Add combinations with each possible payoffDist value (0 to n-1)
-                    for (size_t payoffDist = 1; payoffDist < n; ++payoffDist) {  // Start from 1 since 0 is default
+                    // Vary payoffDist: Add combinations with one payoff being high and the rest low
+                    for (size_t payoffDist = 1; payoffDist < 2; ++payoffDist) {  // Start from 1 since 0 is default
                         for (int repl = 0; repl < replications; ++repl) {
                             combinations.push_back({
                                 adjMatrix, 
@@ -453,10 +622,55 @@ std::vector<ParamCombination> makeCombinations(
                                 repl, 
                                 defaultSlope, 
                                 static_cast<int>(payoffDist), 
-                                usedShuffleSequences
+                                usedShuffleSequences,
+                                defaultEdgeWeight
                             });
                         }
                     }
+                    
+
+                    
+                    // Vary edge weight: transitive closure
+                    
+                    auto transitiveClosure = computeTransitiveClosure(adjMatrix);
+                    auto transitiveClosureBinary = adjMatrixToBinaryString(transitiveClosure);
+
+                    for (const auto& weight : weights){
+                        for (int repl = 0; repl < replications; ++repl) {
+                            combinations.push_back({
+                                transitiveClosure, 
+                                transitiveClosureBinary, 
+                                strategy, 
+                                defaultDistribution, 
+                                defaultAlpha, 
+                                repl, 
+                                defaultSlope, 
+                                defaultPayoffDist, 
+                                usedShuffleSequences,
+                                weight
+                            });
+                        }
+                    }
+                    
+                    // Vary edge weight: transitive reduction
+                    /*
+                    for (const auto& weight : weights){
+                        for (int repl = 0; repl < replications; ++repl) {
+                            combinations.push_back({
+                                adjMatrix, 
+                                adjMatrixBinary, 
+                                strategy, 
+                                defaultDistribution, 
+                                defaultAlpha, 
+                                repl, 
+                                defaultSlope, 
+                                defaultPayoffDist, 
+                                usedShuffleSequences,
+                                weight
+                            });
+                        }
+                    }
+                    */
                 }
             } else {
                 // For n > 8, use only the default slope
@@ -472,7 +686,8 @@ std::vector<ParamCombination> makeCombinations(
                         repl, 
                         defaultSlope, 
                         defaultPayoffDist, 
-                        usedShuffleSequences
+                        usedShuffleSequences,
+                        defaultEdgeWeight
                     });
                 }
             }
@@ -508,5 +723,16 @@ void printStates(const std::vector<Repertoire>& repertoiresList, const std::unor
     for (const Repertoire& repertoire : reorderedRepertoires) {
         std::cout << stateToString(repertoire) << '\n';
     }
+}
+
+AdjacencyMatrix adjustMatrix(const AdjacencyMatrix& adjMatrix, double edgeWeight) {
+    auto weightedMatrix = adjMatrix;
+    for (size_t row = 0; row < adjMatrix.size(); row++) {
+        for (size_t col = 0; col < adjMatrix.size(); col++) {
+            // if there's an edge, adjust the edge weight
+            weightedMatrix[row][col] = adjMatrix[row][col] == 1.0 ? edgeWeight : 0.0;
+        }
+    }
+    return weightedMatrix;
 }
 

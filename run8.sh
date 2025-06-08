@@ -1,26 +1,29 @@
 #!/bin/bash
 #SBATCH -p genoa
-#SBATCH --array=1-7
-#SBATCH --nodes=8
-#SBATCH --ntasks-per-node=7     # 7 tasks per node
-#SBATCH --cpus-per-task=27      # 27 CPUs per task (7×27=189, close to 192 cores)
-#SBATCH --mem-per-cpu=1792M     # ~48G per task (336G ÷ 7 tasks = 48G per task, 48G ÷ 27 CPUs ≈ 1.8G per CPU)
-#SBATCH -t 02:00:00
-#SBATCH --output=slurm-%A.out   # Avoid having multiple output files
+#SBATCH --array=0-255           # Process 256 array elements
+#SBATCH --nodes=1               # Each array job uses 1 node
+#SBATCH --ntasks-per-node=8     # 8 tasks per node
+#SBATCH --cpus-per-task=24      # 24 CPUs per task
+#SBATCH -t 05:00:00
+#SBATCH --output=slurm-%A.out   # Single output file for all array tasks
 
-export OMP_NUM_THREADS=27  # Match cpus-per-task
+export OMP_NUM_THREADS=24  # Match cpus-per-task
 
 cd build
 
-total_tasks=49  # 0 to 48
-tasks_per_group=7  # 49/7 rounded
-start=$(((SLURM_ARRAY_TASK_ID - 1) * tasks_per_group ))
-end=$(( SLURM_ARRAY_TASK_ID * tasks_per_group - 1))
+total_tasks=2045            
+tasks_per_array=8
+
+# Calculate start and end indices for this array task
+start=$((SLURM_ARRAY_TASK_ID * tasks_per_array))
+end=$((start + tasks_per_array - 1))
 
 # Ensure we don't exceed total tasks
-if [ $end -gt 48 ]; then
-    end=48
+if [ $end -ge $total_tasks ]; then
+    end=$((total_tasks - 1))
 fi
+
+echo "Array task ${SLURM_ARRAY_TASK_ID} processing indices ${start} to ${end}"
 
 # Create a file to track running processes
 running_pids="/tmp/running_pids_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
@@ -29,8 +32,11 @@ touch $running_pids
 # Launch all tasks for this array job
 for i in $(seq $start $end); do
     if [ ! -f "../output/expected_steps_${i}.csv.gz" ]; then
-        ./yam "$i" 50 &
+        echo "Starting task $i"
+        ./yam "$i" 8 &
         echo $! >> $running_pids
+    else
+        echo "Skipping task $i (output already exists)"
     fi
 done
 

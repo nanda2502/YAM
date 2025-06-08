@@ -37,7 +37,7 @@ struct ParamCombination {
     double slope;
     int payoffDist;
     std::vector<std::vector<size_t>> shuffleSequences;
-    double edgeWeight = 1.0;
+    double edgeWeight;
 };
 
 struct Result {
@@ -55,6 +55,7 @@ struct Result {
 struct AccumulatedResult {
     int count = 0;
     double absorbing = 0.0;
+    double stationaryVariation = 0.0;
     std::vector<double> totalExpectedPayoffPerStep{std::vector<double>(20, 0.0)};
     std::vector<double> totalExpectedTransitionsPerStep{std::vector<double>(20, 0.0)};
     std::vector<double> totalExpectedVariation{std::vector<double>(20, 0.0)};

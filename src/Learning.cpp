@@ -2,6 +2,7 @@
 #include "Debug.hpp"
 #include "Types.hpp"
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <stdexcept>
 #include <queue>
@@ -12,25 +13,41 @@
 
 std::vector<double> learnability(
     const Repertoire& repertoire,
-    const Parents& parents,
-    double edgeWeight //represents the probability that a node with an edge to another node is a parent node of that node
+    const AdjacencyMatrix& adjMatrix
 ) {
-    std::vector<double> learnable(repertoire.size());
-
-    for (size_t trait = 0; trait < repertoire.size(); ++trait) {
-        auto traitParents = parents[trait];
-
-        // Calculate probability that all parents are in the repertoire
-        double parent_product = std::accumulate(traitParents.begin(), traitParents.end(), 1.0,
-            [&repertoire, edgeWeight](double acc, Trait parent) {
-                // If parent is in repertoire, multiply by edgeWeight (probability it's actually a parent)
-                // If parent is not in repertoire, multiply by (1 - edgeWeight) (probability it's not a parent)
-                return acc * (repertoire[parent] == 1.0 ? edgeWeight : (1.0 - edgeWeight));
-            });
-
-        // Trait is learnable if it's not in the repertoire and all parents are in the repertoire
-        learnable[trait] = (repertoire[trait] == 0.0) ? parent_product : 0.0;
+    size_t n = repertoire.size();
+    std::vector<double> learnable(n, 0.0);
+    
+    for (Trait trait = 0; trait < n; ++trait) {
+        // If trait is already learned, it's not learnable
+        if (repertoire[trait] == 1.0) {
+            learnable[trait] = 0.0;
+            continue;
+        }
+        
+        // Start with probability 1.0
+        double probability = 1.0;
+        bool hasParents = false;
+        
+        // Check all potential parents
+        for (Trait parent = 0; parent < n; ++parent) {
+            double edgeWeight = adjMatrix[parent][trait];
+            
+            if (edgeWeight > 0.0) {  // This is a direct parent
+                hasParents = true;
+                
+                if (repertoire[parent] == 0.0) {
+                    // Parent is unknown - contribute with probability (1-edgeWeight)
+                    // This represents the chance that this unknown parent isn't required
+                    probability *= (1.0 - edgeWeight);
+                }
+                // If parent is known, it doesn't reduce the probability (contributes with factor 1.0)
+            }
+        }
+                
+        learnable[trait] = probability;
     }
+    
     return learnable;
 }
 
@@ -46,55 +63,148 @@ std::vector<double> proximalBaseWeights(
     const std::vector<Repertoire>& allStates,
     double slope
 ) {
-    std::vector<double> w_star(repertoire.size(), 0.0);
-    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        if (repertoire[trait] == 0.0) {
-            for (const auto& state : allStates) {
-                if (state[trait] == 1.0) {
-                    auto it = stateFrequencies.find(state);
-                    if (it != stateFrequencies.end()) {
-                        auto delta = computeDelta(repertoire, state);
-                        if (delta > 0) {
-                            w_star[trait] += it->second * std::pow(delta, -slope);
-                        }
-                    }
-                }
+    // Step 1: Calculate raw bias for each state
+    std::vector<double> stateBiases(allStates.size(), 0.0);
+    std::vector<bool> validStates(allStates.size(), false);
+    
+    for (size_t i = 0; i < allStates.size(); ++i) {
+        const auto& state = allStates[i];
+        double delta = computeDelta(repertoire, state);
+        if (delta > 0) {
+            stateBiases[i] = std::pow(delta, -slope);
+            validStates[i] = true;
+        }
+    }
+    
+    // Step 2: Normalize state biases
+    double totalBias = 0.0;
+    int validCount = 0;
+    for (size_t i = 0; i < allStates.size(); ++i) {
+        if (validStates[i]) {
+            totalBias += stateBiases[i];
+            validCount++;
+        }
+    }
+
+    double meanBias = totalBias / validCount;
+    if (meanBias > 0.0) {
+        for (double& bias : stateBiases) {
+            bias /= meanBias;  // Now average bias = 1.0
+        }
+    }
+    
+    // Step 3: Apply state frequencies to get trait weights
+    std::vector<double> traitWeights(repertoire.size(), 0.0);
+    for (size_t i = 0; i < allStates.size(); ++i) {
+        if (!validStates[i]) continue;
+        
+        const auto& state = allStates[i];
+        auto it = stateFrequencies.find(state);
+        if (it == stateFrequencies.end()) continue;
+        
+        double normalizedBias = stateBiases[i];
+        double stateFreq = it->second;
+        
+        for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+            if (repertoire[trait] == 0.0 && state[trait] == 1.0) {
+                traitWeights[trait] += normalizedBias * stateFreq;
             }
         }
     }
-    return w_star;
+    
+    return traitWeights;
+}
+
+std::vector<double> payoffBaseWeights(
+    const std::vector<double>& payoffs, 
+    const std::vector<double>& traitFrequencies, 
+    double slope
+) {
+    // Step 1: Calculate raw biases  
+    std::vector<double> rawBiases(payoffs.size());
+    for (size_t i = 0; i < payoffs.size(); ++i) {
+        rawBiases[i] = std::pow(payoffs[i], slope);
+    }
+    
+    // Step 2: Normalize biases to mean = 1.0 (exclude zero-payoff traits)
+    double totalBias = 0.0;
+    int validCount = 0;
+    for (size_t i = 0; i < payoffs.size(); ++i) {
+        if (payoffs[i] > 0.0) {  // Only count non-zero payoffs
+            totalBias += rawBiases[i];
+            validCount++;
+        }
+    }
+    
+    double meanBias = (validCount > 0) ? totalBias / validCount : 1.0;
+    
+    // Step 3: Apply normalization and frequencies
+    std::vector<double> finalWeights(payoffs.size());
+    for (size_t i = 0; i < payoffs.size(); ++i) {
+        double normalizedBias = rawBiases[i] / meanBias;
+        finalWeights[i] = normalizedBias * traitFrequencies[i];
+    }
+    
+    return finalWeights;
 }
 
 std::vector<double> prestigeBaseWeights(
     const Repertoire& repertoire,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
+    const std::vector<double>& statePayoffs,
     double slope
 ) {
-    std::vector<double> w_star(repertoire.size(), 0.0);
+    // Step 1: Calculate raw bias for each state
+    std::vector<double> stateBiases(allStates.size(), 0.0);
+    std::vector<bool> validStates(allStates.size(), false);
     
-    // First loop over all potential demonstrator states
-    for (const auto& state : allStates) {
+    for (size_t i = 0; i < allStates.size(); ++i) {
+        const auto& state = allStates[i];
+        double delta = computeDelta(repertoire, state);
+        if (delta > 0) {
+            stateBiases[i] = std::pow(statePayoffs[i], slope);
+            validStates[i] = true;
+        }
+    }
+    
+    // Step 2: Normalize state biases
+    double totalBias = 0.0;
+    int validCount = 0;
+    for (size_t i = 0; i < allStates.size(); ++i) {
+        if (validStates[i]) {
+            totalBias += stateBiases[i];
+            validCount++;
+        }
+    }
+
+    double meanBias = totalBias / validCount;
+    if (meanBias > 0.0) {
+        for (double& bias : stateBiases) {
+            bias /= meanBias;  // Now average bias = 1.0
+        }
+    }
+    
+    // Step 3: Apply state frequencies to get trait weights
+    std::vector<double> traitWeights(repertoire.size(), 0.0);
+    for (size_t i = 0; i < allStates.size(); ++i) {
+        if (!validStates[i]) continue;
+        
+        const auto& state = allStates[i];
         auto it = stateFrequencies.find(state);
-        if (it != stateFrequencies.end()) {
-            auto delta = computeDelta(repertoire, state);
-            if (delta > 0) {  // State has at least one trait not in repertoire
-                // Count total traits in the demonstrator state
-                int totalTraits = std::count(state.begin(), state.end(), 1.0);
-                // Weight using total traits
-                double stateWeight = it->second * std::pow(totalTraits, slope);
-                
-                // Then loop over traits to assign weights
-                for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-                    if (repertoire[trait] == 0.0 && state[trait] == 1.0) {  // Trait is unlearned by agent but present in demonstrator
-                        w_star[trait] += stateWeight;
-                    }
-                }
+        if (it == stateFrequencies.end()) continue;
+        
+        double normalizedBias = stateBiases[i];
+        double stateFreq = it->second;
+        
+        for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+            if (repertoire[trait] == 0.0 && state[trait] == 1.0) {
+                traitWeights[trait] += normalizedBias * stateFreq;
             }
         }
     }
     
-    return w_star;
+    return traitWeights;
 }
 
 std::vector<double> conformityBaseWeights(
@@ -103,8 +213,12 @@ std::vector<double> conformityBaseWeights(
 ) {
     std::vector<double> w_star(traitFrequencies.size());
     
-    std::ranges::transform(traitFrequencies, w_star.begin(), [slope](double f) {return std::pow(f, slope);});
-
+    // Conformity: frequency^slope 
+    std::ranges::transform(traitFrequencies, w_star.begin(), 
+        [slope](double f) {
+            return std::pow(f, slope);
+        });
+    
     return w_star;
 }
 
@@ -113,28 +227,9 @@ std::vector<double> perfectBaseWeights(
     const PayoffVector& payoffs,
     const Parents& parents
 ) {
-    // always pick the learnable trait with the highest payoff
-    auto learnable = learnability(repertoire, parents);
-    double highestPayoff = 0.0;
-    double bestTraitidx = 0;
+    // dummy implementation
     std::vector<double> w_star(repertoire.size(), 0.0);
-    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        if (learnable[trait] && payoffs[trait] > highestPayoff) {
-            highestPayoff = payoffs[trait];
-            bestTraitidx = trait;
-        }
 
-    }
-    w_star[bestTraitidx] = 1.0;
-    return w_star;
-}
-
-std::vector<double> payoffBaseWeights(const std::vector<double>& payoffs, const std::vector<double>& traitFrequencies, double slope) {
-    std::vector<double> w_star(payoffs.size());
-    std::ranges::transform(payoffs, traitFrequencies, w_star.begin(),
-        [slope](double payoff, double traitFrequency) {
-            return traitFrequency * std::pow(payoff, slope);
-        });
     return w_star;
 }
 
@@ -146,7 +241,8 @@ std::vector<double> baseWeights(
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope,
-    const Parents& parents   
+    const Parents& parents,
+    const std::vector<double>& statePayoffs   
 ) {
     switch (strategy) {
     case Random:
@@ -156,7 +252,7 @@ std::vector<double> baseWeights(
     case Proximal:
         return proximalBaseWeights(repertoire, stateFrequencies, allStates, slope);
     case Prestige:
-        return prestigeBaseWeights(repertoire, stateFrequencies, allStates, slope);
+        return prestigeBaseWeights(repertoire, stateFrequencies, allStates, statePayoffs, slope);
     case Conformity:
         return conformityBaseWeights(traitFrequencies, slope);
     case Perfect:
@@ -174,14 +270,15 @@ std::vector<double> normalizedWeights(
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope,
-    const Parents& parents
+    const Parents& parents,
+    const std::vector<double>& statePayoffs
 )  {
-    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, slope, parents);
+    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, slope, parents, statePayoffs);
 
     DEBUG_PRINT(2, "Current repertoire:");
     if (DEBUG_LEVEL >= 2) {
-        for (bool i : repertoire) {
-            std::cout << (i ? "1" : "0");
+        for (double i: repertoire) {
+            std::cout << (i == 1.0 ? "1" : "0");
         }
         std::cout << '\n';
     }
@@ -195,7 +292,7 @@ std::vector<double> normalizedWeights(
 
     std::vector<double> w_unlearned(repertoire.size());
     for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        w_unlearned[trait] = (repertoire[trait] || traitFrequencies[trait] == 0.0) ? 0.0 : w_star[trait];
+        w_unlearned[trait] = (repertoire[trait] == 1.0 || traitFrequencies[trait] == 0.0) ? 0.0 : w_star[trait];
     }
 
     DEBUG_PRINT (2, "Weights after setting learned ones to 0:");
@@ -221,6 +318,13 @@ std::vector<double> normalizedWeights(
         }
     };
 
+    if (strategy == Strategy::Prestige && DEBUG_LEVEL >= 1) {
+        std::cout << "After normalization - trait probabilities:\n";
+        for (size_t i = 1; i < w_unlearned.size(); ++i) {
+            std::cout << "  Trait " << i << ": " << w_unlearned[i] << std::endl;
+        }
+    }
+
     return w_unlearned;
 }
 
@@ -239,11 +343,12 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
     double slope,
-    double edgeWeight
+    const AdjacencyMatrix& adjMatrix,
+    const std::vector<double>& statePayoffs
 ) {
     std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
-    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope, parents);
-    std::vector<double> learnableProbs = learnability(repertoire, parents, edgeWeight);
+    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope, parents, statePayoffs);
+    std::vector<double> learnableProbs = learnability(repertoire, adjMatrix);
 
     std::vector<std::pair<Repertoire, double>> transitions;
 
@@ -278,7 +383,8 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     const Parents& parents,
-    double slope
+    double slope,
+    const std::vector<double>& statePayoffs
 ) {
     size_t n = adjMatrix.size();
     Repertoire initialRepertoire(n, 0.0);
@@ -299,7 +405,7 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
             visited.insert(r);
             result.push_back(r);
 
-            auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope);
+            auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope, adjMatrix, statePayoffs);
             allTransitions.push_back(transitions);
 
             for (const auto& transition : transitions) {
@@ -314,7 +420,7 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     return {result, allTransitions};
 }
 
-std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix, const Parents& parents) {
+std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix) {
     size_t n = adjMatrix.size();
     Repertoire initialRepertoire(n, 0.0);
     initialRepertoire[0] = 1.0; // root trait is always learned
@@ -333,9 +439,9 @@ std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix,
             visited.insert(r);
             result.push_back(r);
 
-            std::vector<bool> learnable = learnability(r, parents);
+            std::vector<double> learnableProbs = learnability(r, adjMatrix);
             for (Trait trait = 0; trait < n; ++trait) {
-                if (learnable[trait]) {
+                if (learnableProbs[trait] > 0.0) {
                     Repertoire r_new = learnTrait(r, trait);
                     if (visited.find(r_new) == visited.end()) {
                         queue.push(r_new);

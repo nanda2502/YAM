@@ -1,41 +1,49 @@
-plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
-  if (!is.null(lambda_value)) {
-    data <- data %>% filter(steps == lambda_value)
+plotDVbyIV <- function(data, DV, DV_label, IV, IV_label, lambda_ratio = NULL, DV_scale = NULL) {
+  if (!is.null(lambda_ratio)) {
+    data <- data %>% filter(steps == floor(lambda_ratio * num_nodes))
   }
   
-  graph_ids <- data.frame(
-    graph = unique(data$adj_mat),
-    ID = 1:length(unique(data$adj_mat))
+  if (!is.null(DV_scale)) {
+    data[[DV]] <- data[[DV]] / (DV_scale * data$num_nodes)
+  }
+  
+  strategy_colors <- c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+  
+  strategy_linetypes <- c(
+    "Random" = "dashed",
+    "Payoff" = "solid",
+    "Proximal" = "solid",
+    "Prestige" = "solid",
+    "Conformity" = "solid"
   )
   
   average_data <- data %>%
-    # mutate(
-    #   across(all_of(DV), ~scales::rescale(.x, to = c(0, 1)))
-    # ) %>%
     group_by(adj_mat, strategy, !!sym(IV)) %>%
     summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
   
-
-  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy", fill = "strategy")) +
-    #geom_point(alpha = 0.2) +
+  plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy", fill = "strategy", linetype = "strategy")) +
+    geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
     labs(
       x = IV_label,
       y = DV_label
     ) +
-    theme_minimal() 
-  #+ geom_text(aes(label = ID), hjust = -0.2)
-  
-  if (!is.null(strategy_colors)) {
-    plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors) + scale_fill_manual(name = "Strategy", values = strategy_colors)
-  } else {
-    plot <- plot + scale_color_discrete(name = "Strategy") + scale_fill_discrete(name = "Strategy")
-  }
+    theme_classic() +
+    scale_color_manual(values = strategy_colors) + 
+    scale_fill_manual(values = strategy_colors) +
+    scale_linetype_manual(values = strategy_linetypes) +
+    theme(legend.position = "none") +
+    ylim(0, 1)
   
   print(plot)
   return(plot)
 }
-
 plotDVbyIVTwoDatasets <- function(data1, data2, DV, DV_label, IV, IV_label, 
                                   lambda_value = NULL, 
                                   strategy_colors = NULL,
@@ -99,6 +107,7 @@ plotDVbyIVTwoDatasets <- function(data1, data2, DV, DV_label, IV, IV_label,
   # Create the plot
   plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy", fill = "strategy")) +
     geom_smooth(aes(linetype = dataset), method = "loess", se = FALSE) +
+    geom_point(alpha = 0.5) +
     labs(
       x = IV_label,
       y = DV_label,
@@ -132,6 +141,346 @@ plotDVbyIVTwoDatasets <- function(data1, data2, DV, DV_label, IV, IV_label,
   
   print(plot)
   return(plot)
+}
+
+plotDVbyIVBinned <- function(data, DV, DV_label, IV, IV_label,
+                             lambda_ratio = NULL,
+                             num_bins = 7,
+                             DV_trans = identity,
+                             log_scale_y = FALSE,
+                             DV_scale = NULL,
+                             # Optional bins and x-axis positions that will be generated dynamically
+                             bins = NULL,
+                             xposs = NULL,
+                             title = NULL,
+                             show_plot = FALSE,
+                             # Parameters for confidence intervals
+                             show_ci = FALSE,
+                             conf_level = 0.95,
+                             show_ylab = TRUE,
+                             legend_position = "none") {
+  
+  # Hardcoded strategy order and associated slope values.
+  # (Random = 0, all others = 2)
+  strategyOrder <- c("Random", "Payoff", "Proximal", "Prestige", "Conformity", "Anticonformity")
+  selectedSlopes <- c(0, 2, 2, 2, 2, 2)
+  # Optionally filter by lambda_ratio. This determines which time step to choose
+  # so that the time step is proportional to the size of the tree.
+  if (!is.null(lambda_ratio)) {
+    data <- data %>% filter(steps == floor(lambda_ratio * num_nodes))
+  }
+  
+  if (!is.null(DV_scale)) {
+    data[[DV]] <- data[[DV]] / (DV_scale * data$num_nodes)
+  }
+  
+  if (is.null(bins)) {
+    min_iv <- min(data[[IV]], na.rm = TRUE)
+    max_iv <- max(data[[IV]], na.rm = TRUE)
+    
+    # Small epsilon for narrow min/max bins
+    epsilon <- 0.001
+    
+    # Create equidistant x-positions
+    x_positions <- seq(min_iv, max_iv, length.out = num_bins)
+    
+    # Create bin boundaries with narrow min/max bins
+    bins <- c(min_iv - epsilon, min_iv + epsilon)
+    
+    # Add middle bin boundaries
+    if (num_bins > 2) {
+      for (i in 2:(num_bins-1)) {
+        middle_point <- (x_positions[i] + x_positions[i+1]) / 2
+        bins <- c(bins, middle_point)
+      }
+    }
+    
+    # Add narrow max bin
+    bins <- c(bins, max_iv - epsilon, max_iv + epsilon)
+    
+    # Set x-positions
+    xposs <- x_positions
+  }
+  # Initialize a data frame to store aggregated results.
+  agg_data <- data.frame()
+  
+  # Loop over each strategy.
+  for (i in seq_along(strategyOrder)) {
+    strat <- strategyOrder[i]
+    slope_val <- selectedSlopes[i]
+    
+    # Subset the data for the current strategy and slope.
+    strat_data <- data %>% 
+      filter(strategy == strat, slope == slope_val)
+    
+    # Process each bin.
+    for (j in seq_len(length(bins) - 1)) {
+      bin_lower <- bins[j]
+      bin_upper <- bins[j + 1]
+      
+      # Subset rows where the IV falls inside the current bin interval.
+      bin_data <- strat_data %>% 
+        filter(.data[[IV]] > bin_lower, .data[[IV]] <= bin_upper)
+      
+      if (nrow(bin_data) == 0) next
+      
+      # For each unique network in the bin, choose the DV value 
+      # from the middle observation.
+      networks <- unique(bin_data$adj_mat)
+      mid_vals <- c()
+      for (net in networks) {
+        net_data <- bin_data %>% filter(adj_mat == net)
+        if (nrow(net_data) == 0) next
+        mid_index <- ceiling(nrow(net_data) / 2)
+        mid_vals <- c(mid_vals, DV_trans(net_data[[DV]][mid_index]))
+      }
+      
+      if (length(mid_vals) > 0) {
+        avg_val <- mean(mid_vals, na.rm = TRUE)
+        
+        # Calculate confidence intervals
+        if (length(mid_vals) >= 2) {
+          # Use t-distribution for confidence interval
+          t_val <- qt((1 + conf_level) / 2, df = length(mid_vals) - 1)
+          sd_val <- sd(mid_vals, na.rm = TRUE)
+          se_val <- sd_val / sqrt(length(mid_vals))
+          ci_lower <- avg_val - t_val * se_val
+          ci_upper <- avg_val + t_val * se_val
+        } else {
+          # If only one observation, can't calculate CI
+          ci_lower <- NA
+          ci_upper <- NA
+        }
+        
+        # Use the provided x position for this bin.
+        agg_data <- rbind(agg_data, data.frame(
+          strategy = strat,
+          bin = j,
+          x = xposs[j],
+          DV_val = avg_val,
+          ci_lower = ci_lower,
+          ci_upper = ci_upper,
+          n = length(mid_vals)
+        ))
+      }
+    }
+  }
+  
+  # For legend ordering, we want the legend to show:
+  # "Payoff", "Proximal", "Prestige", "Conformity", "Random"
+  agg_data$strategy <- factor(agg_data$strategy,
+                              levels = c("Anticonformity", "Payoff", "Proximal", "Prestige", "Conformity", "Random"))
+  
+  # Define manual mappings:
+  col_map <- c(
+    "Random" = "grey30",
+    "Anticonformity" = "black",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+  shape_map <- c(
+    "Anticonformity" = 16,
+    "Payoff" = 16,
+    "Proximal" = 17,
+    "Prestige" = 18,
+    "Conformity" = 15,
+    "Random" = NA  # No shape for Random
+  )
+  lty_map <- c(
+    "Anticonformity" = 1,
+    "Random" = 2,
+    "Payoff" = 1,
+    "Proximal" = 1,
+    "Prestige" = 1,
+    "Conformity" = 1
+  )
+  
+  shape_size_map <- c(
+    "Anticonformity" = 3,  
+    "Random" = 3,
+    "Payoff" = 3,  
+    "Proximal" = 3, 
+    "Prestige" = 3,
+    "Conformity" = 3
+  )
+  
+  # Create the ggplot.
+  p <- ggplot(agg_data, aes(x = x, y = DV_val,
+                            group = strategy,
+                            color = strategy,
+                            shape = strategy,
+                            linetype = strategy)) +
+    # Use the size mapping for line thickness
+    geom_line(size = 1)
+  
+  # Create a subset of data for non-Random strategies (for points)
+  non_random_data <- subset(agg_data, strategy != "Random")
+  
+  # Add white backing points first (larger size for proper coverage)
+  p <- p + geom_point(
+    data = non_random_data,
+    aes(size = strategy),
+    color = "white",
+    fill = "white",
+    stroke = 2  # White border/stroke for better coverage
+  )
+  
+  # Then add the actual colored points on top
+  p <- p + geom_point(
+    data = non_random_data,
+    aes(size = strategy, color = strategy, shape = strategy)
+  )
+  
+  # Apply themes and scales
+  p <- p + theme_classic() +
+    scale_color_manual(
+      values = col_map,
+      breaks = strategyOrder
+    ) +
+    scale_shape_manual(
+      values = shape_map,
+      breaks = setdiff(strategyOrder, "Random")  # Exclude Random from shape legend
+    ) +
+    scale_linetype_manual(
+      values = lty_map,
+      breaks = strategyOrder
+    ) +
+    scale_size_manual(
+      values = shape_size_map,
+      breaks = strategyOrder,
+      guide = "none"  # Hide the size legend
+    ) +
+    labs(x = IV_label, 
+         y = DV_label
+    ) +
+    scale_x_continuous(
+      limits = c(0, max(agg_data$x) * 1.05),  # Add some padding on the right
+      expand = expansion(mult = c(0.05, 0.05))  # Add consistent padding on both sides
+    ) +
+    theme(
+      # Increase the thickness of the x and y axis lines.
+      axis.line = element_line(color = "black", size = 0.5),
+      # Increase the thickness of the tick marks.
+      axis.ticks = element_line(color = "black", size = 0.5),
+      # Increase the font size and add bold for tick labels.
+      axis.text = element_text(color = "black", size = 12),
+      # Increase the font size and add bold for axis titles.
+      axis.title = element_text(color = "black", size = 14)
+    ) +
+    theme(legend.position = legend_position) +
+    # Create a single combined legend
+    guides(
+      # Use color for the main legend
+      color = guide_legend(
+        override.aes = list(
+          # Explicitly define each shape for each strategy to ensure correct mapping
+          shape = c(
+            "Random" = NA,        # No shape for Random
+            "Payoff" = 16,        # Circle for Payoff
+            "Proximal" = 17,      # Triangle for Proximal
+            "Prestige" = 18,      # Diamond for Prestige
+            "Conformity" = 15,    # Square for Conformity
+            "Anticonformity" = 16 # Circle for Anticonformity
+          ),
+          size = 3,               # Increase shape size in legend
+          linetype = lty_map,     # Ensure line types match
+          linewidth = 1
+        ),
+        title = "strategy",
+        keywidth = unit(1.25, "cm") # Increase width to show dashed pattern
+      ),
+      # Hide the separate shape and linetype legends
+      shape = "none",
+      linetype = "none"
+    )
+  
+  if (show_ci) {
+    p <- p + geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), 
+                           width = 0.1, alpha = 0.7)
+  }
+  
+  # Apply the appropriate y-axis scale based on log_scale_y parameter
+  if (log_scale_y) {
+    # For log scale, ensure all values are positive
+    if (min(agg_data$DV_val, na.rm = TRUE) <= 0) {
+      warning("Log scale requested but data contains zero or negative values. Adding small constant to make all values positive.")
+      # Find the smallest positive value and use a fraction of it as offset
+      min_positive <- min(agg_data$DV_val[agg_data$DV_val > 0], na.rm = TRUE)
+      offset <- min_positive / 10
+      # Add offset to all values
+      agg_data$DV_val <- agg_data$DV_val + offset
+      # Also adjust confidence intervals
+      if (show_ci) {
+        agg_data$ci_lower <- agg_data$ci_lower + offset
+        agg_data$ci_upper <- agg_data$ci_upper + offset
+      }
+      # Update the plot data
+      p$data <- agg_data
+    }
+    
+    # Apply log scale with human-friendly breaks and labels showing actual numbers
+    # Get the y-axis range
+    y_min <- min(agg_data$DV_val, na.rm = TRUE)
+    y_max <- max(agg_data$DV_val, na.rm = TRUE)
+    
+    # Create more comprehensive custom breaks that ensure lower values are included
+    custom_breaks <- numeric(0)
+    
+    # Include 0 if there are any 0 values (or very small values close to 0)
+    if (y_min < 0.1) {
+      custom_breaks <- c(custom_breaks, 0)
+    }
+    
+    # Add single digits (ensure we have enough coverage for lower range)
+    if (y_max > 1) {
+      single_digits <- c(1, 2, 3, 5)
+      custom_breaks <- c(custom_breaks, single_digits[single_digits >= max(1, y_min) & single_digits <= min(9, y_max)])
+    }
+    
+    # For the 10-100 range, include all multiples of 10 as we want both major and minor ticks
+    if (y_max >= 10) {
+      tens <- seq(10, min(100, y_max), by = 10)
+      custom_breaks <- c(custom_breaks, tens)
+    }
+    
+    # Add 100+ values
+    if (y_max > 100) {
+      higher_breaks <- c(100, 150, 200, 300, 500, 1000)
+      custom_breaks <- c(custom_breaks, higher_breaks[higher_breaks <= y_max & higher_breaks > 100])
+    }
+    
+    # If custom breaks is still empty (unlikely), fall back to automatic breaks
+    if (length(custom_breaks) == 0) {
+      custom_breaks <- scales::breaks_extended(n = 8)(c(y_min, y_max))
+    }
+    
+    # Instead of using minor ticks (which might be overridden),
+    # we'll include all multiples of 10 as major ticks but make some less prominent
+    p <- p + scale_y_log10(
+      breaks = custom_breaks,
+      labels = scales::label_number()
+    )
+  } else if (DV == "step_payoff"){
+    # Always set y-axis to 0-1.5 with ticks every 0.25, regardless of the data
+    p <- p + scale_y_continuous(
+      breaks = seq(0, 1.5, by = 0.5),  # Breaks from 0 to 1.5 by 0.5
+      limits = c(0, 1.5)                # Hard limit at exactly 1.5
+    )
+  }
+  
+  if (!is.null(title)) {
+    p <- p + labs(title = title) +  theme(plot.title = element_text(color = "black", size = 14, face = "bold", hjust = 0.5))
+  }
+  
+  
+  # Return the generated bins and x-positions along with the plot for reference
+  attr(p, "bins") <- bins
+  attr(p, "xposs") <- xposs
+  
+  if (show_plot) print(p)
+  return(p)
 }
 
 plotDVbyIVBinned <- function(data, DV, DV_label, IV, IV_label,
@@ -457,7 +806,7 @@ plotDVbyIVBinned <- function(data, DV, DV_label, IV, IV_label,
   }
   
   if (!is.null(title)) {
-    p <- p + labs(title = title) +  theme(plot.title = element_text(color = "black", size = 8, face = "bold", hjust = 0.5))
+    p <- p + labs(title = title) +  theme(plot.title = element_text(color = "black", size = 14, face = "bold", hjust = 0.5))
   }
   
   
@@ -595,7 +944,7 @@ plotDVbyIVBinnedRelative <- function(data, DV, DV_label, IV, IV_label,
       }
     }
   }
-  
+
   # For legend ordering, we want the legend to show:
   # "Payoff", "Proximal", "Prestige", "Conformity", "Random"
   agg_data$strategy <- factor(agg_data$strategy,
@@ -1201,7 +1550,7 @@ plotDVbyIVSlopesRelative <- function(data, DV, DV_label, IV, IV_label,
   if (!is.null(lambda_value)) {
     data <- data %>% filter(steps == lambda_value)
   }
-  
+
   if (!is.null(DV_scale)) {
     data[[DV]] <- data[[DV]] / DV_scale
   }
@@ -1632,7 +1981,390 @@ plotDVbyIVSlopesRelative <- function(data, DV, DV_label, IV, IV_label,
   return(p)
 }
 
+plotDVbyIVrvals <- function(
+    data, DV, DV_label, IV, IV_label,
+    strategy, 
+    rvals = c(0, 1, 2, 3),  # Default R values
+    lambda_value = NULL,
+    DV_trans = identity,
+    DV_scale = NULL,
+    bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001),
+    xposs = 2:8/2,
+    y_bins = 0.25,
+    y_range = NULL,
+    auto_y_scale = FALSE,
+    show_title = FALSE,
+    show_ci = TRUE,
+    conf_level = 0.95
+) {
+  library(dplyr)
+  library(ggplot2)
+  library(ggrepel)
+  
+  # Define color and shape maps
+  col_map <- c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+  shape_map <- c(
+    "Payoff" = 16,       # Circle
+    "Proximal" = 17,     # Triangle
+    "Prestige" = 18,     # Diamond
+    "Conformity" = 15    # Square
+  )
+  
+  # Optionally filter by lambda_value.
+  if (!is.null(lambda_value)) {
+    data <- data %>% filter(steps == lambda_value)
+  }
+  
+  if (!is.null(DV_scale)) {
+    data[[DV]] <- data[[DV]] / DV_scale
+  }
+  
+  # Initialize a data frame to store aggregated results.
+  agg_data <- data.frame()
+  
+  # Sort rvals to ensure correct processing
+  rvals <- sort(rvals)
+  
+  # Process data for the selected strategy and each r value
+  for (i in seq_along(rvals)) {
+    r_val <- rvals[i]
+    
+    # Subset the data for the current strategy and r.
+    strat_data <- data %>% 
+      filter(strategy == !!strategy, mean_prereq == r_val)
+    
+    # Process each bin.
+    for (j in seq_len(length(bins) - 1)) {
+      bin_lower <- bins[j]
+      bin_upper <- bins[j + 1]
+      
+      # Subset rows where the IV falls inside the current bin interval.
+      bin_data <- strat_data %>%
+        filter(.data[[IV]] > bin_lower, .data[[IV]] <= bin_upper)
+      
+      if (nrow(bin_data) == 0) next
+      
+      # For each unique network in the bin, choose the DV value 
+      # from the middle observation.
+      networks <- unique(bin_data$adj_mat)
+      mid_vals <- c()
+      for (net in networks) {
+        net_data <- bin_data %>% filter(adj_mat == net)
+        if (nrow(net_data) == 0) next
+        mid_index <- ceiling(nrow(net_data) / 2)
+        mid_vals <- c(mid_vals, DV_trans(net_data[[DV]][mid_index]))
+      }
+      
+      if (length(mid_vals) > 0) {
+        avg_val <- mean(mid_vals, na.rm = TRUE)
+        
+        # Calculate confidence intervals
+        if (length(mid_vals) >= 2) {
+          # Use t-distribution for confidence interval
+          t_val <- qt((1 + conf_level) / 2, df = length(mid_vals) - 1)
+          sd_val <- sd(mid_vals, na.rm = TRUE)
+          se_val <- sd_val / sqrt(length(mid_vals))
+          ci_lower <- avg_val - t_val * se_val
+          ci_upper <- avg_val + t_val * se_val
+        } else {
+          ci_lower <- NA
+          ci_upper <- NA
+        }
+        
+        # Use the provided x position for this bin.
+        r_label <- paste("R =", r_val)
+        
+        agg_data <- rbind(agg_data, data.frame(
+          r = as.character(r_val),
+          r_label = r_label,
+          bin = j,
+          x = xposs[j],
+          DV_val = avg_val,
+          ci_lower = ci_lower,
+          ci_upper = ci_upper,
+          n = length(mid_vals)
+        ))
+      }
+    }
+  }
+  
+  # Ensure we have data to plot
+  if (nrow(agg_data) == 0) {
+    stop("No data available for the specified strategy and rvals")
+  }
+  
+  # Find the last x for each r_label for labeling
+  label_data <- agg_data %>%
+    group_by(r_label) %>%
+    filter(x == max(x)) %>%
+    ungroup()
+  
+  # Main plot
+  p <- ggplot() +
+    # Draw lines for each R value
+    geom_line(
+      data = agg_data,
+      aes(x = x, y = DV_val, group = r_label),
+      color = col_map[strategy],
+      size = 1
+    ) +
+    # Confidence interval error bars
+    {if (show_ci)
+      geom_errorbar(
+        data = agg_data,
+        aes(x = x, ymin = ci_lower, ymax = ci_upper, group = r_label),
+        color = col_map[strategy],
+        width = 0.1,
+        alpha = 0.7
+      )
+    } +
+    # White backing for points
+    geom_point(
+      data = agg_data,
+      aes(x = x, y = DV_val),
+      color = "white",
+      size = 5,
+      shape = shape_map[strategy]
+    ) +
+    # Colored points
+    geom_point(
+      data = agg_data,
+      aes(x = x, y = DV_val),
+      color = col_map[strategy],
+      size = 3,
+      shape = shape_map[strategy]
+    ) +
+    # Label lines at the last point
+    geom_text_repel(
+      data = label_data,
+      aes(x = x, y = DV_val, label = r_label),
+      color = col_map[strategy],
+      size = 5,
+      nudge_x = 0.2,
+      segment.color = "grey50",
+      box.padding = 0.3,
+      point.padding = 0.2,
+      min.segment.length = 0
+    ) +
+    theme_classic() +
+    labs(x = IV_label, y = DV_label) +
+    theme(
+      axis.line = element_line(color = "black", size = 1.0),
+      axis.ticks = element_line(color = "black", size = 1.0),
+      axis.text = element_text(color = "black", size = 12, face = "bold"),
+      axis.title = element_text(color = "black", size = 14, face = "bold"),
+      plot.title = element_text(
+        color = "black",
+        size = 16,
+        face = "bold",
+        hjust = 0.5
+      ),
+      legend.position = "none"
+    ) +
+    if (!auto_y_scale) {
+      scale_y_continuous(
+        breaks = seq(0, 1.5, by = 0.5),
+        limits = c(0, 1.5)
+      )
+    } else {
+      scale_y_continuous(
+        limits = y_range,
+        breaks = scales::pretty_breaks(n = 6)
+      )
+    } +
+    if (show_title) labs(title = strategy) else labs(title = NULL)
+  
+  print(p)
+  return(p)
+}
 
+plotDVbyTimeRvals <- function(
+    data, DV, DV_label, strategy, 
+    rvals = c(0, 1, 2, 3),
+    DV_trans = identity,
+    auto_y_scale = FALSE,
+    y_range = NULL,
+    show_title = FALSE,
+    show_ci = TRUE,
+    conf_level = 0.95
+) {
+  # Define color and shape maps
+  col_map <- c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+  shape_map <- c(
+    "Payoff" = 16,       # Circle
+    "Proximal" = 17,     # Triangle
+    "Prestige" = 18,     # Diamond
+    "Conformity" = 15    # Square
+  )
+  
+  data[[DV]] <- data[[DV]] / data$num_nodes
+  
+  # Prepare data for plotting
+  agg_data <- data.frame()
+  rvals <- sort(rvals)
+  
+  for (r_val in rvals) {
+    strat_data <- data %>%
+      filter(strategy == !!strategy, mean_prereq == r_val)
+    
+    if (nrow(strat_data) == 0) next
+    
+    # For each step, aggregate across networks
+    step_stats <- strat_data %>%
+      group_by(steps) %>%
+      summarise(
+        DV_val = mean(DV_trans(.data[[DV]]), na.rm = TRUE),
+        ci_lower = if (n() >= 2) {
+          m <- mean(DV_trans(.data[[DV]]), na.rm = TRUE)
+          s <- sd(DV_trans(.data[[DV]]), na.rm = TRUE)
+          se <- s / sqrt(n())
+          t_val <- qt((1 + conf_level) / 2, df = n() - 1)
+          m - t_val * se
+        } else { NA },
+        ci_upper = if (n() >= 2) {
+          m <- mean(DV_trans(.data[[DV]]), na.rm = TRUE)
+          s <- sd(DV_trans(.data[[DV]]), na.rm = TRUE)
+          se <- s / sqrt(n())
+          t_val <- qt((1 + conf_level) / 2, df = n() - 1)
+          m + t_val * se
+        } else { NA },
+        n = n(),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        r = as.character(r_val),
+        r_label = paste("R =", r_val)
+      )
+    
+    # Add a starting point at (0, 0)
+    step_stats <- bind_rows(
+      data.frame(
+        steps = 0,
+        DV_val = 0,
+        ci_lower = NA,
+        ci_upper = NA,
+        n = NA,
+        r = as.character(r_val),
+        r_label = paste("R =", r_val)
+      ),
+      step_stats
+    )
+    
+    agg_data <- bind_rows(agg_data, step_stats)
+  }
+  
+  if (nrow(agg_data) == 0) {
+    stop("No data available for the specified strategy and rvals")
+  }
+  
+  max_step <- max(agg_data$steps)
+  label_data <- agg_data %>%
+    group_by(r_label) %>%
+    filter(steps == max(steps)) %>%
+    ungroup() %>%
+    mutate(
+      steps = max_step + 1,  # move label to the right of the plot
+      DV_val = DV_val + seq(-0.03, 0.03, length.out = n())  # small vertical jitter
+    )
+  
+  # For shapes: only even steps (and 0)
+  shape_data <- agg_data %>%
+    filter(steps %% 2 == 0 | steps == 0)
+  
+  # Main plot
+  p <- ggplot() +
+    # Draw lines for each R value
+    geom_line(
+      data = agg_data,
+      aes(x = steps, y = DV_val, group = r_label),
+      color = col_map[strategy],
+      size = 1
+    ) +
+    # Confidence interval error bars
+    {if (show_ci)
+      geom_errorbar(
+        data = agg_data,
+        aes(x = steps, ymin = ci_lower, ymax = ci_upper, group = r_label),
+        color = col_map[strategy],
+        width = 0.2,
+        alpha = 0.7
+      )
+    } +
+    # White backing for points at even steps (and 0)
+    geom_point(
+      data = shape_data,
+      aes(x = steps, y = DV_val),
+      color = "white",
+      size = 5,
+      shape = shape_map[strategy]
+    ) +
+    # Colored points at even steps (and 0)
+    geom_point(
+      data = shape_data,
+      aes(x = steps, y = DV_val),
+      color = col_map[strategy],
+      size = 3,
+      shape = shape_map[strategy]
+    ) +
+    geom_text_repel(
+      data = label_data,
+      aes(x = steps, y = DV_val, label = r_label),
+      color = col_map[strategy],
+      size = 5,
+      hjust = 0,  # left align
+      direction = "y",
+      segment.color = "grey50",
+      box.padding = 0.5,
+      point.padding = 0.5,
+      min.segment.length = 0,
+      force = 2,
+      nudge_x = 0.5
+    ) +
+    theme_classic() +
+    labs(x = "Step", y = DV_label) +
+    theme(
+      axis.line = element_line(color = "black", size = 0.5),
+      axis.ticks = element_line(color = "black", size = 0.5),
+      axis.text = element_text(color = "black", size = 12),
+      axis.title = element_text(color = "black", size = 14),
+      plot.title = element_text(
+        color = "black",
+        size = 16,
+        hjust = 0.5
+      ),
+      legend.position = "none"
+    ) +
+    scale_x_continuous(
+      breaks = seq(0, max(agg_data$steps), by = 2),
+    ) +
+    if (!auto_y_scale) {
+      scale_y_continuous(
+        breaks = seq(0, 1, by = 0.25),
+        limits = c(0, 1)
+      )
+    } else {
+      scale_y_continuous(
+        limits = y_range,
+        breaks = scales::pretty_breaks(n = 6)
+      )
+    } +
+    if (show_title) labs(title = strategy) else labs(title = NULL)
+  
+  print(p)
+  return(p)
+}
 
 plotDVbyIV_outdeg <- function(data, DV, DV_label, IV, IV_label, lambda_value, strategy_colors = NULL) {
   if (!is.null(lambda_value)) {
@@ -1714,21 +2446,28 @@ plotDVbyIVnofilter <- function(data, DV, DV_label, IV, IV_label, strategy_colors
 }
 
 
-plotDVbyTime <- function(data, DV, DV_label, IV, IV_label, strategy_colors = NULL) {
+
+
+
+plotDVbyTime <- function(data, DV, DV_label, IV, IV_label, title = NULL, strategy_colors = NULL) {
   average_data <- data %>%
-    group_by(adj_mat, strategy, !!sym(IV), structure) %>%
+    group_by(adj_mat, strategy, !!sym(IV)) %>%
     summarize(avg_DV = mean(!!sym(DV), na.rm = TRUE), .groups = 'drop')
   
+  # Calculate the 5/8 threshold
+  threshold <- floor(5/8 * data$num_nodes[1])
+  
   plot <- ggplot(average_data, aes_string(x = IV, y = "avg_DV", color = "strategy")) +
-    geom_point(alpha = 0.2) +
     geom_smooth(method = "loess", se = FALSE) +
+    # Add vertical dotted line at the threshold
+    geom_vline(xintercept = threshold, linetype = "dashed", color = "black") +
     labs(
-      title = paste0(DV_label, " by ", IV_label),
       x = IV_label,
-      y = DV_label
+      y = DV_label,
+      title = title
     ) +
-    theme_minimal() +
-    facet_wrap(~ structure) 
+    theme_classic() + 
+    theme(legend.position = "none")
   
   if (!is.null(strategy_colors)) {
     plot <- plot + scale_color_manual(name = "Strategy", values = strategy_colors)
@@ -1740,19 +2479,107 @@ plotDVbyTime <- function(data, DV, DV_label, IV, IV_label, strategy_colors = NUL
   return(plot)
 }
 
-plot_graph <- function(adj_string) {
-  num_nodes <- sqrt(nchar(adj_string))
-  adjacency_vector <- as.numeric(unlist(strsplit(adj_string, "")))
+stringToGraph <- function(string) {
+  num_nodes <- sqrt(nchar(string))
+  adjacency_vector <- as.numeric(unlist(strsplit(string, "")))
+  adjacency_vector <- ifelse(adjacency_vector >= 1, 1, 0)
   adjacency_matrix <- matrix(adjacency_vector, nrow = num_nodes, ncol = num_nodes, byrow = TRUE)
   graph <- graph_from_adjacency_matrix(adjacency_matrix, mode = "directed")
-  V(graph)$color <- rep("black", num_nodes)
+  return(graph)
+}
+
+plot_graph <- function(input, ...) {
+  if (is.character(input)) {
+    graph <- stringToGraph(input)
+  } else {
+    graph <- input
+  }
+  old_mar <- par("mar")
+  par(mar = c(1, 1, 1, 1))
+  V(graph)$color <- rep("black", vcount(graph))
   plot(graph,
        layout = layout_as_tree(graph),
-       vertex.label = NA,
-       vertex.size = 5,
-       edge.arrow.size = 0.3
-       )
+       #layout = layout_nicely(graph),
+       #vertex.label = NA,
+       #vertex.label.dist = 2, 
+       #vertex.label.degree = pi/2,
+       vertex.label.cex = 0.7,   
+       vertex.size = 10,
+       vertex.label.color = "white",
+       edge.label = round(E(graph)$weight,1),
+       edge.label.cex = 0.5,
+       edge.arrow.size = 0.3,
+       ...
+  )
+  par(mar = old_mar)
 }
+
+plot_graph <- function(input, show_labels = FALSE, show_names = FALSE, title = NULL,...) {
+  if (is.character(input)) {
+    g <- stringToGraph(input)
+  } else {
+    g <- input
+  }
+  
+  layout <- layout_with_sugiyama(g)
+  
+  layout$layout[1,1] <- (max(layout$layout[,1]) +1)/2
+  
+  # Create a color ramp palette between light green and dark green
+  color_palette <- colorRampPalette(c("#B4E5A2", "#275317"))
+  
+  # Get node count and generate random colors for non-root nodes
+  node_count <- vcount(g)
+  
+  # Create a vector of colors: white for root, random palette colors for others
+  node_colors <- c("white", sample(color_palette(node_count - 1)))
+  
+  p <- ggraph(g, layout = layout$layout) + 
+    geom_edge_link(arrow = arrow(type = "closed", length = unit(0.15, "cm")),
+                   end_cap = circle(0.2, "cm"),
+                   start_cap = circle(0.2, "cm"),
+                   label_size = 0.5,
+                   color = "grey50",
+                   alpha = 0.5) +
+    geom_node_point(aes(fill = as.factor(1:vcount(g))),
+      size = 4, color = "black", shape = 21) +
+    scale_fill_manual(values = node_colors) +
+    theme_void() +
+    labs(title = title) +
+    guides(fill = "none", edge_alpha = "none") +
+    theme(panel.background = element_rect(fill = "white", color = NA))
+  if (show_labels) {
+    p <- p + 
+      geom_node_text(aes(label = label), 
+                     color = "black",
+                     size = 3.5,
+                     repel = TRUE,
+                     max.overlaps = 20,
+                     box.padding = unit(1, "lines"),
+                     point.padding = unit(0.5, "lines"),
+                     segment.color = "black",
+                     min.segment.length = unit(0.2, "lines"),
+                     force = 5,
+                     check_overlap = FALSE)
+  } else if (show_names) {
+    p <- p + 
+      geom_node_text(aes(label = name), 
+                     color = "black",
+                     size = 3.5,
+                     repel = TRUE,
+                     max.overlaps = 20,
+                     box.padding = unit(1, "lines"),
+                     point.padding = unit(0.5, "lines"),
+                     segment.color = "black",
+                     min.segment.length = unit(0.2, "lines"),
+                     force = 5,
+                     check_overlap = FALSE)
+  }
+  
+  print(p)
+  p
+}
+
 
 plotUnconstrained <- function(data, num_steps) {
   unconstrained_matrices <- c(
@@ -2141,51 +2968,93 @@ plot_variance_decomposition <- function(model_data) {
 }
 
 
-makeLegend <- function(strategies) {
-  # Set up an empty plot with no visible elements
-  plot(1, type = "n", axes = FALSE, xlab = "", ylab = "", 
-       xlim = c(0, 1), ylim = c(0, 1))
+makeLegend <- function(legend_position = "right", 
+                                                 title = "Strategy") {
   
-  # Define color and shape mappings
+  # Color map
   col_map <- c(
+    "Random" = "grey30",
     "Payoff" = "#006328",
     "Proximal" = "#ff8954",
     "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
     "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
   )
   
+  # Shape map (filled shapes) - Random doesn't have shapes, only lines
   shape_map <- c(
-    "Payoff" = 16,
-    "Proximal" = 17,
-    "Prestige" = 18,
-    "Conformity" = 15
+    "Payoff" = 16,       # Circle
+    "Proximal" = 17,     # Triangle
+    "Prestige" = 18,     # Diamond
+    "Conformity" = 15    # Square
   )
   
-  # Filter mappings to only include strategies that were passed in
-  colors <- col_map[strategies]
-  shapes <- shape_map[strategies]
+  # Create legend with all strategies as lines AND shapes (with white backing for non-Random)
+  p <- ggplot() +
+    # Random as a dashed line only
+    geom_segment(aes(x = 0.7, xend = 1.3, y = 1, yend = 1),
+                 color = col_map["Random"], linewidth = 0.8, linetype = "dashed") +
+    geom_text(aes(x = 1.4, y = 1, label = "Random"), 
+              hjust = 0, size = 3) +
+    
+    # Other strategies: lines + white backing + shapes
+    # Payoff
+    geom_segment(aes(x = 0.7, xend = 1.3, y = 2, yend = 2),
+                 color = col_map["Payoff"], linewidth = 0.8, linetype = "solid") +
+    geom_point(aes(x = 1, y = 2), shape = 16, color = "white", size = 4) +
+    geom_point(aes(x = 1, y = 2), shape = shape_map["Payoff"], 
+               color = col_map["Payoff"], size = 3) +
+    geom_text(aes(x = 1.4, y = 2, label = "Payoff"), 
+              hjust = 0, size = 3) +
+    
+    # Proximal
+    geom_segment(aes(x = 0.7, xend = 1.3, y = 3, yend = 3),
+                 color = col_map["Proximal"], linewidth = 0.8, linetype = "solid") +
+    geom_point(aes(x = 1, y = 3), shape = 16, color = "white", size = 4) +
+    geom_point(aes(x = 1, y = 3), shape = shape_map["Proximal"], 
+               color = col_map["Proximal"], size = 3) +
+    geom_text(aes(x = 1.4, y = 3, label = "Proximal"), 
+              hjust = 0, size = 3) +
+    
+    # Prestige
+    geom_segment(aes(x = 0.7, xend = 1.3, y = 4, yend = 4),
+                 color = col_map["Prestige"], linewidth = 0.8, linetype = "solid") +
+    geom_point(aes(x = 1, y = 4), shape = 16, color = "white", size = 4) +
+    geom_point(aes(x = 1, y = 4), shape = shape_map["Prestige"], 
+               color = col_map["Prestige"], size = 3) +
+    geom_text(aes(x = 1.4, y = 4, label = "Prestige"), 
+              hjust = 0, size = 3) +
+    
+    # Conformity
+    geom_segment(aes(x = 0.7, xend = 1.3, y = 5, yend = 5),
+                 color = col_map["Conformity"], linewidth = 0.8, linetype = "solid") +
+    geom_point(aes(x = 1, y = 5), shape = 16, color = "white", size = 4) +
+    geom_point(aes(x = 1, y = 5), shape = shape_map["Conformity"], 
+               color = col_map["Conformity"], size = 3) +
+    geom_text(aes(x = 1.4, y = 5, label = "Conformity"), 
+              hjust = 0, size = 3) +
+    
+    scale_x_continuous(limits = c(0.5, 2.5)) +
+    scale_y_continuous(limits = c(0.5, 5.5)) +
+    theme_void() +
+    theme(legend.position = "none")
   
-  # Create the legend with lines and points
-  legend("center", legend = strategies, 
-         col = colors, 
-         pch = shapes,
-         lty = 1,  # Add a line
-         bty = "n",  # No box around the legend
-         cex = 1.2,  # Size of the text
-         pt.cex = 1.5,  # Size of the points
-         lwd = 2)  # Line width
+  return(p)
 }
-
 
 plotBarsbyStrategy <- function(
     data, 
     DV,
     DV_label,
-    lambda_ratio = NULL
+    lambda_ratio = NULL,
+    DV_scale = NULL
 ) {
-  
+
   if (!is.null(lambda_ratio)) {
     data <- data %>% filter(steps == floor(lambda_ratio * num_nodes))
+  }
+  
+  if (!is.null(DV_scale)) {
+    data[[DV]] <- data[[DV]] / (DV_scale * data$num_nodes)
   }
   
   col_map <- c(
@@ -2196,7 +3065,6 @@ plotBarsbyStrategy <- function(
     "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
   )
   
-  # Calculate means and standard errors by strategy
   summary_data <- data %>%
     group_by(strategy) %>%
     summarize(
@@ -2205,106 +3073,92 @@ plotBarsbyStrategy <- function(
       .groups = 'drop'
     )
   
-  # Check if we have data
   if (nrow(summary_data) == 0) {
     stop("No data available after filtering.")
   }
   
-  # Ensure strategies are in the specific order and exist in the data
+  random_value <- summary_data %>%
+    filter(strategy == "Random") %>%
+    pull(mean_value)
+  
+  if(length(random_value) == 0 || is.na(random_value)) {
+    stop("Random strategy not found in the data.")
+  }
+  
+  summary_data <- summary_data %>%
+    mutate(
+      mean_value = mean_value / random_value,
+      se = se / random_value
+    )
+  
   strategies <- names(col_map)[names(col_map) %in% summary_data$strategy]
   
   if (length(strategies) == 0) {
     stop("None of the specified strategies found in the data.")
   }
   
+  strategies <- strategies[strategies != "Random"]
+  
   summary_data <- summary_data[match(strategies, summary_data$strategy), ]
   summary_data <- summary_data[!is.na(summary_data$strategy), ]
   
-  # Extract data for plotting
-  heights <- summary_data$mean_value
-  errors <- summary_data$se
-  colors <- col_map[strategies]
-  
-  # Ensure we have finite values for plotting
-  if (all(is.na(heights))) {
+  if (all(is.na(summary_data$mean_value))) {
     stop("No valid data to plot. All values are NA.")
   }
   
-  # Replace any NAs with 0 for plotting
-  heights[is.na(heights)] <- 0
-  errors[is.na(errors)] <- 0
+  summary_data$mean_value[is.na(summary_data$mean_value)] <- 0
+  summary_data$se[is.na(summary_data$se)] <- 0
   
-  # Set up the plot area with pretty y-axis
-  y_min <- 0
-  y_max <- max(heights + errors, na.rm = TRUE) * 1.1  # Add 10% for spacing
+  summary_data$strategy <- factor(summary_data$strategy, levels = strategies)
   
-  if (!is.finite(y_max) || y_max <= 0) {
-    y_max <- 1  # Default if we can't determine a proper maximum
-  }
-  
-  y_ticks <- pretty(c(y_min, y_max), n = 6)
-  
-  # Define x-axis range with spacing from y-axis
-  x_min <- 0.5  # Start bars from 0.5 instead of 0
-  x_max <- length(strategies) + 0.5
-  
-  # Start the plot
-  par(mar = c(2, 4, 3, 2))  # Adjust margins (bottom, left, top, right)
-  plot(1:length(strategies), heights, 
-       type = "n",  # No plotting yet
-       xlim = c(x_min, x_max),
-       ylim = c(min(y_ticks), max(y_ticks)),
-       axes = FALSE,
-       xlab = "",
-       ylab = DV_label,
-       main = "",
-       frame.plot = FALSE)  # No frame around the plot
-  
-  # Add y-axis with pretty ticks
-  axis(2, at = y_ticks, las = 1)
-  
-  # Draw the bars
-  barwidth <- 0.7
-  for (i in 1:length(strategies)) {
-    rect(i - barwidth/2, 0, i + barwidth/2, heights[i], 
-         col = colors[i], border = NA)  # border = NA removes outlines
-  }
-  
-  # Add error bars
-  for (i in 1:length(strategies)) {
-    if (errors[i] > 0) {
-      arrows(i, heights[i] - errors[i], i, heights[i] + errors[i], 
-             length = 0.05, angle = 90, code = 3)
-    }
-  }
-  
-  # Add a legend in top right
-  legend("topright", 
-         legend = strategies, 
-         fill = colors,
-         border = NA,
-         bty = "n",  # No box around legend
-         inset = c(0.02, 0.02))  # Small inset from the margins
+  p <- ggplot(summary_data, aes(x = strategy, y = mean_value, color = strategy)) +
+    geom_segment(aes(xend = strategy, y = 1, yend = mean_value), linewidth = 1) +
+    geom_point(size = 4, shape = 21, fill = "white") +
+    geom_point(size = 4, shape = 21, aes(fill = strategy)) +
+    geom_hline(yintercept = 1, linetype = "dashed") +
+    scale_color_manual(values = col_map[strategies]) +
+    scale_fill_manual(values = col_map[strategies]) +
+    labs(y = DV_label, x = NULL) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_blank(),
+      axis.line.y = element_line(color = "black"),
+      axis.ticks.y = element_line(color = "black")
+    ) + 
+    coord_cartesian(ylim = c(0.5, 1.55))
+  print(p)
+  return(p)
 }
 
 
-plotBarsbyStrategy <- function(
+plotBarsbyStrategy2 <- function(
     data1, 
     data2 = NULL,
     label1 = "Dataset 1",
     label2 = "Dataset 2",
     DV,
     DV_label,
-    lambda_ratio = NULL
+    lambda_ratio = NULL,
+    DV_scale = NULL
 ) {
-  
-  # Process first dataset
+
   if (!is.null(lambda_ratio)) {
     data1 <- data1 %>% filter(steps == floor(lambda_ratio * num_nodes))
     if (!is.null(data2)) {
       data2 <- data2 %>% filter(steps == floor(lambda_ratio * num_nodes))
     }
   }
+  
+  if (!is.null(DV_scale)) {
+    data1[[DV]] <- data1[[DV]] / (DV_scale * data1$num_nodes)
+    if (!is.null(data2)) {
+      data2[[DV]] <- data2[[DV]] / (DV_scale * data2$num_nodes)
+    }
+  }
+  
   
   col_map <- c(
     "Random" = "grey30",
@@ -2485,28 +3339,6 @@ plotBarsbyStrategy <- function(
       }
     }
   }
-# 
-#   # First, add the strategies legend
-#   legend("top",
-#          legend = strategies,
-#          fill = colors1,
-#          border = NA,
-#          bty = "n",
-#          horiz = TRUE,
-#          inset = c(0, 0.02))  # Add inset to lower it slightly
-# 
-#   # Then, create a better representation for dataset legend
-#   if (!is.null(summary_data2)) {
-#     # Create custom graphics for the legend
-#     legend("topright",
-#            legend = c(label1, label2),
-#            pch = 22,  # Square symbol
-#            pt.bg = c("grey50", "grey50"),  # Same fill color for both
-#            pt.cex = 2,  # Make squares larger
-#            col = c(NA, "black"),  # No border for first, black for second
-#            lty = c(0, 2),  # No line for first, dashed for second
-#            lwd = c(0, 1.5),  # Line width
-#            bty = "n",
-#            inset = c(0.02, 0.12))  # Place below the strategy legend
-#   }
 }
+
+

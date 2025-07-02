@@ -18,14 +18,18 @@ source("plotting.R")
 
 ##### Data ######
 data <- read_all(8)
-saveRDS(data, "data.rds")
+datal <- read_all(0)
+
+
+data4 <- read_all(4)%>% get_default()
+
 data <- readRDS("data.rds")
 
 ####### Figure 1 #######
-data_1 <- get_default(data)
+data_1 <- get_default(data) 
 
 plotDVbyIVBinned(
-  data = data_1,
+  data = subset(data, strategy != "Perfect"),
   DV = "step_payoff",
   DV_label = "Performance",
   IV = "mean_prereq",
@@ -69,7 +73,7 @@ data_2a <- get_default(data8)
 p2a <- plotDVbyIVBinnedRelative(
   data = data_2a,
   DV = "step_payoff",
-  DV_label = "Rel. Performance",
+  DV_label = "Relative Performance",
   IV = "mean_prereq",
   IV_label = NULL,
   lambda_ratio = (5/8),
@@ -131,22 +135,93 @@ p2d <- plotDVbyIVBinnedRelative(
   num_bins = 7,
   show_ci = F,
   y_range = c(0,8),
-  show_plot = T,
+  show_plot = T
 )
 
 ###### Figure 2 e-h ######
+# Varying edge weights
+data_weighted <- readRDS("data8_weighted.rds")
+
+data0 <- subset(data_weighted, mean_prereq == 0)
+
+p2e <- plotDVbyIVBinnedRelative(
+  data = data0,
+  DV = "step_payoff",
+  DV_label = "Relative Performance",
+  IV = "edge_weight",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+data1 <- subset(data_weighted, mean_prereq == 1)
+
+p2f <- plotDVbyIVBinnedRelative(
+  data = data1,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  show_plot = T,
+  y_range = c(0, 2.25)
+)
+
+data2 <- subset(data_weighted, mean_prereq == 2)
+
+p2g <- plotDVbyIVBinnedRelative(
+  data = data2,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+data3 <- subset(data_weighted, mean_prereq == 3)
+
+p2h <- plotDVbyIVBinnedRelative(
+  data = data3,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+###### Figure 2 i-l ######
 # Varying slopes
-data_2eh <- data %>% 
+data_2il <- data %>% 
   filter(alpha == 0,
          payoffdist == 0,
-         distribution == "Learnability"
+         distribution == "Learnability",
+         edge_weight == 1,
+         lambda == 0
   )
 
-p2e <- plotDVbyIVSlopesRelative(
-  data = data_2eh,
+p2i <- plotDVbyIVSlopesRelative(
+  data = data_2il,
   strategy = "Payoff",
   DV = "step_payoff",
-  DV_label = "Rel. Performance",
+  DV_label = "Relative Performance",
   IV = "mean_prereq",
   IV_label = NULL,
   lambda_value = 5,
@@ -159,8 +234,8 @@ p2e <- plotDVbyIVSlopesRelative(
   show_ci = F
 )
 
-p2f <- plotDVbyIVSlopesRelative(
-  data = data_2eh,
+p2j <- plotDVbyIVSlopesRelative(
+  data = data_2il,
   strategy = "Prestige",
   DV = "step_payoff",
   DV_label = NULL,
@@ -176,8 +251,8 @@ p2f <- plotDVbyIVSlopesRelative(
   show_ci = F
 )
 
-p2g <- plotDVbyIVSlopesRelative(
-  data = data_2eh,
+p2k <- plotDVbyIVSlopesRelative(
+  data = data_2il,
   strategy = "Conformity",
   DV = "step_payoff",
   DV_label = NULL,
@@ -193,8 +268,8 @@ p2g <- plotDVbyIVSlopesRelative(
   show_ci = F
 )
 
-p2h <- plotDVbyIVSlopesRelative(
-  data = data_2eh,
+p2l <- plotDVbyIVSlopesRelative(
+  data = data_2il,
   strategy = "Proximal",
   DV = "step_payoff",
   DV_label = NULL,
@@ -210,8 +285,440 @@ p2h <- plotDVbyIVSlopesRelative(
   show_ci = F
 )
 
-p2legend <- plotDVbyIVSlopes(
-  data = data_2eh,
+
+###### Figure 2 m #######
+# Advanced traits are more likely to be expressed
+
+data_2m <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Depth",
+         edge_weight == 1,
+         lambda == 0
+  )
+
+p2m <- plotDVbyIVBinnedRelative(
+  data = data_2m,
+  DV = "step_payoff",
+  DV_label = "Relative Performance",
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+###### Figure 2 n #######
+# High payoff traits are more likely to be expressed
+
+data_2n <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Payoffs",
+         edge_weight == 1,
+         lambda == 0
+  )
+
+p2n <- plotDVbyIVBinnedRelative(
+  data = data_2n,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+###### Figure 2 o #######
+# Advanced traits have higher payoffs
+data_2o <- get_default_slopes(data) %>% 
+  filter(alpha == 1,
+         payoffdist == 0,
+         distribution == "Learnability",
+         edge_weight == 1,
+         lambda == 0
+  )
+
+p2o <- plotDVbyIVBinnedRelative(
+  data = data_2o,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+###### Figure 2 p #######
+# Varying the skewness of payoffs
+
+data_2p <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 1,
+         distribution == "Learnability",
+         edge_weight == 1,
+         lambda == 0
+  )
+
+p2p <- plotDVbyIVBinnedRelative(
+  data = data_2p,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+
+##### Figure 2 q-v ######
+
+data_2q <- get_default_slopes(data) %>%
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Learnability",
+         edge_weight == 1,
+         lambda == 0.5,
+         strategy != "Perfect"
+  )
+
+p2q <- plotDVbyIVBinned(
+  data = data_2q,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  title = "Lambda = 0.5"
+)
+
+
+data_2r <- get_default_slopes(data) %>%
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Learnability",
+         edge_weight == 1,
+         lambda == 1.0,
+         strategy != "Perfect"
+  )
+
+p2r <- plotDVbyIVBinned(
+  data = data_2r,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  title = "Lambda = 1.0"
+)
+
+data_2s <- get_default_slopes(data) %>%
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Learnability",
+         edge_weight == 1,
+         lambda == 1.5,
+         strategy != "Perfect"
+  )
+
+p2s <- plotDVbyIVBinned(
+  data = data_2s,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  title = "Lambda = 1.5"
+)
+
+data_2t <- get_default_slopes(data) %>%
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Learnability",
+         edge_weight == 1,
+         lambda == 2.0,
+         strategy != "Perfect"
+  )
+
+p2t <- plotDVbyIVBinned(
+  data = data_2t,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  title = "Lambda = 2.0"
+)
+
+data_2u <- get_default_slopes(data) %>%
+    filter(alpha == 0,
+           payoffdist == 0,
+           distribution == "Learnability",
+           edge_weight == 1,
+           lambda == 10.0,
+           strategy != "Perfect"
+    )
+
+p2u <- plotDVbyIVBinned(
+    data = data_2u,
+    DV = "step_payoff",
+    DV_label = "Performance",
+    IV = "mean_prereq",
+    IV_label = "Constraints",
+    lambda_ratio = (5/8),
+    DV_scale = (5/8),
+    DV_trans = identity,
+    bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+    xposs = (2:8/2) - 1,
+    title = "Lambda = 10.0"
+)
+
+data_2v <- get_default_slopes(data) %>%
+    filter(alpha == 0,
+           payoffdist == 0,
+           distribution == "Learnability",
+           edge_weight == 1,
+           lambda == 100.0,
+           strategy != "Perfect"
+    )
+
+p2v <- plotDVbyIVBinned(
+    data = data_2v,
+    DV = "step_payoff",
+    DV_label = "Performance",
+    IV = "mean_prereq",
+    IV_label = "Constraints",
+    lambda_ratio = (5/8),
+    DV_scale = (5/8),
+    DV_trans = identity,
+    bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+    xposs = (2:8/2) - 1,
+    title = "Lambda = 100.0"
+)
+
+lambdafunc <- function(lambda) {
+    (1-seq(0,1,by = 0.05))^lambda
+    
+}
+
+plot_list <- vector("list", 6)
+lambdas <- c(seq(0.5, 2, by = 0.5), 10, 100)
+
+for (i in 1:6) {
+    x <- seq(0, 1, by = 0.05)
+    y <- lambdafunc(lambdas[i])
+    
+    df <- data.frame(x = x, y = y)
+    
+    plot_list[[i]] <- ggplot(df, aes(x = x, y = y)) +
+        geom_line() +
+        xlab("normalized missing prereqs") +
+        ylab("perceived learnability") +
+        theme_classic()
+}
+
+plot_grid(
+    plot_list[[1]], plot_list[[2]], plot_list[[3]], plot_list[[4]],plot_list[[5]], plot_list[[6]],
+  p2q, p2r, p2s, p2t,p2u, p2v,
+  ncol = 6,nrow = 2
+) 
+
+
+######## Panel ########
+
+plot_grid(
+  p2e, p2f, p2g, p2h, 
+  ncol = 4
+)
+
+
+combined_plot <- plot_grid(
+  p2a, p2b, p2c, p2d,
+  p2i, p2j, p2k, p2l,
+  p2m, p2n, p2o, p2p,
+  p2e, p2f, p2g, p2h, 
+  ncol = 4, nrow = 4,
+  # Ensure equal scaling across plots
+  align = 'v',
+  rel_widths = c(1.15, 1, 1, 1),
+  labels = LETTERS[1:16]
+)
+
+combined_plot+ theme(plot.margin = margin(2, 3, 2, 2, "mm"))
+
+combined_plot
+
+##### Figure 2 by Rows ######
+
+data8 <- read_sim(800)
+
+data_2a <- get_default(data8)
+
+p2a <- plotDVbyIVBinnedRelative(
+  data = data_2a,
+  DV = "step_payoff",
+  DV_label = "Relative Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  show_ci = F,
+  show_plot = T,
+  y_range = c(0, 8)
+)
+
+data20 <- read_sim(20)
+
+data_2b <- get_default_slopes(data20)
+
+p2b <- plotDVbyIVBinnedRelative(
+  data = data_2b,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  num_bins = 7,
+  show_ci = F,
+  y_range = c(0,8),
+  show_plot = T
+)
+
+data30 <- read_sim(30)
+
+data_2c <- get_default_slopes(data30)
+
+p2c <- plotDVbyIVBinnedRelative(
+  data = data_2c,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  num_bins = 7,
+  show_ci = F,
+  y_range = c(0,8),
+)
+
+data50 <- read_sim(50)
+
+data_2d <- get_default_slopes(data50)
+
+p2d <- plotDVbyIVBinnedRelative(
+  data = data_2d,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  num_bins = 7,
+  show_ci = F,
+  y_range = c(0,8),
+  show_plot = T
+)
+
+plot_grid(
+  p2a, p2b, p2c, p2d,
+  ncol = 4,
+  align = 'v'
+) + theme(plot.margin = margin(2, 3, 2, 2, "mm"))
+
+
+data_2il <- data %>% 
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Learnability"
+  )
+
+p2i <- plotDVbyIVSlopesRelative(
+  data = data_2il,
+  strategy = "Payoff",
+  DV = "step_payoff",
+  DV_label = "Relative Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_value = 5,
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F
+)
+
+p2j <- plotDVbyIVSlopesRelative(
+  data = data_2il,
+  strategy = "Prestige",
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_value = 5,
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F
+)
+
+p2k <- plotDVbyIVSlopesRelative(
+  data = data_2il,
+  strategy = "Conformity",
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_value = 5,
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F
+)
+
+p2l <- plotDVbyIVSlopesRelative(
+  data = data_2il,
   strategy = "Proximal",
   DV = "step_payoff",
   DV_label = NULL,
@@ -223,23 +730,135 @@ p2legend <- plotDVbyIVSlopes(
   bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
   xposs = (2:8/2) - 1,
   y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F
+)
+
+p2legend <- plotDVbyIVSlopesRelative(
+  data = data_2il,
+  strategy = "Proximal",
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_value = 5,
+  DV_scale = 5,
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_bins = 0.25,
+  auto_y_scale = F,
+  show_ci = F,
   legend_position = "right"
 )
 
+plot_grid(
+  p2i, p2j, p2k, p2l,
+  ncol = 4,
+  align = 'v'
+) + theme(plot.margin = margin(2, 3, 2, 2, "mm"))
 
-###### Figure 2 i #######
+
+data_weighted <- readRDS("data8_weighted.rds")
+
+data0 <- subset(data_weighted, mean_prereq == 0)
+
+p2e <- plotDVbyIVBinnedRelative(
+  data = data0,
+  DV = "step_payoff",
+  DV_label = "Relative Performance",
+  IV = "edge_weight",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+data1 <- subset(data_weighted, mean_prereq == 1)
+
+p2f <- plotDVbyIVBinnedRelative(
+  data = data1,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  show_plot = T,
+  y_range = c(0, 2.25)
+)
+
+data2 <- subset(data_weighted, mean_prereq == 2)
+
+p2g <- plotDVbyIVBinnedRelative(
+  data = data2,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+data3 <- subset(data_weighted, mean_prereq == 3)
+
+p2h <- plotDVbyIVBinnedRelative(
+  data = data3,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+plot_grid(
+  p2e, p2f, p2g, p2h, 
+  ncol = 4
+) + theme(plot.margin = margin(2, 3, 2, 2, "mm"))
+
+data_default <- get_default(data)
+
+p2default <- plotDVbyIVBinnedRelative(
+  data = data_default,
+  DV = "step_payoff",
+  DV_label = "Relative Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  show_ci = F,
+  y_range = c(0, 3)
+)
+  
+
 # Advanced traits are more likely to be expressed
-
-data_2i <- get_default_slopes(data) %>% 
+data_2m <- get_default_slopes(data) %>% 
   filter(alpha == 0,
          payoffdist == 0,
          distribution == "Depth"
   )
 
-p2i <- plotDVbyIVBinnedRelative(
-  data = data_2i,
+p2m <- plotDVbyIVBinnedRelative(
+  data = data_2m,
   DV = "step_payoff",
-  DV_label = "Rel. Performance",
+  DV_label = NULL,
   IV = "mean_prereq",
   IV_label = "Constraints",
   lambda_ratio = (5/8),
@@ -250,17 +869,16 @@ p2i <- plotDVbyIVBinnedRelative(
   y_range = c(0, 3)
 )
 
-###### Figure 2 j #######
 # High payoff traits are more likely to be expressed
 
-data_2j <- get_default_slopes(data) %>% 
+data_2n <- get_default_slopes(data) %>% 
   filter(alpha == 0,
          payoffdist == 0,
          distribution == "Payoffs"
   )
 
-p2j <- plotDVbyIVBinnedRelative(
-  data = data_2j,
+p2n <- plotDVbyIVBinnedRelative(
+  data = data_2n,
   DV = "step_payoff",
   DV_label = NULL,
   IV = "mean_prereq",
@@ -273,16 +891,22 @@ p2j <- plotDVbyIVBinnedRelative(
   y_range = c(0, 3)
 )
 
-###### Figure 2 k #######
+plot_grid(
+  p2default, p2m, p2n,
+  nrow = 1,
+  align = 'v'
+) + theme(plot.margin = margin(2, 3, 2, 2, "mm"))
+
+
 # Advanced traits have higher payoffs
-data_2k <- get_default_slopes(data) %>% 
+data_2o <- get_default_slopes(data) %>% 
   filter(alpha == 1,
          payoffdist == 0,
          distribution == "Learnability"
   )
 
-p2k <- plotDVbyIVBinnedRelative(
-  data = data_2k,
+p2o <- plotDVbyIVBinnedRelative(
+  data = data_2o,
   DV = "step_payoff",
   DV_label = NULL,
   IV = "mean_prereq",
@@ -295,17 +919,115 @@ p2k <- plotDVbyIVBinnedRelative(
   y_range = c(0, 3)
 )
 
-###### Figure 2 l #######
 # Varying the skewness of payoffs
 
-data_2l <- get_default_slopes(data) %>% 
+data_2p <- get_default_slopes(data) %>% 
   filter(alpha == 0,
          payoffdist == 1,
          distribution == "Learnability"
   )
 
-p2l <- plotDVbyIVBinnedRelative(
-  data = data_2l,
+p2p <- plotDVbyIVBinnedRelative(
+  data = data_2p,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+plot_grid(
+  p2default, p2o, p2p,
+  nrow = 1,
+  align = 'v'
+) + theme(plot.margin = margin(2, 3, 2, 2, "mm"))
+
+##### Figure 2 Version B ######
+data8 <- read_sim(800)
+
+data_2a <- get_default(data8)
+
+
+p2a <- plotDVbyIVBinnedRelative(
+  data = data_2a,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  num_bins = 7,
+  show_ci = F,
+  y_range = c(0,6)
+)
+
+data30 <- read_sim(30)
+
+data_2b <- get_default_slopes(data30)
+
+p2b <- plotDVbyIVBinnedRelative(
+  data = data_2b,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  num_bins = 7,
+  show_ci = F,
+  y_range = c(0,6)
+)
+
+
+data_weighted <- readRDS("data8_weighted.rds")
+
+
+data1 <- subset(data_weighted, mean_prereq == 1)
+
+p2c <- plotDVbyIVBinnedRelative(
+  data = data1,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  show_plot = T,
+  y_range = c(0, 2.25)
+)
+
+data3 <- subset(data_weighted, mean_prereq == 3)
+
+p2d <- plotDVbyIVBinnedRelative(
+  data = data3,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+data_2e <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Depth"
+  )
+
+p2e <- plotDVbyIVBinnedRelative(
+  data = data_2e,
   DV = "step_payoff",
   DV_label = NULL,
   IV = "mean_prereq",
@@ -319,24 +1041,185 @@ p2l <- plotDVbyIVBinnedRelative(
 )
 
 
+data_2f <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 0,
+         distribution == "Payoffs"
+  )
 
-######## Panel ########
-
-
-
-combined_plot <- plot_grid(
-  p2a, p2b, p2c, p2d,
-  p2e, p2f, p2g, p2h, 
-  p2i, p2j, p2k, p2l,
-  ncol = 4, nrow = 3,
-  # Ensure equal scaling across plots
-  align = 'h',
-  rel_widths = c(1.15, 1, 1, 1)
+p2f <- plotDVbyIVBinnedRelative(
+  data = data_2f,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
 )
 
-combined_plot+ theme(plot.margin = margin(0, 1, 0, 0, "mm"))
+data_2g <- get_default_slopes(data) %>% 
+  filter(alpha == 1,
+         payoffdist == 0,
+         distribution == "Learnability"
+  )
 
-##### Fig S1 ##### 
+p2g <- plotDVbyIVBinnedRelative(
+  data = data_2g,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+data_2h <- get_default_slopes(data) %>% 
+  filter(alpha == 0,
+         payoffdist == 1,
+         distribution == "Learnability"
+  )
+
+p2h <- plotDVbyIVBinnedRelative(
+  data = data_2h,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  DV_trans = identity,
+  bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+  xposs = (2:8/2) - 1,
+  y_range = c(0, 3)
+)
+
+plot_grid(
+  p2a, p2b, p2c, p2d,
+  p2e, p2f, p2g, p2h,
+  ncol = 4,
+  align = 'v'
+) + theme(plot.margin = margin(2, 3, 2, 2, "mm"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+data_weighted2 <- read_all(84)
+
+data0 <- subset(data_weighted2, mean_prereq == 0)
+
+p2e <- plotDVbyIVBinnedRelative(
+  data = data0,
+  DV = "step_payoff",
+  DV_label = "Rel. Performance",
+  IV = "edge_weight",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+data1 <- subset(data_weighted2, mean_prereq == 1)
+
+p2f <- plotDVbyIVBinnedRelative(
+  data = data1,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  show_plot = T,
+  y_range = c(0, 2.25)
+)
+
+data2 <- subset(data_weighted2, mean_prereq == 2)
+
+p2g <- plotDVbyIVBinnedRelative(
+  data = data2,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+data3 <- subset(data_weighted2, mean_prereq == 3)
+
+p2h <- plotDVbyIVBinnedRelative(
+  data = data3,
+  DV = "step_payoff",
+  DV_label = NULL,
+  IV = "edge_weight",
+  IV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8),
+  bins = c(0.039, 0.041, 0.28, 0.44, 0.60, 0.76, 0.92, 0.999, 1.001),
+  xposs = c(0.04, 0.20, 0.36, 0.52, 0.68, 0.84, 1.00),
+  show_ci = F,
+  y_range = c(0, 2.25)
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##### Table S1 ##### 
 # Variance decomposition of step_payoff
 
 
@@ -398,102 +1281,232 @@ cat("Incremental R² values:\n")
 cat("mean_prereq: ", r2_increment_prereq, "\n")
 cat("root_outdeg: ", r2_increment_rootdeg, "\n")
 
-# Create data for the stacked bar plot - using actual R² values * 100 for the y-axis
-# For the first bar: just mean_prereq
-bar1 <- data.frame(
-  Model = "Mean Prerequisites",
-  Component = "Mean Prerequisites",
-  Value = r2_model1 * 100  # Convert to percentage (88.4%)
-)
 
-# For the second bar: mean_prereq + root_outdeg
-bar2 <- data.frame(
-  Model = rep("Main Effects", 2),
-  Component = c("Mean Prerequisites", "Root Outdegree"),
-  Value = c(r2_model1 * 100, r2_increment_rootdeg * 100)  # Convert to percentages (88.4% + 6.0%)
-)
+####### Figure 4 ######
 
-# Combine all bars
-plot_data <- rbind(bar1, bar2)
 
-# Set factor levels for proper ordering
-plot_data$Model <- factor(plot_data$Model, 
-                          levels = c("Mean Prerequisites", "Main Effects"))
-plot_data$Component <- factor(plot_data$Component, 
-                              levels = c("Mean Prerequisites", "Root Outdegree"))
+g_baobab <- readRDS("graphs/g_baobab.rds")
 
-# Create the stacked bar plot
-ggplot(plot_data, aes(x = Model, y = Value, fill = Component)) +
-  geom_bar(stat = "identity", position = "stack", width = 0.6) +
-  scale_fill_manual(values = c("Mean Prerequisites" = "#4575B4", 
-                               "Root Outdegree" = "#D73027")) +
-  theme_minimal() +
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    axis.text.y = element_text(size = 11),
-    axis.text.x = element_blank(),  # Remove x-axis labels
-    axis.title = element_text(size = 12),
-    legend.title = element_text(size = 11),
-    legend.text = element_text(size = 10),
-    legend.position = "right"
-  ) +
-  labs(
-    x = NULL,
-    y = "R² Value (%)",
-    fill = "Component",
-    title = "Incremental Variance Explained by Model Components"
-  ) +
-  # Add labels showing the R² values for each model - positioned above bars
-  geom_text(data = data.frame(
-    Model = factor(c("Mean Prerequisites", "Main Effects"), 
-                   levels = c("Mean Prerequisites", "Main Effects")),
-    y = c(91.5, 97.5),
-    label = c("R² = 0.884", "R² = 0.944")
-  ),
-  aes(x = Model, y = y, label = label),
-  size = 3.5,
-  inherit.aes = FALSE) +
-  ylim(0, 100) +
-  scale_y_continuous(breaks = seq(0, 100, by = 20))
+p4a <- plot_graph(g_baobab)
 
-####### Hosseinioun et al. ######
-data_weighted <- read_sim(121)
+g_tuber <- readRDS("graphs/g_tuber.rds")
 
-data_unweighted <- read_sim(122)
+p4b <- plot_graph(g_tuber)
 
-plotBarsbyStrategy(
-  data1 = data_weighted,
-  data2 = data_unweighted,
-  label1 = "Weighted",
-  label2 = "Unweighted",
+g_cook <- readRDS("graphs/g_cook.rds")
+
+p4c <- plot_graph(g_cook)
+
+g_mathtech <- readRDS("graphs/g_mathtech.rds")
+
+p4d <- plot_graph(g_mathtech)
+
+data_baobab <- read_sim(86)
+
+p4e <- plotBarsbyStrategy(
+  data = data_baobab,
   DV = "step_payoff",
-  DV_label = "Performance",
-  lambda_ratio = 5/8
+  DV_label = "Relative Performance",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8)
 )
 
+data_tuber <- read_sim(10)
 
-
-plotBarsbyStrategy(
-  data = data_weighted,
+p4f <- plotBarsbyStrategy(
+  data = data_tuber,
   DV = "step_payoff",
-  DV_label = "Performance",
-  lambda_ratio = 5/8
+  DV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8)
 )
 
-plotDVbyIVBinned(
-  data = data_real,
+data_cook <- read_sim(26)
+
+p4g <- plotBarsbyStrategy(
+  data = data_cook,
+  DV = "step_payoff",
+  DV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8)
+)
+
+data_mathtech <- read_sim(31)
+
+p4h <- plotBarsbyStrategy(
+  data = data_mathtech,
+  DV = "step_payoff",
+  DV_label = NULL,
+  lambda_ratio = (5/8),
+  DV_scale = (5/8)
+)
+plot_grid(
+  p4a, p4b, p4c, p4d,
+  ncol = 4
+)
+plot_grid(
+  p4e, p4f, p4g, p4h,
+  ncol = 4,
+  labels = LETTERS[5:8]
+)
+
+plot_grid(
+  p4a, p4b, p4c, p4d,
+  p4e, p4f, p4g, p4h,
+  ncol = 4,
+  labels = LETTERS[1:8]
+)
+
+ps1 <- plotDVbyTime(
+  data = data_cook,
   DV = "step_payoff",
   DV_label = "Performance",
   IV = "steps",
   IV_label = "Time",
-  num_bins = 7,
-  log_scale_y = F,
-  legend_position = "none"
+  title = "Restaurant Cooks",
+  strategy_colors = c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+)
+
+ps2 <- plotDVbyTime(
+  data = data_mathtech,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "steps",
+  IV_label = "Time",
+  title = "Mathematical Technicians",
+  strategy_colors = c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+)
+
+ps3 <- plotDVbyTime(
+  data = data_baobab,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "steps",
+  IV_label = "Time",
+  title = "Baobab Climbing",
+  strategy_colors = c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+)
+
+ps4 <- plotDVbyTime(
+  data = data_tuber,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "steps",
+  IV_label = "Time",
+  title = "Tuber Digging",
+  strategy_colors = c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+)
+
+plot_grid(
+  ps1, ps2, ps3, ps4,
+  ncol = 4
+)
+##### Figure S1 #####
+# Performance over time per strategy
+
+
+
+ps1a <- plotDVbyTimeRvals(
+  data = data_1,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  strategy = "Payoff", 
+  rvals = c(0, 1, 2, 3),
+  show_ci = FALSE,
+  conf_level = 0.95
 )
 
 
+##### Figure S2 #####
+# Figure 1 but with individual data points to show distributions
+
+ps1 <- plotDVbyIV(
+  data = data_1,
+  DV = "step_payoff",
+  DV_label = "Performance",
+  IV = "mean_prereq",
+  IV_label = "Constraints",
+  lambda_ratio = (5/8),
+  DV_scale = (5/8)
+)
+
+##### Cultural Variation ####
+
+data_var <- readRDS("data_var8.rds")
+
+data_var2 <- read_all(89)
+
+plotDVbyIV(
+  data = data_var2,
+  DV = "stationary_variation",
+  DV_label = "Cultural Variation",
+  IV = "mean_prereq",
+  IV_label = "Constraints"
+)
+
+##### Time panel 1-10#####
+# Panel showing the data from Figure 1 but at time steps 1 - 10
+
+listS1 <- vector("list", length = 10)
+
+for (step in 1:10) {
+  
+  DV_label <- if(step %% 5 == 1) "Performance" else NULL
+  IV_label <- if(step > 5) "Constraints" else NULL
+  
+  
+  listS1[[step]] <- plotDVbyIVBinned(
+    data = data_1,
+    DV = "step_payoff",
+    DV_label = DV_label,
+    IV = "mean_prereq",
+    IV_label = IV_label,
+    lambda_ratio = (step/8),
+    DV_scale = (step/8),
+    log_scale_y = F,
+    DV_trans = identity,
+    bins = c(0.999, 1.001, 1.25 + 1:4/2, 3.999, 4.001) - 1,
+    xposs = (2:8/2) - 1,
+    show_ci = F,
+    legend_position = "none",
+    show_plot = F,
+    title = paste0("t=", step)
+  )
+}
+
+plot_grid(
+  listS1[[1]], listS1[[2]], listS1[[3]], listS1[[4]],
+  listS1[[5]], listS1[[6]], listS1[[7]], listS1[[8]],
+  listS1[[9]], listS1[[10]],
+  ncol = 5
+)
+
 ##### Heatmap #####
+
 create_strategy_heatmap <- function(data) {
   data <- data %>%
     filter(steps < 11)
@@ -513,39 +1526,39 @@ create_strategy_heatmap <- function(data) {
   
   # Calculate average payoff for each strategy, mean_prereq, and steps
   payoff_data <- data %>%
-    group_by(mean_prereq, steps, strategy) %>%
+    group_by(mean_prereq, edge_weight, strategy) %>%
     summarize(avg_payoff = mean(step_payoff), .groups = "drop")
   
   # Find the maximum payoff for each coordinate
   max_payoffs <- payoff_data %>%
-    group_by(mean_prereq, steps) %>%
+    group_by(mean_prereq, edge_weight) %>%
     summarize(max_payoff = max(avg_payoff), .groups = "drop")
   
   # Join the data and find all strategies that match the maximum payoff
   tied_strategies <- payoff_data %>%
-    inner_join(max_payoffs, by = c("mean_prereq", "steps")) %>%
+    inner_join(max_payoffs, by = c("mean_prereq", "edge_weight")) %>%
     filter(abs(avg_payoff - max_payoff) < 1e-10)
   
   # For each coordinate, select the strategy with highest priority
   best_strategies <- tied_strategies %>%
     mutate(priority = strategy_priority[strategy]) %>%
-    group_by(mean_prereq, steps) %>%
+    group_by(mean_prereq, edge_weight) %>%
     slice_min(order_by = priority, n = 1) %>%
     ungroup() %>%
     dplyr::select(-priority, -max_payoff)
   
   # Create a finer grid for visualization
   prereq_vals <- sort(unique(data$mean_prereq))
-  steps_vals <- 1:10
+  weight_vals <- sort(unique(data$edge_weight))
   
   # Create fine grid with increased resolution for smoother appearance
-  grid_size_x <- 300  # Increased from 150
-  grid_size_y <- 300  # Increased from 150
+  grid_size_x <- 150  
+  grid_size_y <- 150
   grid_x <- seq(min(prereq_vals), max(prereq_vals), length.out = grid_size_x)
-  grid_y <- seq(min(steps_vals), max(steps_vals), length.out = grid_size_y)
+  grid_y <- seq(min(weight_vals), max(weight_vals), length.out = grid_size_y)
   
   # Use expand.grid to create all combinations
-  fine_grid <- expand.grid(mean_prereq = grid_x, steps = grid_y)
+  fine_grid <- expand.grid(mean_prereq = grid_x, edge_weight = grid_y)
   
   # Convert strategies to numeric
   best_strategies$strategy_num <- match(best_strategies$strategy, strategy_levels)
@@ -554,17 +1567,17 @@ create_strategy_heatmap <- function(data) {
   # This is especially important for regions with many ties
   set.seed(123)  # For reproducibility
   jittered_data <- best_strategies %>%
-    group_by(mean_prereq, steps) %>%
+    group_by(mean_prereq, edge_weight) %>%
     mutate(
       mean_prereq_jitter = mean_prereq + runif(n(), -0.01, 0.01) * min(diff(sort(unique(prereq_vals)))),
-      steps_jitter = steps + runif(n(), -0.01, 0.01) * 0.05
+      edge_weight_jitter = edge_weight + runif(n(), -0.01, 0.01) * 0.05
     ) %>%
     ungroup()
   
   # Use akima for interpolation with improved smoothing parameters
   interp_result <- akima::interp(
     x = jittered_data$mean_prereq_jitter,
-    y = jittered_data$steps_jitter,
+    y = jittered_data$edge_weight_jitter,
     z = jittered_data$strategy_num,
     xo = grid_x,
     yo = grid_y,
@@ -592,17 +1605,17 @@ create_strategy_heatmap <- function(data) {
   fine_grid$strategy <- strategy_levels[rounded_indices]
   
   # Create the plot
-  ggplot2::ggplot(fine_grid, ggplot2::aes(x = mean_prereq, y = steps, fill = strategy)) +
+  ggplot2::ggplot(fine_grid, ggplot2::aes(x = mean_prereq, y = edge_weight, fill = strategy)) +
     ggplot2::geom_tile() +
     ggplot2::scale_fill_manual(values = col_map, name = "Best Strategy") +
     ggplot2::scale_x_continuous(
       breaks = prereq_vals,
       labels = function(x) sprintf("%.1f", x)
     ) +
-    ggplot2::scale_y_continuous(breaks = steps_vals) +
+    ggplot2::scale_y_continuous(breaks = weight_vals) +
     ggplot2::labs(
       x = "Average number of prerequisite traits",
-      y = "Time constraints"
+      y = "Strength of edge weights",
     ) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
@@ -612,10 +1625,343 @@ create_strategy_heatmap <- function(data) {
     )
 }
 
-create_strategy_heatmap(subset(get_default(data), strategy != "Random"))
+create_strategy_heatmap_gam <- function(data) {
+  data <- data %>%
+    filter(steps < 11)
+  
+  # Ensure the color map is properly applied
+  col_map <- c(
+    "Random" = "grey30",
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954",
+    "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+    "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+  )
+  
+  # Define strategy levels
+  strategy_levels <- names(col_map)
+  
+  # Calculate average payoff for each strategy, mean_prereq, and edge_weight
+  payoff_data <- data %>%
+    group_by(mean_prereq, edge_weight, strategy) %>%
+    summarize(avg_payoff = mean(step_payoff), .groups = "drop")
+  
+  # Find the maximum payoff for each coordinate
+  max_payoffs <- payoff_data %>%
+    group_by(mean_prereq, edge_weight) %>%
+    summarize(max_payoff = max(avg_payoff), .groups = "drop")
+  
+  # Join the data and find all strategies that match the maximum payoff
+  highest_payoff_strategies <- payoff_data %>%
+    inner_join(max_payoffs, by = c("mean_prereq", "edge_weight")) %>%
+    filter(abs(avg_payoff - max_payoff) < 1e-10)
+  
+  # Instead of selecting based on priority, randomly select one strategy per coordinate
+  # This simulates what would happen without tie-breaking
+  set.seed(123)  # For reproducibility
+  best_strategies <- highest_payoff_strategies %>%
+    group_by(mean_prereq, edge_weight) %>%
+    sample_n(1) %>%  # Randomly select one strategy per coordinate
+    ungroup() %>%
+    dplyr::select(-max_payoff)
+  
+  # Create a finer grid for visualization
+  prereq_vals <- sort(unique(data$mean_prereq))
+  weight_vals <- sort(unique(data$edge_weight))
+  
+  # Create fine grid for GAM prediction
+  grid_size_x <- 600
+  grid_size_y <- 600
+  grid_x <- seq(min(prereq_vals), max(prereq_vals), length.out = grid_size_x)
+  grid_y <- seq(min(weight_vals), max(weight_vals), length.out = grid_size_y)
+  
+  # Use expand.grid to create all combinations
+  fine_grid <- expand.grid(mean_prereq = grid_x, edge_weight = grid_y)
+  
+  # Convert strategies to numeric for modeling
+  best_strategies$strategy_num <- as.numeric(factor(best_strategies$strategy, levels = strategy_levels))
+  
+  # Fit a GAM model to predict strategy based on coordinates
+  # We'll use mgcv package for GAM
+  library(mgcv)
+  
+  # Use a GAM with smooth terms for both dimensions
+  # k controls the smoothness (higher = more flexible)
+  gam_model <- gam(
+    strategy_num ~ s(mean_prereq, edge_weight, k=30),
+    data = best_strategies,
+    family = gaussian()
+  )
+  
+  # Predict strategy numbers for the fine grid
+  fine_grid$strategy_num <- predict(gam_model, newdata = fine_grid, type = "response")
+  
+  # Convert numeric back to strategy names, ensuring valid indices
+  rounded_indices <- round(pmin(pmax(fine_grid$strategy_num, 1), length(strategy_levels)))
+  fine_grid$strategy <- strategy_levels[rounded_indices]
+  
+  # Create the plot
+  ggplot2::ggplot(fine_grid, ggplot2::aes(x = mean_prereq, y = edge_weight, fill = strategy)) +
+    ggplot2::geom_tile() +
+    ggplot2::scale_fill_manual(values = col_map, name = "Best Strategy") +
+    ggplot2::scale_x_continuous(
+      breaks = prereq_vals,
+      labels = function(x) sprintf("%.1f", x)
+    ) +
+    ggplot2::scale_y_continuous(breaks = weight_vals) +
+    ggplot2::labs(
+      x = "Average number of prerequisite traits",
+      y = "Strength of edge weights"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      panel.grid = ggplot2::element_blank(),
+      axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, vjust = 0.5),
+      legend.position = "bottom"
+    )
+}
+
+
+create_strategy_levelplot_gam <- function(data) {
+  library(dplyr)
+  library(ggplot2)
+  library(mgcv)
+  library(scales)
+  
+  data <- data %>%
+    filter(steps < 11)
+  
+  # Only keep relevant strategies
+  data <- data %>%
+    filter(strategy %in% c("Payoff", "Proximal", "Random"))
+  
+  col_map <- c(
+    "Payoff" = "#006328",
+    "Proximal" = "#ff8954"
+  )
+  
+  # Calculate average payoff for each strategy, mean_prereq, and edge_weight
+  payoff_data <- data %>%
+    group_by(mean_prereq, edge_weight, strategy) %>%
+    summarize(avg_payoff = mean(step_payoff), .groups = "drop")
+  
+  # For each coordinate, get the best of Payoff/Proximal and the Random payoff
+  best_strategies <- payoff_data %>%
+    filter(strategy %in% c("Payoff", "Proximal")) %>%
+    group_by(mean_prereq, edge_weight) %>%
+    slice_max(avg_payoff, n = 1, with_ties = FALSE) %>%
+    ungroup()
+  
+  random_payoff <- payoff_data %>%
+    filter(strategy == "Random") %>%
+    select(mean_prereq, edge_weight, random_payoff = avg_payoff)
+  
+  # Join to get the random payoff for each coordinate
+  best_strategies <- best_strategies %>%
+    left_join(random_payoff, by = c("mean_prereq", "edge_weight")) %>%
+    mutate(diff_from_random = avg_payoff - random_payoff)
+  
+  # Fit a GAM to predict both the winning strategy and the difference
+  # Convert strategy to numeric for modeling
+  best_strategies$strategy_num <- as.numeric(factor(best_strategies$strategy, levels = c("Payoff", "Proximal")))
+  
+  # Fine grid for prediction
+  prereq_vals <- sort(unique(data$mean_prereq))
+  weight_vals <- sort(unique(data$edge_weight))
+  grid_size_x <- 600
+  grid_size_y <- 600
+  grid_x <- seq(min(prereq_vals), max(prereq_vals), length.out = grid_size_x)
+  grid_y <- seq(min(weight_vals), max(weight_vals), length.out = grid_size_y)
+  fine_grid <- expand.grid(mean_prereq = grid_x, edge_weight = grid_y)
+  
+  # Fit GAMs
+  gam_strategy <- gam(
+    strategy_num ~ s(mean_prereq, edge_weight, k = 30),
+    data = best_strategies,
+    family = gaussian()
+  )
+  gam_diff <- gam(
+    diff_from_random ~ s(mean_prereq, edge_weight, k = 30),
+    data = best_strategies,
+    family = gaussian()
+  )
+  
+  # Predict on grid
+  fine_grid$strategy_num <- predict(gam_strategy, newdata = fine_grid, type = "response")
+  fine_grid$diff_from_random <- predict(gam_diff, newdata = fine_grid, type = "response")
+  
+  # Convert numeric back to strategy names
+  fine_grid$strategy <- c("Payoff", "Proximal")[pmin(pmax(round(fine_grid$strategy_num), 1), 2)]
+  
+  # Normalize difference for alpha scaling
+  diff_min <- min(fine_grid$diff_from_random, na.rm = TRUE)
+  diff_max <- max(fine_grid$diff_from_random, na.rm = TRUE)
+  fine_grid$alpha <- (fine_grid$diff_from_random - diff_min) / (diff_max - diff_min)
+  fine_grid$alpha <- pmax(pmin(fine_grid$alpha, 1), 0.1) # avoid fully transparent
+  
+  # Map color and alpha
+  fine_grid$fill_col <- mapply(
+    function(strat, a) alpha(col_map[strat], a),
+    fine_grid$strategy, fine_grid$alpha
+  )
+  
+  # Plot
+  ggplot(fine_grid, aes(x = mean_prereq, y = edge_weight)) +
+    geom_tile(aes(fill = fill_col), color = NA) +
+    scale_fill_identity(guide = "legend", 
+                        breaks = col_map, 
+                        labels = names(col_map), 
+                        name = "Best Strategy"
+    ) +
+    scale_x_continuous(
+      breaks = prereq_vals,
+      labels = function(x) sprintf("%.1f", x)
+    ) +
+    scale_y_continuous(breaks = weight_vals) +
+    labs(
+      x = "Average number of prerequisite traits",
+      y = "Strength of edge weights",
+      title = "Level Plot: Winning Strategy and Margin over Random"
+    ) +
+    theme_minimal() +
+    theme(
+      panel.grid = element_blank(),
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+      legend.position = "bottom"
+    ) +
+    geom_contour(aes(z = diff_from_random), color = "black")
+}
+create_static_surface_plot <- function(
+    data,
+    theta = 45,
+    phi = 30,
+    payoff_col = "#006328",
+    proximal_col = "#ff8954"
+) {
+  if (!requireNamespace("dplyr", quietly = TRUE)) stop("Install 'dplyr'")
+  if (!requireNamespace("mgcv", quietly = TRUE)) stop("Install 'mgcv'")
+  if (!requireNamespace("plot3D", quietly = TRUE)) stop("Install 'plot3D'")
+  
+  library(dplyr)
+  library(mgcv)
+  library(plot3D)
+  
+  # Filter and keep only relevant strategies
+  data <- data %>%
+    filter(steps < 11) %>%
+    filter(strategy %in% c("Payoff", "Proximal", "Random"))
+  
+  # Calculate average payoff for each strategy, mean_prereq, and edge_weight
+  payoff_data <- data %>%
+    group_by(mean_prereq, edge_weight, strategy) %>%
+    summarize(avg_payoff = mean(step_payoff), .groups = "drop")
+  
+  # For each coordinate, get the best of Payoff/Proximal and the Random payoff
+  best_strategies <- payoff_data %>%
+    filter(strategy %in% c("Payoff", "Proximal")) %>%
+    group_by(mean_prereq, edge_weight) %>%
+    slice_max(avg_payoff, n = 1, with_ties = FALSE) %>%
+    ungroup()
+  
+  random_payoff <- payoff_data %>%
+    filter(strategy == "Random") %>%
+    select(mean_prereq, edge_weight, random_payoff = avg_payoff)
+  
+  # Join to get the random payoff for each coordinate
+  best_strategies <- best_strategies %>%
+    left_join(random_payoff, by = c("mean_prereq", "edge_weight")) %>%
+    mutate(diff_from_random = avg_payoff - random_payoff)
+  
+  # Fit GAMs to smooth the difference and strategy
+  gam_diff <- mgcv::gam(
+    diff_from_random ~ s(mean_prereq, edge_weight, k = 30),
+    data = best_strategies,
+    family = gaussian()
+  )
+  gam_strat <- mgcv::gam(
+    as.numeric(strategy == "Proximal") ~ s(mean_prereq, edge_weight, k = 30),
+    data = best_strategies,
+    family = binomial()
+  )
+  
+  # Create a fine grid for prediction
+  prereq_vals <- sort(unique(data$mean_prereq))
+  weight_vals <- sort(unique(data$edge_weight))
+  grid_size_x <- 50  # Reduced for better performance
+  grid_size_y <- 50
+  
+  # Create the grid points
+  x_seq <- seq(min(prereq_vals), max(prereq_vals), length.out = grid_size_x)
+  y_seq <- seq(min(weight_vals), max(weight_vals), length.out = grid_size_y)
+  
+  # Create matrices for x and y coordinates (each point in the grid)
+  x_mat <- matrix(rep(x_seq, each = grid_size_y), nrow = grid_size_x, ncol = grid_size_y)
+  y_mat <- matrix(rep(y_seq, times = grid_size_x), nrow = grid_size_x, ncol = grid_size_y)
+  
+  # Create prediction grid
+  fine_grid <- expand.grid(mean_prereq = x_seq, edge_weight = y_seq)
+  
+  # Predict difference and strategy on the grid
+  fine_grid$diff_from_random <- predict(gam_diff, newdata = fine_grid, type = "response")
+  fine_grid$proximal_prob <- predict(gam_strat, newdata = fine_grid, type = "response")
+  fine_grid$strategy <- ifelse(fine_grid$proximal_prob > 0.5, "Proximal", "Payoff")
+  
+  # Reshape for surf3D
+  z_mat <- matrix(fine_grid$diff_from_random, nrow = grid_size_x, ncol = grid_size_y)
+  
+  # Create a numeric matrix for coloring (1 = Payoff, 2 = Proximal)
+  strat_mat <- matrix(
+    ifelse(fine_grid$strategy == "Payoff", 1, 2),
+    nrow = grid_size_x, 
+    ncol = grid_size_y
+  )
+  
+  # Use plot3D::persp3D with matrices of the same dimensions
+  plot3D::persp3D(
+    x = x_mat,
+    y = y_mat,
+    z = z_mat,
+    colvar = strat_mat,  # Color by strategy
+    col = c(payoff_col, proximal_col),  # Colors for strategies
+    border = "black",
+    lwd = 0.1,
+    shade = 0.5,
+    ticktype = "detailed",
+    xlab = "Average number of prerequisite traits",
+    ylab = "Strength of edge weights",
+    zlab = "Difference from Random",
+    main = "Best Strategy (Color) and Difference from Random (Height)",
+    theta = theta,
+    phi = phi,
+    colkey = list(
+      at = c(1.25, 1.75),  # Position ticks in the middle of each color
+      labels = c("Payoff", "Proximal"),
+      side = 4,
+      length = 0.5,
+      width = 0.5
+    )
+  )
+}
 
 
 
+
+
+
+
+
+
+data_weighted85 <- read_all(85)
+
+create_strategy_heatmap_gam(subset(data_weighted85, strategy != "Random" & steps == 5))
+
+create_strategy_levelplot_gam(subset(data_weighted85, steps == 5))
+
+level_data <- data_weighted85 %>%
+  filter(steps == 5) %>%
+  mutate(step_payoff = step_payoff/5)
+
+create_static_surface_plot(level_data, theta = 210, phi = 10)
 
 
 ##### Payoff shuffles sample size #####
@@ -739,16 +2085,15 @@ cat("\nOverall recommended minimum sample size:",
 ## varying the slopes 
 
 plot_slopes <- function(strategy, data) {
-  plot <- ggplot(data[data$steps == 4 & data$strategy == strategy,], aes(x = avg_path_length, y = step_payoff, color = as.factor(slope), group = slope)) +
+  plot <- ggplot(data[data$steps == 5 & data$strategy == strategy,], aes(x = mean_prereq, y = step_payoff, color = as.factor(slope), group = slope)) +
     geom_smooth(method = "loess", se = FALSE) +
-    geom_smooth(data = data[data$steps == 4 & data$strategy == "Random", ],
+    geom_smooth(data = data[data$steps == 5 & data$strategy == "Random", ],
                 aes(x = avg_path_length, y = step_payoff), 
                 method = "loess", se = FALSE, color = "black", linetype = "dashed") + 
     labs(x = "mean distance to root", y = "performance", color = "strength of bias") +
     ggtitle(strategy) +
     theme_minimal() + 
     ylim(min(data$step_payoff), max(data$step_payoff))
-  print(plot)
   return(plot)
 }
 
@@ -918,4 +2263,226 @@ hist(data$avg_path_length, breaks = 50, main = "Average path length", xlab = "Av
 
 
 
+
+
+
+
+legend_only_plot <- function(col_map) {
+  library(ggplot2)
+  
+  # Create a data frame with one row per color
+  df <- data.frame(
+    x = rep(1, length(col_map)),
+    y = 1:length(col_map),
+    group = factor(names(col_map), levels = names(col_map))
+  )
+  
+  # Create the plot
+  p <- ggplot(df, aes(x = x, y = y, color = group)) +
+    geom_point(size = 3) +  # Add points (will be hidden later)
+    scale_color_manual(values = col_map) +
+    theme(
+      # Remove all plot elements except legend
+      panel.grid = element_blank(),
+      panel.background = element_blank(),
+      axis.title = element_blank(),
+      axis.text = element_blank(),
+      axis.ticks = element_blank(),
+      plot.background = element_blank(),
+      
+      # Format the legend
+      legend.position = "right",
+      legend.title = element_blank(),
+      legend.background = element_blank(),
+      legend.key = element_blank()
+    ) +
+    guides(color = guide_legend(override.aes = list(shape = 16))) +  # Use circles (shape 16)
+    # This hides the plot but keeps the legend
+    coord_cartesian(xlim = c(0, 0), ylim = c(0, 0))
+  
+  return(p)
+}
+
+col_map <- c(
+  "Payoff" = "#006328",
+  "Proximal" = "#ff8954",
+  "Prestige" = adjustcolor("#cb5b85", alpha.f = 0.5),
+  "Conformity" = adjustcolor("#0163c2", alpha.f = 0.5)
+)
+
+# Create and display the legend-only plot
+legend_only_plot(col_map)
+
+
+
+
+
+
+
+# First, let's analyze how performance scales with R for each strategy
+# We'll focus on performance at a specific time step to compare strategies
+
+# Extract unique R values (mean_prereq) and strategies in the data
+unique_R_values <- unique(data_1$mean_prereq)
+unique_strategies <- unique(data_1$strategy)
+
+# Look at data at step 5 (arbitrary choice to represent mid-term performance)
+performance_by_R_and_strategy <- data_1 %>%
+  dplyr::filter(steps == 5) %>%
+  dplyr::group_by(mean_prereq, strategy) %>%
+  dplyr::summarize(
+    mean_performance = mean(step_payoff),
+    sd_performance = sd(step_payoff),
+    n = n(),
+    se_performance = sd_performance / sqrt(n)
+  )
+
+# Print a summary of the results
+print("Performance by R value and strategy at step 5:")
+print(performance_by_R_and_strategy)
+
+# Fit models to understand the relationship between R and performance for each strategy
+# We'll try different functional forms: linear, quadratic, and exponential
+
+fit_results <- list()
+for (strat in unique_strategies) {
+  data_for_strategy <- performance_by_R_and_strategy %>%
+    dplyr::filter(strategy == strat)
+  
+  # Linear model: P = a - b*R
+  linear_model <- lm(mean_performance ~ mean_prereq, data = data_for_strategy)
+  
+  # Quadratic model: P = a - b*R^2
+  data_for_strategy$R_squared <- data_for_strategy$mean_prereq^2
+  quadratic_model <- lm(mean_performance ~ R_squared, data = data_for_strategy)
+  
+  # Exponential model: log(P) = a - b*R (equivalent to P = exp(a) * exp(-b*R))
+  exponential_model <- lm(log(mean_performance) ~ mean_prereq, data = data_for_strategy)
+  
+  fit_results[[strat]] <- list(
+    linear = summary(linear_model),
+    quadratic = summary(quadratic_model),
+    exponential = summary(exponential_model)
+  )
+}
+
+# Print model fit results
+print("Model fitting results:")
+print(fit_results)
+
+# Find crossover points between Payoff bias and Proximal learning
+# First, extract coefficients for the best-fitting models
+if ("Payoff" %in% unique_strategies && "Proximal" %in% unique_strategies) {
+  payoff_coeffs <- fit_results[["Payoff"]]$quadratic$coefficients
+  proximal_coeffs <- fit_results[["Proximal"]]$linear$coefficients
+  
+  # Assuming Payoff is best fit by quadratic: a_p - b_p*R^2
+  # And Proximal is best fit by linear: a_x - b_x*R
+  a_p <- payoff_coeffs[1, 1]  # Intercept for payoff
+  b_p <- abs(payoff_coeffs[2, 1])  # Coefficient for R^2
+  
+  a_x <- proximal_coeffs[1, 1]  # Intercept for proximal
+  b_x <- abs(proximal_coeffs[2, 1])  # Coefficient for R
+  
+  # Solve: a_p - b_p*R^2 = a_x - b_x*R for R
+  # Rearranging: b_p*R^2 - b_x*R + (a_x - a_p) = 0
+  c <- a_x - a_p
+  
+  # Quadratic formula: R = (-b_x ± sqrt(b_x^2 - 4*b_p*c)) / (2*b_p)
+  discriminant <- b_x^2 - 4 * b_p * c
+  
+  if (discriminant >= 0) {
+    r_crossover1 <- (-b_x + sqrt(discriminant)) / (2 * b_p)
+    r_crossover2 <- (-b_x - sqrt(discriminant)) / (2 * b_p)
+    
+    print(paste("Potential crossover points between Payoff and Proximal at R =", 
+                round(r_crossover1, 3), "or", round(r_crossover2, 3)))
+    
+    # Determine which solution is valid in our R range
+    valid_crossovers <- c()
+    if (r_crossover1 >= min(unique_R_values) && r_crossover1 <= max(unique_R_values)) {
+      valid_crossovers <- c(valid_crossovers, r_crossover1)
+    }
+    if (r_crossover2 >= min(unique_R_values) && r_crossover2 <= max(unique_R_values)) {
+      valid_crossovers <- c(valid_crossovers, r_crossover2)
+    }
+    
+    if (length(valid_crossovers) > 0) {
+      print(paste("Valid crossover points in our R range:", paste(round(valid_crossovers, 3), collapse = ", ")))
+    } else {
+      print("No valid crossover points in our R range.")
+    }
+  } else {
+    print("No real crossover points exist.")
+  }
+}
+
+# Visualize the relationship between R and performance for each strategy
+# Create prediction data
+r_seq <- seq(min(unique_R_values), max(unique_R_values), length.out = 100)
+prediction_data <- expand.grid(mean_prereq = r_seq, strategy = unique_strategies)
+prediction_data$R_squared <- prediction_data$mean_prereq^2
+
+# Add predictions for each model type
+predictions <- data.frame()
+for (strat in unique_strategies) {
+  data_for_strategy <- prediction_data %>%
+    dplyr::filter(strategy == strat)
+  
+  # Get coefficients from the fitted models
+  linear_coef <- fit_results[[strat]]$linear$coefficients
+  quadratic_coef <- fit_results[[strat]]$quadratic$coefficients
+  exponential_coef <- fit_results[[strat]]$exponential$coefficients
+  
+  # Calculate predictions
+  linear_pred <- linear_coef[1, 1] + linear_coef[2, 1] * data_for_strategy$mean_prereq
+  quadratic_pred <- quadratic_coef[1, 1] + quadratic_coef[2, 1] * data_for_strategy$R_squared
+  exponential_pred <- exp(exponential_coef[1, 1] + exponential_coef[2, 1] * data_for_strategy$mean_prereq)
+  
+  # Add to predictions dataframe
+  strat_predictions <- data_for_strategy %>%
+    dplyr::mutate(
+      linear_pred = linear_pred,
+      quadratic_pred = quadratic_pred,
+      exponential_pred = exponential_pred
+    )
+  
+  predictions <- rbind(predictions, strat_predictions)
+}
+
+# Print the top rows of predictions
+print("Sample of predictions:")
+print(head(predictions))
+
+# Examine performance trajectories over time for different R values
+# Focus on R=0 (no constraints) and R=3 (high constraints)
+time_trajectories <- data_1 %>%
+  dplyr::filter(mean_prereq %in% c(0, 3)) %>%
+  dplyr::group_by(mean_prereq, strategy, steps) %>%
+  dplyr::summarize(
+    mean_performance = mean(step_payoff),
+    sd_performance = sd(step_payoff)
+  )
+
+print("Performance trajectories over time:")
+print(head(time_trajectories))
+
+# Calculate performance ratios relative to Random strategy
+performance_ratios <- data_1 %>%
+  dplyr::filter(steps == 5) %>%
+  dplyr::select(mean_prereq, strategy, step_payoff, adj_mat) %>%
+  dplyr::group_by(mean_prereq, adj_mat) %>%
+  dplyr::mutate(
+    random_payoff = step_payoff[strategy == "Random"],
+    ratio_to_random = step_payoff / random_payoff
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(mean_prereq, strategy) %>%
+  dplyr::summarize(
+    mean_ratio = mean(ratio_to_random, na.rm = TRUE),
+    sd_ratio = sd(ratio_to_random, na.rm = TRUE)
+  )
+
+print("Performance ratios relative to Random strategy:")
+print(performance_ratios)
 

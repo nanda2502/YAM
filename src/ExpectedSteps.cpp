@@ -587,7 +587,7 @@ std::vector<double> biasTraitFrequencies(
     }
     
     // Precalculate values needed for normalization
-    std::vector<int> distances;
+    std::vector<double> distances;
     int maxDist = 0;
     if (distribution == Depth || distribution == Shallowness) {
         distances = computeDistances(adjMatrix, rootNode);
@@ -780,15 +780,16 @@ std::unordered_map<Repertoire, double, RepertoireHash> inferStateFrequencies(
 bool computeExpectedSteps(
     const AdjacencyMatrix& adjacencyMatrix,
     Strategy strategy,
-    double alpha,
+    double alpha, 
     const std::vector<size_t>& shuffleSequence,
     double slope, 
-    int payoffDist,                          
+    double lambda, 
+    int payoffDist, 
+    traitDistribution distribution,                         
     std::vector<double>& expectedPayoffPerStep,
     std::vector<double>& expectedTransitionsPerStep,
     std::vector<double>& expectedVariation,                       
     std::vector<std::vector<double>>& transitionMatrix,
-    traitDistribution distribution,
     double& timeToAbsorption,
     double& stationaryVariation
 ) {
@@ -796,7 +797,7 @@ bool computeExpectedSteps(
         // Initialization
         Strategy baseStrategy = Random;
         Trait rootNode = 0;
-        std::vector<int> distances = computeDistances(adjacencyMatrix, rootNode);
+        std::vector<double> distances = computeDistances(adjacencyMatrix, rootNode);
         PayoffVector payoffs = generatePayoffs(distances, alpha, shuffleSequence, payoffDist);
 
         // print payoffs
@@ -820,7 +821,7 @@ bool computeExpectedSteps(
         }
 
         size_t n = adjacencyMatrix.size();
-        std::vector<double> traitFrequencies(n, 1.0);
+        std::vector<double> traitFrequencies(adjacencyMatrix.size(), 1.0);
         traitFrequencies[0] = 1.0; // rootNode trait frequency set to 1
 
         // Compute all parent sets 
@@ -844,7 +845,9 @@ bool computeExpectedSteps(
         std::vector<double> initialStatePayoffs(n, 0.0);
 
         // Generate repertoires based on initial traitFrequencies
-        auto [repertoiresList, allTransitions] = generateReachableRepertoires(baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, parents,slope, initialStatePayoffs);
+        auto [repertoiresList, allTransitions] = generateReachableRepertoires(
+            baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, slope, initialStatePayoffs, lambda
+        );
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
         repertoiresWithIndices.reserve(repertoiresList.size());
@@ -976,7 +979,7 @@ bool computeExpectedSteps(
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
-            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope, allStatesPayoffs
+            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, slope, allStatesPayoffs, lambda
         );
 
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;

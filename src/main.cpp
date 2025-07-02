@@ -11,18 +11,11 @@
 
 
 void processRepl(
-    const AdjacencyMatrix& adjMatrix,
-    const Strategy& strategy,
-    double alpha,
-    double slope,
-    const std::vector<std::vector<size_t>>& shuffleSequences,
+    const ParamCombination& params,
     AccumulatedResult& accumResult,
-    std::atomic<int>& failureCount,
-    traitDistribution distribution,
-    int payoffDist,
-    double edgeWeight
+    std::atomic<int>& failureCount
 ) {
-    std::cout << "Processing strategy: " << strategyToString(strategy) << std::endl;
+    std::cout << "Processing strategy: " << strategyToString(params.strategy) << std::endl;
     std::vector<double> totalExpectedPayoffPerStep(20, 0.0);
     std::vector<double> totalExpectedTransitionsPerStep(20, 0.0);
     std::vector<double> totalExpectedVariation(20, 0.0);
@@ -31,27 +24,29 @@ void processRepl(
     int successCount = 0;
 
     AdjacencyMatrix weightedMatrix;
-    if (edgeWeight != 1.0) {
-        weightedMatrix = adjustMatrix(adjMatrix, edgeWeight);
+    if (params.edgeWeight != 1.0) {
+        weightedMatrix = adjustMatrix(params.adjMatrix, params.edgeWeight);
     } else {
-        weightedMatrix = adjMatrix;
+        weightedMatrix = params.adjMatrix;
     }
 
-    for (const auto& shuffleSequence : shuffleSequences) {
+    for (const auto& shuffleSequence : params.shuffleSequences) {
         double timeToAbsorption;
         double stationaryVariation;
-        timeToAbsorption = shuffleSequence == shuffleSequences[0] ? 0.0 : -1.0; // only compute time to absorption for the first shuffle sequence
+        timeToAbsorption = shuffleSequence == params.shuffleSequences[0] ? 0.0 : -1.0; // only compute time to absorption for the first shuffle sequence
         std::vector<double> expectedPayoffPerStep(20, 0.0);
         std::vector<double> expectedTransitionsPerStep(20, 0.0);
         std::vector<double> expectedVariation(20, 0.0);
         std::vector<std::vector<double>> transitionMatrix;
 
-        std::cout << "About to process matrix with edge weight: " << weightedMatrix[0][1] << std::endl;
-        if (computeExpectedSteps(weightedMatrix, strategy, alpha, shuffleSequence,
-                                 slope, payoffDist, expectedPayoffPerStep,
-                                 expectedTransitionsPerStep, expectedVariation,
-                                 transitionMatrix, distribution,
-                                 timeToAbsorption, stationaryVariation)) {
+        if (computeExpectedSteps(weightedMatrix, params.strategy, params.alpha, shuffleSequence,
+                                 params.slope, params.lambda, params.payoffDist, params.distribution, 
+                                 expectedPayoffPerStep,
+                                 expectedTransitionsPerStep,
+                                 expectedVariation,
+                                 transitionMatrix, 
+                                 timeToAbsorption,
+                                 stationaryVariation)) {
             totalTimeToAbsorption += timeToAbsorption;
             totalStationaryVariation += stationaryVariation;
             for (size_t i = 0; i < 20; ++i) {
@@ -68,20 +63,20 @@ void processRepl(
     if (successCount > 0) {
         for (size_t i = 0; i < 20; ++i) {
             accumResult.count++;
-            accumResult.totalExpectedPayoffPerStep[i] += totalExpectedPayoffPerStep[i] / shuffleSequences.size();
-            accumResult.totalExpectedTransitionsPerStep[i] += totalExpectedTransitionsPerStep[i] / shuffleSequences.size();
-            accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / shuffleSequences.size();
+            accumResult.totalExpectedPayoffPerStep[i] += totalExpectedPayoffPerStep[i] / params.shuffleSequences.size();
+            accumResult.totalExpectedTransitionsPerStep[i] += totalExpectedTransitionsPerStep[i] / params.shuffleSequences.size();
+            accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / params.shuffleSequences.size();
         }
-        accumResult.absorbing += totalTimeToAbsorption / shuffleSequences.size();
-        accumResult.stationaryVariation += totalStationaryVariation / shuffleSequences.size();
+        accumResult.absorbing += totalTimeToAbsorption / params.shuffleSequences.size();
+        accumResult.stationaryVariation += totalStationaryVariation / params.shuffleSequences.size();
     }
 
     std::cout << "Failures: " << failureCount.load() << std::endl;
 }
 
 int main(int argc, char* argv[]) {
-    int n;
-    int adj_int = parseArgs(argc, argv, n);
+    std::string postfix = "8"; // Default value
+    int adj_idx = parseArgs(argc, argv, postfix);
     int replications = 1;
     try {
    
@@ -90,8 +85,8 @@ int main(int argc, char* argv[]) {
             std::filesystem::create_directory(outputDir);
         }
     
-        std::vector<AdjacencyMatrix> adjacencyMatricesAll = readAdjacencyMatrices(n);
-        std::vector<AdjacencyMatrix> adjacencyMatrices(1, adjacencyMatricesAll[adj_int]);
+        std::vector<AdjacencyMatrix> adjacencyMatricesAll = readAdjacencyMatrices(postfix);
+        std::vector<AdjacencyMatrix> adjacencyMatrices(1, adjacencyMatricesAll[adj_idx]);
 
     
         std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices,replications);
@@ -101,24 +96,16 @@ int main(int argc, char* argv[]) {
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
     
-        //#pragma omp parallel for
+        #pragma omp parallel for
         for (unsigned long idx : indices) {
-             const ParamCombination& comb = combinations[idx];
             processRepl(
-                comb.adjMatrix,
-                comb.strategy,
-                comb.alpha,
-                comb.slope,
-                comb.shuffleSequences,
+                combinations[idx],
                 accumulatedResults[idx],
-                failureCounts[idx],
-                comb.distribution,
-                comb.payoffDist,
-                comb.edgeWeight
+                failureCounts[idx]
             );
         }
     
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,stationary_variation,payoffdist,edge_weight";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,stationary_variation,payoffdist,edge_weight,lambda";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -142,7 +129,8 @@ int main(int argc, char* argv[]) {
                     accumResult.absorbing,
                     accumResult.stationaryVariation,
                     comb.payoffDist,
-                    comb.edgeWeight
+                    comb.edgeWeight,
+                    comb.lambda
                 );
                 csvData.push_back(formattedResult);
                 }
@@ -150,7 +138,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        writeAndCompressCSV(outputDir, adj_int, csvData);
+        writeAndCompressCSV(outputDir, adj_idx, csvData);
        
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << '\n';

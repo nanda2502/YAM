@@ -42,6 +42,8 @@ std::string strategyToString(Strategy strategy) {
             return "Conformity";
         case Perfect:
             return "Perfect";
+        case Anticonformity:
+            return "Anticonformity";
         default:
             throw std::invalid_argument("Unknown strategy");
     }
@@ -79,7 +81,8 @@ std::string formatResults(
     double absorbing,
     double stationaryVariation,
     int payoffDist,
-    double edgeWeight
+    double edgeWeight,
+    double lambda
 ) {
     std::ostringstream oss;
     oss << n << ',' << 
@@ -96,7 +99,8 @@ std::string formatResults(
     absorbing << ',' <<
     stationaryVariation << ',' <<
     payoffDist << ',' <<
-    edgeWeight;
+    edgeWeight << ',' <<
+    lambda;
     return oss.str();
 }
 
@@ -201,8 +205,8 @@ AdjacencyMatrix parseMatrixString(const std::string& str) {
    
    return matrix;
 }
-std::vector<AdjacencyMatrix> readAdjacencyMatrices(int num_nodes) {
-   std::string filePath = "../data/adj_mat_" + std::to_string(num_nodes) + ".csv";
+std::vector<AdjacencyMatrix> readAdjacencyMatrices(const std::string& postfix) {
+   std::string filePath = "../data/adj_mat_" + postfix + ".csv";
    std::ifstream file(filePath);
    if (!file.is_open()) {
        throw std::runtime_error("Could not open file " + filePath);
@@ -213,15 +217,15 @@ std::vector<AdjacencyMatrix> readAdjacencyMatrices(int num_nodes) {
    int line_index = 0;
    
    while (std::getline(file, line)) {
-       auto matrix = parseMatrixString(line);
-       matrices.push_back(matrix);
+       matrices.push_back(parseMatrixString(line));
        
        DEBUG_PRINT(2, "Parsed matrix " << line_index << " from line: " << line);
        if (DEBUG_LEVEL >= 2) {
            std::cout << "Matrix values:" << std::endl;
-           for (size_t i = 0; i < matrix.size(); ++i) {
-               for (size_t j = 0; j < matrix[i].size(); ++j) {
-                   std::cout << matrix[i][j] << " ";
+           const auto& matrix = matrices.back();
+           for (const auto & i : matrix) {
+               for (double j : i) {
+                   std::cout << j << " ";
                }
                std::cout << std::endl;
            }
@@ -267,22 +271,22 @@ void printMatrix(const std::vector<std::vector<double>>& matrix) {
     }
 }
 
-int parseArgs(int argc, char* argv[], int& num_nodes) {
-    int adj_ind = 1;  // Default value
-    num_nodes = 8;  // Default value
+int parseArgs(int argc, char* argv[], std::string& postfix) {
+    int adj_idx = 1;  // Default value
+    postfix = "8";  // Default value
 
     if (argc == 1) {
         // Use default values
     } else if (argc == 2) {
-        adj_ind = std::stoi(argv[1]);
+        adj_idx = std::stoi(argv[1]);
     } else if (argc == 3) {
-        adj_ind = std::stoi(argv[1]);
-        num_nodes = std::stoi(argv[2]);
+        adj_idx = std::stoi(argv[1]);
+        postfix = std::string(argv[2]);
     } else {
-        throw std::invalid_argument("Usage: program [adj_ind] [num_nodes]");
+        throw std::invalid_argument("Usage: program [adj_idx] [postfix]");
     }
 
-    return adj_ind;
+    return adj_idx;
 }
 
 void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData) {
@@ -498,6 +502,7 @@ std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
     int replications
 ) {
+    constexpr bool SENSITIVITY_TESTS = true; // Set to false to skip sensitivity tests
     std::vector<ParamCombination> combinations;
     
     // Define default values
@@ -506,13 +511,16 @@ std::vector<ParamCombination> makeCombinations(
     double defaultAlpha = 0.0;
     double alternativeAlpha = 1.0;
     double defaultEdgeWeight = 1.0;
+    double defaultLambda = 0.0;
     
     std::vector<Strategy> strategies = {
         Strategy::Random,
         Strategy::Payoff,
         Strategy::Proximal,
         Strategy::Prestige,
-        Strategy::Conformity
+        Strategy::Conformity,
+        Strategy::Perfect,
+        //Strategy::Anticonformity
     };
 
     std::vector<traitDistribution> distributions = {
@@ -524,8 +532,6 @@ std::vector<ParamCombination> makeCombinations(
     };
 
     std::vector<double> weights = {0.1, 0.5, 0.9};
-
-
 
     //std::vector<double> weights(26, 0.0);
     //for (int i = 0; i < 26; ++i) weights[i] = i * 0.04;
@@ -550,7 +556,7 @@ std::vector<ParamCombination> makeCombinations(
             if (n <= 8) {
                 // For n <= 8, use all slopes
                 auto slopes = returnSlopeVector(strategy);
-
+                /*
                 // Base cases: default values for all parameters, but vary the slopes
                 for (const auto& slope : slopes) {
                     for (int repl = 0; repl < replications; ++repl) {
@@ -564,16 +570,17 @@ std::vector<ParamCombination> makeCombinations(
                             slope, 
                             defaultPayoffDist, 
                             usedShuffleSequences,
-                            defaultEdgeWeight
+                            defaultEdgeWeight,
+                            defaultLambda
                         });
                     }
                 }
-
+                */
                 // Only continue with parameter variation if the adjacency matrix is size 8
-                if (n == 8) {
+                if (n == 8 && SENSITIVITY_TESTS) {
                     // Default slope based on strategy (for parameter variations)
                     double defaultSlope = (strategy == Strategy::Random || strategy == Strategy::Perfect) ? 0.0 : 2.0;
-                    
+                    /*
                     // Vary alpha: Add combinations with alternative alpha
                     for (int repl = 0; repl < replications; ++repl) {
                         combinations.push_back({
@@ -586,7 +593,8 @@ std::vector<ParamCombination> makeCombinations(
                             defaultSlope, 
                             defaultPayoffDist, 
                             usedShuffleSequences,
-                            defaultEdgeWeight
+                            defaultEdgeWeight,
+                            defaultLambda
                         });
                     }
                     
@@ -604,7 +612,8 @@ std::vector<ParamCombination> makeCombinations(
                                     defaultSlope, 
                                     defaultPayoffDist, 
                                     usedShuffleSequences,
-                                    defaultEdgeWeight
+                                    defaultEdgeWeight,
+                                    defaultLambda
                                 });
                             }
                         }
@@ -623,7 +632,8 @@ std::vector<ParamCombination> makeCombinations(
                                 defaultSlope, 
                                 static_cast<int>(payoffDist), 
                                 usedShuffleSequences,
-                                defaultEdgeWeight
+                                defaultEdgeWeight,
+                                defaultLambda
                             });
                         }
                     }
@@ -647,13 +657,14 @@ std::vector<ParamCombination> makeCombinations(
                                 defaultSlope, 
                                 defaultPayoffDist, 
                                 usedShuffleSequences,
-                                weight
+                                weight,
+                                defaultLambda
                             });
                         }
                     }
                     
                     // Vary edge weight: transitive reduction
-                    /*
+                    
                     for (const auto& weight : weights){
                         for (int repl = 0; repl < replications; ++repl) {
                             combinations.push_back({
@@ -666,11 +677,31 @@ std::vector<ParamCombination> makeCombinations(
                                 defaultSlope, 
                                 defaultPayoffDist, 
                                 usedShuffleSequences,
-                                weight
+                                weight,
+                                defaultLambda
                             });
                         }
                     }
                     */
+
+                    // Vary lambda: Add combinations with different lambda values
+                    for (double lambda : {  0.5, 1.0, 1.5, 2.0, 10.0, 100.0}) {
+                        for (int repl = 0; repl < replications; ++repl) {
+                            combinations.push_back({
+                                adjMatrix, 
+                                adjMatrixBinary, 
+                                strategy, 
+                                defaultDistribution, 
+                                defaultAlpha, 
+                                repl, 
+                                defaultSlope, 
+                                defaultPayoffDist, 
+                                usedShuffleSequences,
+                                defaultEdgeWeight,
+                                lambda
+                            });
+                        }
+                    }
                 }
             } else {
                 // For n > 8, use only the default slope
@@ -687,7 +718,8 @@ std::vector<ParamCombination> makeCombinations(
                         defaultSlope, 
                         defaultPayoffDist, 
                         usedShuffleSequences,
-                        defaultEdgeWeight
+                        defaultEdgeWeight,
+                        defaultLambda
                     });
                 }
             }

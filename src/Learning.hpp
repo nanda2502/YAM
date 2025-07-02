@@ -29,7 +29,6 @@ std::vector<double> baseWeights(
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope,
-    const Parents& parents,
     const std::vector<double>& statePayoffs   
 );
 
@@ -40,9 +39,9 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const std::vector<double>& traitFrequencies,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
-    const Parents& parents,
     double slope,
-    const std::vector<double>& statePayoffs
+    const std::vector<double>& statePayoffs,
+    double lambda
 );
 
 std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix);

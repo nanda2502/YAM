@@ -8,7 +8,7 @@ export OMP_NUM_THREADS=192
 
 cd build
 
-./yam 0 8
+./yam 1 8
 
 
 

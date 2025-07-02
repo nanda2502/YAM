@@ -3,7 +3,7 @@
 
 #include "Types.hpp" 
 
-std::vector<int> computeDistances(const AdjacencyMatrix& adjMatrix, Trait root);
+std::vector<double> computeDistances(const AdjacencyMatrix& adjMatrix, Trait root);
 
 std::vector<Trait> parentTraits(const AdjacencyMatrix& adjMatrix, Trait trait);
 

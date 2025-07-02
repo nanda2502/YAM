@@ -27,10 +27,11 @@ std::string formatResults(
     double absorbing,
     double stationaryVariation,
     int payoffDist,
-    double edgeWeight
+    double edgeWeight,
+    double lambda
 );
 
-std::vector<AdjacencyMatrix> readAdjacencyMatrices(int n);
+std::vector<AdjacencyMatrix> readAdjacencyMatrices(const std::string& postfix);
 
 std::string formatAdjMat(const std::string& adj_string, int n);
 
@@ -38,7 +39,7 @@ bool charToBool(char c);
 
 void printMatrix(const std::vector<std::vector<double>>& matrix);
 
-int parseArgs(int argc, char* argv[], int& num_nodes);
+int parseArgs(int argc, char* argv[], std::string& postfix);
 
 void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData);
 

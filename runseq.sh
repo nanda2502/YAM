@@ -40,4 +40,4 @@ done
 wait
 
 cd ..
-./combine.sh
+#./combine.sh

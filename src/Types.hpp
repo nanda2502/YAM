@@ -16,7 +16,8 @@ enum Strategy : std::uint8_t {
     Proximal,
     Prestige,
     Conformity,
-    Perfect
+    Perfect,
+    Anticonformity
 };
 
 enum traitDistribution : std::uint8_t {
@@ -38,6 +39,7 @@ struct ParamCombination {
     int payoffDist;
     std::vector<std::vector<size_t>> shuffleSequences;
     double edgeWeight;
+    double lambda;
 };
 
 struct Result {

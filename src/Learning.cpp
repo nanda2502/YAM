@@ -1,14 +1,73 @@
 #include "Learning.hpp"
 #include "Debug.hpp"
 #include "Types.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <numeric>
 #include <stdexcept>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
 
+std::vector<double> normalizedMissingPrereqs(
+    const Repertoire& repertoire,
+    const AdjacencyMatrix& adjMatrix
+) {
+    size_t n = repertoire.size();
+    std::vector<double> ancestorCounts(n, 0.0);
+    
+    // For each unlearned trait, count unknown ancestors
+    for (size_t trait = 1; trait < n; ++trait) {
+        if (repertoire[trait] == 1.0) {
+            continue; // Skip learned traits
+        }
+        
+        // BFS/DFS to find all ancestors of this trait
+        std::queue<size_t> queue;
+        std::unordered_set<size_t> visited;
+        std::unordered_set<size_t> ancestors;
+        
+        queue.push(trait);
+        visited.insert(trait);
+        
+        while (!queue.empty()) {
+            size_t current = queue.front();
+            queue.pop();
+            
+            // Find all parents of current node
+            for (size_t parent = 0; parent < n; ++parent) {
+                if (adjMatrix[parent][current] > 0.0) {
+                    ancestors.insert(parent);
+                    
+                    if (visited.find(parent) == visited.end()) {
+                        visited.insert(parent);
+                        queue.push(parent);
+                    }
+                }
+            }
+        }
+        
+        // Count unknown ancestors
+        for (size_t ancestor : ancestors) {
+            if (repertoire[ancestor] == 0.0) {
+                ancestorCounts[trait] += 1.0; // or could weight by adjMatrix[ancestor][...] if desired
+            }
+        }
+        
+        DEBUG_PRINT(2, "Trait " << trait << " has " << ancestorCounts[trait] << " unknown ancestors");
+    }
+    
+    // Normalize
+    double total = std::accumulate(ancestorCounts.begin(), ancestorCounts.end(), 0.0);
+    if (total > 0.0) {
+        std::ranges::transform(ancestorCounts, ancestorCounts.begin(),
+            [total](double w) { return w / total; });
+    }
+    
+    return ancestorCounts;
+}
 
 
 std::vector<double> learnability(
@@ -27,15 +86,12 @@ std::vector<double> learnability(
         
         // Start with probability 1.0
         double probability = 1.0;
-        bool hasParents = false;
         
         // Check all potential parents
         for (Trait parent = 0; parent < n; ++parent) {
             double edgeWeight = adjMatrix[parent][trait];
             
             if (edgeWeight > 0.0) {  // This is a direct parent
-                hasParents = true;
-                
                 if (repertoire[parent] == 0.0) {
                     // Parent is unknown - contribute with probability (1-edgeWeight)
                     // This represents the chance that this unknown parent isn't required
@@ -98,12 +154,13 @@ std::vector<double> proximalBaseWeights(
     for (size_t i = 0; i < allStates.size(); ++i) {
         if (!validStates[i]) continue;
         
+        // Get the frequency of the current state
         const auto& state = allStates[i];
         auto it = stateFrequencies.find(state);
         if (it == stateFrequencies.end()) continue;
-        
-        double normalizedBias = stateBiases[i];
         double stateFreq = it->second;
+
+        double normalizedBias = stateBiases[i];
         
         for (Trait trait = 0; trait < repertoire.size(); ++trait) {
             if (repertoire[trait] == 0.0 && state[trait] == 1.0) {
@@ -222,13 +279,39 @@ std::vector<double> conformityBaseWeights(
     return w_star;
 }
 
+std::vector<double> anticonformityBaseWeights(
+    const std::vector<double>& traitFrequencies,
+    double slope
+) {
+    
+    std::vector<double> w_star(traitFrequencies.size());
+    std::ranges::transform(traitFrequencies, w_star.begin(),
+        [slope](double f) {
+            return 1.0 - std::pow(f, slope); // 1 - frequency^slope
+        });
+    return w_star;
+}
+
 std::vector<double> perfectBaseWeights(
     const Repertoire& repertoire,
-    const PayoffVector& payoffs,
-    const Parents& parents
+    const PayoffVector& payoffs,  
+    const std::vector<double>& learnableProbs
 ) {
-    // dummy implementation
+    
     std::vector<double> w_star(repertoire.size(), 0.0);
+    // Always learn the trait with the highest expected payoff that is not already learned
+    double maxExpectedPayoff = 0.0;
+    size_t bestTrait = 0;
+    for (size_t trait = 0; trait < repertoire.size(); ++trait) {
+        double expectedPayoff = payoffs[trait] * learnableProbs[trait];
+        if (expectedPayoff > maxExpectedPayoff) {
+            maxExpectedPayoff = expectedPayoff;
+            bestTrait = trait;
+        }
+    }
+    // Set the weight for the best trait to 1.0, others to 0.0
+    w_star[bestTrait] = 1.0;
+    
 
     return w_star;
 }
@@ -241,8 +324,8 @@ std::vector<double> baseWeights(
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope,
-    const Parents& parents,
-    const std::vector<double>& statePayoffs   
+    const std::vector<double>& statePayoffs,
+    const std::vector<double>& learnableProbs   
 ) {
     switch (strategy) {
     case Random:
@@ -255,8 +338,10 @@ std::vector<double> baseWeights(
         return prestigeBaseWeights(repertoire, stateFrequencies, allStates, statePayoffs, slope);
     case Conformity:
         return conformityBaseWeights(traitFrequencies, slope);
+    case Anticonformity:
+        return anticonformityBaseWeights(traitFrequencies, slope);
     case Perfect:
-        return perfectBaseWeights(repertoire, payoffs, parents);
+        return perfectBaseWeights(repertoire, payoffs, learnableProbs);
     default:
         throw std::runtime_error("Unknown strategy");
     }
@@ -270,10 +355,12 @@ std::vector<double> normalizedWeights(
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
     double slope,
-    const Parents& parents,
-    const std::vector<double>& statePayoffs
+    double lambda,
+    const std::vector<double>& statePayoffs,
+    const std::vector<double>& learnableProbs,
+    const AdjacencyMatrix& adjMatrix
 )  {
-    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, slope, parents, statePayoffs);
+    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, slope, statePayoffs, learnableProbs);
 
     DEBUG_PRINT(2, "Current repertoire:");
     if (DEBUG_LEVEL >= 2) {
@@ -300,6 +387,13 @@ std::vector<double> normalizedWeights(
         for (size_t i = 0; i < w_unlearned.size(); ++i) {
             std::cout << "Trait " << i <<": " << w_unlearned[i] << '\n';
         }
+    }
+
+    // Attempt weights depend on partial structure knowledge. When lambda is 0, structure is completely opaque. 
+    auto missingPrereqs = normalizedMissingPrereqs(repertoire, adjMatrix);
+
+    for (Trait trait = 0; trait < repertoire.size(); ++trait) {
+        w_unlearned[trait] = w_unlearned[trait] * std::pow((1 - missingPrereqs[trait]), lambda);
     }
     
     double total = std::accumulate(w_unlearned.begin(), w_unlearned.end(), 0.0);
@@ -341,14 +435,15 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     const std::vector<double>& traitFrequencies,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
-    const Parents& parents,
     double slope,
+    double lambda,
     const AdjacencyMatrix& adjMatrix,
     const std::vector<double>& statePayoffs
 ) {
     std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
-    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope, parents, statePayoffs);
     std::vector<double> learnableProbs = learnability(repertoire, adjMatrix);
+    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope, lambda, statePayoffs, learnableProbs, adjMatrix);
+    
 
     std::vector<std::pair<Repertoire, double>> transitions;
 
@@ -382,9 +477,9 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const std::vector<double>& traitFrequencies,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
-    const Parents& parents,
     double slope,
-    const std::vector<double>& statePayoffs
+    const std::vector<double>& statePayoffs,
+    double lambda
 ) {
     size_t n = adjMatrix.size();
     Repertoire initialRepertoire(n, 0.0);
@@ -405,7 +500,7 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
             visited.insert(r);
             result.push_back(r);
 
-            auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, stateFrequencies, allStates, parents, slope, adjMatrix, statePayoffs);
+            auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, stateFrequencies, allStates, slope, lambda, adjMatrix, statePayoffs);
             allTransitions.push_back(transitions);
 
             for (const auto& transition : transitions) {

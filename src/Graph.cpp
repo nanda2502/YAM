@@ -1,34 +1,57 @@
 #include "Graph.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <stdexcept>
 #include <queue>
 
-std::vector<int> computeDistances(const AdjacencyMatrix& adjMatrix, Trait root) {
+std::vector<double> computeDistances(const AdjacencyMatrix& adjMatrix, Trait root) {
     size_t n = adjMatrix.size();
-    std::vector<int> distances(n, -1);
-    std::queue<Trait> q;
-
-    distances[root] = 0;
-    q.push(root);
-
-    while (!q.empty()) {
-        Trait current = q.front();
-        q.pop();
-
-        for (size_t neighbor = 0; neighbor < n; ++neighbor) {
-            if (adjMatrix[current][neighbor] > 0.0 && distances[neighbor] == -1) {
-                distances[neighbor] = distances[current] + 1;
-                q.push(neighbor);
+    std::vector<double> distances(n, 0.0);
+    
+    // Check if any edge weight is not 0.0 or 1.0 (weighted graph)
+    bool isWeighted = std::any_of(adjMatrix.begin(), adjMatrix.end(),
+        [](const auto& row) {
+            return std::any_of(row.begin(), row.end(),
+                [](double w) { return w > 0.0 && w != 1.0; });
+        });
+    
+    if (isWeighted) {
+        // Weighted: sum of incoming edge weights
+        for (size_t trait = 0; trait < n; ++trait) {
+            for (size_t source = 0; source < n; ++source) {
+                distances[trait] += adjMatrix[source][trait];
             }
         }
-    }
-
-    for (size_t node = 0; node < n; ++node) {
-        if (distances[node] == -1) {
-            throw std::runtime_error("Graph is not connected");
+    } else {
+        // Unweighted: BFS from root (your existing logic)
+        std::vector<int> intDistances(n, -1);
+        std::queue<Trait> q;
+        
+        intDistances[root] = 0;
+        q.push(root);
+        
+        while (!q.empty()) {
+            Trait current = q.front();
+            q.pop();
+            
+            for (size_t neighbor = 0; neighbor < n; ++neighbor) {
+                if (adjMatrix[current][neighbor] > 0.0 && intDistances[neighbor] == -1) {
+                    intDistances[neighbor] = intDistances[current] + 1;
+                    q.push(neighbor);
+                }
+            }
+        }
+        
+        // Convert to double and check connectivity
+        for (size_t node = 0; node < n; ++node) {
+            if (intDistances[node] == -1) {
+                throw std::runtime_error("Graph is not connected");
+            }
+            distances[node] = static_cast<double>(intDistances[node]);
         }
     }
+    
     return distances;
 }
 

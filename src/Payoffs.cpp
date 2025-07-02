@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <fstream>
 
-PayoffVector generatePayoffs(const std::vector<int>& distances, double alpha, const std::vector<size_t>& shuffleSequence, int payoffDist = 0) {
+PayoffVector generatePayoffs(const std::vector<double>& distances, double alpha, const std::vector<size_t>& shuffleSequence, int payoffDist = 0) {
     size_t n = distances.size();
     size_t non_root_count = n - 1;
     PayoffVector payoffs(n, 0.0);

@@ -25,7 +25,7 @@ void processRepl(
 
     AdjacencyMatrix weightedMatrix;
     if (params.edgeWeight != 1.0) {
-        weightedMatrix = adjustMatrix(params.adjMatrix, params.edgeWeight);
+        weightedMatrix = adjustMatrixWeights(params.adjMatrix, params.edgeWeight);
     } else {
         weightedMatrix = params.adjMatrix;
     }
@@ -40,7 +40,7 @@ void processRepl(
         std::vector<std::vector<double>> transitionMatrix;
 
         if (computeExpectedSteps(weightedMatrix, params.strategy, params.alpha, shuffleSequence,
-                                 params.slope, params.lambda, params.payoffDist, params.distribution, 
+                                 params.slope, params.transparency, params.payoffDist, params.distribution, 
                                  expectedPayoffPerStep,
                                  expectedTransitionsPerStep,
                                  expectedVariation,
@@ -89,14 +89,14 @@ int main(int argc, char* argv[]) {
         std::vector<AdjacencyMatrix> adjacencyMatrices(1, adjacencyMatricesAll[adj_idx]);
 
     
-        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices,replications);
+        std::vector<ParamCombination> combinations = makeCombinations(adjacencyMatrices,replications, postfix);
         std::vector<AccumulatedResult> accumulatedResults(combinations.size());
         std::vector<std::atomic<int>> failureCounts(combinations.size());
     
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
     
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (unsigned long idx : indices) {
             processRepl(
                 combinations[idx],
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
             );
         }
     
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,stationary_variation,payoffdist,edge_weight,lambda";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,stationary_variation,payoffdist,edge_weight,transparency,closure";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
                 const ParamCombination& comb = combinations[i];
                 std::string formattedResult = formatResults(
                     comb.adjMatrix.size(),
-                    adjMatrixToBinaryString(comb.adjMatrix),
+                    adjMatrixToFlattenedString(comb.adjMatrix),
                     comb.alpha,
                     comb.strategy,
                     comb.repl,
@@ -130,7 +130,8 @@ int main(int argc, char* argv[]) {
                     accumResult.stationaryVariation,
                     comb.payoffDist,
                     comb.edgeWeight,
-                    comb.lambda
+                    comb.transparency,
+                    comb.closure
                 );
                 csvData.push_back(formattedResult);
                 }

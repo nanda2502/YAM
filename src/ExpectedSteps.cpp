@@ -542,12 +542,14 @@ double computeExpectedTimeToAbsorption(
     return tSolution[qIndex];
 }
 
+
+// Adjust trait frequencies for parameter variation
 std::vector<double> biasTraitFrequencies(
     const std::vector<Repertoire>& allStates,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const AdjacencyMatrix& adjMatrix,
     const PayoffVector& payoffs,
-    traitDistribution distribution,
+    TraitDistribution distribution,
     Trait rootNode,
     double biasStrength = 2.0
 ) {
@@ -555,7 +557,7 @@ std::vector<double> biasTraitFrequencies(
     std::vector<double> biasedFrequencies(n, 0.0);
     biasedFrequencies[rootNode] = 1.0;  // Root trait is always present
     
-    // Handle special cases
+    // Base case: Frequency is derived from the quasi-stationary distribution of the preliminary Markov chain based on a random learner. 
     if (distribution == Learnability) {
         for (const auto& state : allStates) {
             auto it = stateFrequencies.find(state);
@@ -609,7 +611,9 @@ std::vector<double> biasTraitFrequencies(
         }
     }
     
-    // Apply bias according to the plan
+    // For each state, we model individual expression bias towards each trait.
+    // Biases are normalized to sum to 1 so that traits within a state compete against each other.
+    // The outcome for the trait frequencies is a sum of the expression probabilities across all states, weighted by state frequency.
     for (const auto& state : allStates) {
         auto it = stateFrequencies.find(state);
         if (it == stateFrequencies.end() || it->second <= 0.0) continue;
@@ -656,9 +660,8 @@ std::vector<double> biasTraitFrequencies(
         
         if (totalMeasure > 0.0) {
             for (const auto& [trait, measure] : traitsWithMeasures) {
-                // Normalized measure * state frequency
-                double normalizedMeasure = measure / totalMeasure;
-                biasedFrequencies[trait] += normalizedMeasure * stateFreq;
+                double expressionProbability = measure / totalMeasure;
+                biasedFrequencies[trait] += expressionProbability * stateFreq;
             }
         } else if (!traitsWithMeasures.empty()) {
             // If measures are all zero, distribute equally
@@ -693,6 +696,10 @@ std::vector<double> biasTraitFrequencies(
     return biasedFrequencies;
 }
 
+
+// Infers state frequencies based on target trait frequencies using an iterative approach with gradient descent.
+// The method adjusts state frequencies to minimize the squared error between the computed trait frequencies and the target trait frequencies.
+// It ensures non-negativity and normalization of state frequencies at each step.
 std::unordered_map<Repertoire, double, RepertoireHash> inferStateFrequencies(
     const std::vector<Repertoire>& allStates,
     const std::vector<double>& targetTraitFrequencies,
@@ -783,9 +790,9 @@ bool computeExpectedSteps(
     double alpha, 
     const std::vector<size_t>& shuffleSequence,
     double slope, 
-    double lambda, 
+    double transparency, 
     int payoffDist, 
-    traitDistribution distribution,                         
+    TraitDistribution distribution,                         
     std::vector<double>& expectedPayoffPerStep,
     std::vector<double>& expectedTransitionsPerStep,
     std::vector<double>& expectedVariation,                       
@@ -846,7 +853,7 @@ bool computeExpectedSteps(
 
         // Generate repertoires based on initial traitFrequencies
         auto [repertoiresList, allTransitions] = generateReachableRepertoires(
-            baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, slope, initialStatePayoffs, lambda
+            baseStrategy, adjacencyMatrix, payoffs, traitFrequencies, initialStateFrequencies, allStates, slope, initialStatePayoffs, transparency
         );
         std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
 
@@ -957,9 +964,20 @@ bool computeExpectedSteps(
         // After adjusting trait frequencies, infer compatible state frequencies
         // This is important for strategies like Proximal and Prestige which depend on state frequencies
         std::unordered_map<Repertoire, double, RepertoireHash> inferredStateFrequencies;
-        if (strategy == Strategy::Proximal || strategy == Strategy::Prestige) {
+
+        if (distribution == TraitDistribution::Learnability) {
+            inferredStateFrequencies = stateFrequencies;
+
+        } else if (strategy == Strategy::Proximal || strategy == Strategy::Prestige) {
             DEBUG_PRINT(1, "Inferring state frequencies from target trait frequencies for Proximal/Prestige strategy");
             inferredStateFrequencies = inferStateFrequencies(allStates, traitFrequencies);
+
+            DEBUG_PRINT(2, "Inferred state Frequencies:");
+            if (DEBUG_LEVEL >= 2) {
+                for (const auto& [state, freq] : stateFrequencies) {
+                    std::cout << "State " << stateToString(state) << ": " << freq << '\n';
+                }
+            }
         } else {
             // For other strategies, use the original state frequencies
             inferredStateFrequencies = stateFrequencies;
@@ -979,7 +997,7 @@ bool computeExpectedSteps(
         // Second pass: rebuild the transition matrix with updated trait frequencies
         DEBUG_PRINT(1, "Building final transition matrix with updated trait frequencies");
         auto [finalRepertoiresList, finalAllTransitions] = generateReachableRepertoires(
-            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, slope, allStatesPayoffs, lambda
+            strategy, adjacencyMatrix, payoffs, traitFrequencies, stateFrequencies, allStates, slope, allStatesPayoffs, transparency
         );
 
         std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;

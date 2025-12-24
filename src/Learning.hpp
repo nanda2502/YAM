@@ -41,7 +41,7 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const std::vector<Repertoire>& allStates,
     double slope,
     const std::vector<double>& statePayoffs,
-    double lambda
+    double transparency
 );
 
 std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix);

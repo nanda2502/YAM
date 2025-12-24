@@ -8,6 +8,7 @@ PayoffVector generatePayoffs(const std::vector<double>& distances, double alpha,
     size_t non_root_count = n - 1;
     PayoffVector payoffs(n, 0.0);
 
+    // this is for setting specific payoffs, the n could be replaced by passing the postfix to the function
     if (n == 121) {
         std::string filePath = "../data/payoffs_121.csv";
         std::ifstream file(filePath);
@@ -38,7 +39,7 @@ PayoffVector generatePayoffs(const std::vector<double>& distances, double alpha,
     payoffs[0] = 0.0;
     
     if (alpha <= 0.0) {
-        // Use payoffDist approach when alpha is 0
+        // Check payoff distribution parameter when alpha is 0
         std::vector<double> non_root_payoffs(non_root_count);
         
         if (payoffDist == 0) {
@@ -53,14 +54,10 @@ PayoffVector generatePayoffs(const std::vector<double>& distances, double alpha,
             size_t lowValueCount = non_root_count - highValueCount;
             
             // Set values to maintain mean of 1.0
-            double lowValue = 0.2;
-            double highValue;
-            
-            if (lowValueCount == 0) {
-                highValue = 1.0;
-            } else {
-                highValue = (non_root_count - (lowValueCount * lowValue)) / highValueCount;
-            }
+            double highValue = 2.0;
+            double lowValue;
+
+            lowValue = (non_root_count - (highValueCount * highValue)) / lowValueCount;
             
             for (size_t i = 0; i < highValueCount; ++i) {
                 non_root_payoffs[i] = highValue;

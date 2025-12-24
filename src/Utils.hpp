@@ -10,11 +10,11 @@ void writeMatrixToCSV(const std::string& filename, const std::vector<std::vector
 
 std::string strategyToString(Strategy strategy);
 
-std::string distributionToString(traitDistribution distribution);
+std::string distributionToString(TraitDistribution distribution);
 
 std::string formatResults(
     int n, 
-    const std::string& adjMatrixBinary, 
+    const std::string& adjMatrixFlattened, 
     double alpha, 
     Strategy strategy, 
     int repl,
@@ -23,12 +23,13 @@ std::string formatResults(
     double expectedTransitionsPerStep,
     double expectedVariation,
     double slope,
-    traitDistribution distribution,
+    TraitDistribution distribution,
     double absorbing,
     double stationaryVariation,
     int payoffDist,
     double edgeWeight,
-    double lambda
+    double transparency,
+    int closure
 );
 
 std::vector<AdjacencyMatrix> readAdjacencyMatrices(const std::string& postfix);
@@ -47,10 +48,11 @@ size_t factorial(size_t num);
 
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
-    int replications
+    int replications,
+    const std::string& postfix
 );
 
-std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix);
+std::string adjMatrixToFlattenedString(const AdjacencyMatrix& adjMatrix);
 
 std::string stateToString(const Repertoire& state);
 
@@ -58,6 +60,6 @@ void printVector(const std::vector<double>& vec);
 
 void printStates(const std::vector<Repertoire>& repertoiresList, const std::unordered_map<int, int>& oldToNewIndexMap);
 
-AdjacencyMatrix adjustMatrix(const AdjacencyMatrix& adjMatrix, double edgeWeight);
+AdjacencyMatrix adjustMatrixWeights(const AdjacencyMatrix& adjMatrix, double edgeWeight);
 
 #endif // UTILS_HPP

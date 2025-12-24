@@ -1,3 +1,4 @@
+/*
 #include "MarkovChain.hpp"
 
 MarkovChain::MarkovChain(
@@ -20,7 +21,7 @@ MarkovChain::MarkovChain(
     alpha(params.alpha),
     shuffleSequence(shuffleSequence),
     slope(params.slope),
-    lambda(params.lambda),
+    transparency(params.transparency),
     payoffDist(params.payoffDist),
     distribution(params.distribution),
     baseStrategy(Random),
@@ -75,7 +76,7 @@ void MarkovChain::buildInitialTransitionMatrix() {
 
     // Generate repertoires based on initial traitFrequencies using base strategy
     auto [repertoiresList_temp, allTransitions_temp] = computeRepertoiresAndTransitions(
-        baseStrategy, slope, initialStatePayoffs, lambda
+        baseStrategy, slope, initialStatePayoffs, transparency
     );
     repertoiresList = repertoiresList_temp;
     allTransitions = allTransitions_temp;
@@ -230,7 +231,7 @@ void MarkovChain::buildFinalTransitionMatrix() {
 
     // Second pass: rebuild the transition matrix with updated trait frequencies
     auto [finalRepertoires, finalTransitions] = computeRepertoiresAndTransitions(
-        strategy, slope, allStatesPayoffs, lambda
+        strategy, slope, allStatesPayoffs, transparency
     );
     finalRepertoiresList = finalRepertoires;
     finalAllTransitions = finalTransitions;
@@ -289,3 +290,4 @@ void MarkovChain::computeResults() {
         expectedVariation
     );
 }
+*/

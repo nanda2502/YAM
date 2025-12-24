@@ -1,3 +1,4 @@
+/*
 #ifndef MARKOVCHAIN_HPP
 #define MARKOVCHAIN_HPP
 
@@ -16,8 +17,6 @@
 #include <unordered_map>
 #include <numeric>
 #include <cmath>
-
-
 
 class MarkovChain {
 public:
@@ -51,7 +50,7 @@ private:
     double alpha;
     const std::vector<size_t>& shuffleSequence;
     double slope;
-    double lambda;
+    double transparency;
     int payoffDist;
     traitDistribution distribution;
 
@@ -117,3 +116,4 @@ private:
     void debugPrint() const;
 };
 #endif // MARKOVCHAIN_HPP
+*/

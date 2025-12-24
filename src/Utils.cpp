@@ -44,12 +44,14 @@ std::string strategyToString(Strategy strategy) {
             return "Perfect";
         case Anticonformity:
             return "Anticonformity";
+        case Prestige2:
+            return "Prestige2";
         default:
             throw std::invalid_argument("Unknown strategy");
     }
 }
 
-std::string distributionToString(traitDistribution distribution) {
+std::string distributionToString(TraitDistribution distribution) {
     switch (distribution) {
         case Learnability:
             return "Learnability";
@@ -68,7 +70,7 @@ std::string distributionToString(traitDistribution distribution) {
 
 std::string formatResults(
     int n, 
-    const std::string& adjMatrixBinary, 
+    const std::string& adjMatrixFlattened, 
     double alpha, 
     Strategy strategy, 
     int repl,
@@ -77,16 +79,17 @@ std::string formatResults(
     double expectedTransitionsPerStep,
     double expectedVariation,
     double slope,
-    traitDistribution distribution,
+    TraitDistribution distribution,
     double absorbing,
     double stationaryVariation,
     int payoffDist,
     double edgeWeight,
-    double lambda
+    double transparency,
+    int closure
 ) {
     std::ostringstream oss;
     oss << n << ',' << 
-    adjMatrixBinary << ',' << 
+    adjMatrixFlattened << ',' << 
     alpha << ',' << 
     strategyToString(strategy) << ',' << 
     repl << ',' << 
@@ -100,12 +103,13 @@ std::string formatResults(
     stationaryVariation << ',' <<
     payoffDist << ',' <<
     edgeWeight << ',' <<
-    lambda;
+    transparency << ',' <<
+    closure;
     return oss.str();
 }
 
-inline std::vector<std::vector<double>> binaryStringToWeightedMatrix(const std::string& str) {
-    // For backward compatibility, convert binary string to weighted matrix
+inline std::vector<std::vector<double>> flattenedStringToWeightedMatrix(const std::string& str) {
+    // For backward compatibility, convert flattened string to weighted matrix
     // where 1s become 1.0 and 0s become 0.0
     
     int n = static_cast<int>(std::sqrt(str.size()));
@@ -330,7 +334,7 @@ void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<
     }
 }
 
-std::string adjMatrixToBinaryString(const AdjacencyMatrix& adjMatrix) {
+std::string adjMatrixToFlattenedString(const AdjacencyMatrix& adjMatrix) {
     std::stringstream ss;
     size_t n = adjMatrix.size();
     
@@ -373,7 +377,7 @@ std::vector<double> returnSlopeVector(Strategy strategy) {
         case Random: case Perfect:
             return {0.0};
         default:
-            return {2.0};	
+            return {1.25, 2.0, 5.0};	
 
     }
 }
@@ -405,6 +409,7 @@ bool isUnconstrained(const AdjacencyMatrix& adjMatrix) {
     // If we've checked all rows and found no nonzero values, return true
     return true;
 }
+
 
 size_t factorial(size_t num) {
     size_t result = 1;
@@ -498,46 +503,48 @@ AdjacencyMatrix computeTransitiveClosure(const AdjacencyMatrix& adjacencyMatrix)
     return result;
 }
 
+// Read this function to understand the specific parameter combinations used for each figure in the paper. 
 std::vector<ParamCombination> makeCombinations(
     const std::vector<AdjacencyMatrix>& adjacencyMatrices, 
-    int replications
+    int replications,
+    const std::string& postfix
 ) {
-    constexpr bool SENSITIVITY_TESTS = true; // Set to false to skip sensitivity tests
+    constexpr bool SENSITIVITY_TESTS = false; // Set to false to skip sensitivity tests
     std::vector<ParamCombination> combinations;
     
     // Define default values
-    traitDistribution defaultDistribution = traitDistribution::Learnability;
+    TraitDistribution defaultDistribution = TraitDistribution::Learnability;
     int defaultPayoffDist = 0;
     double defaultAlpha = 0.0;
     double alternativeAlpha = 1.0;
     double defaultEdgeWeight = 1.0;
-    double defaultLambda = 0.0;
+    double defaultTransparency = 0.0;
+    int defaultClosure = 0; // By default, dont use transitive closure
     
     std::vector<Strategy> strategies = {
-        Strategy::Random,
-        Strategy::Payoff,
-        Strategy::Proximal,
-        Strategy::Prestige,
-        Strategy::Conformity,
-        Strategy::Perfect,
-        //Strategy::Anticonformity
+        //Strategy::Random,
+        //Strategy::Payoff,
+        Strategy::Proximal//,
+        //Strategy::Prestige,
+        //Strategy::Conformity,
+        //Strategy::Perfect,
+        //Strategy::Anticonformity,
+        //Strategy::Prestige2
     };
 
-    std::vector<traitDistribution> distributions = {
-        traitDistribution::Learnability,
-        traitDistribution::Uniform,
-        traitDistribution::Depth,
-        traitDistribution::Shallowness,
-        traitDistribution::Payoffs
+    std::vector<TraitDistribution> distributions = {
+        TraitDistribution::Learnability,
+        TraitDistribution::Uniform,
+        TraitDistribution::Depth,
+        TraitDistribution::Shallowness,
+        TraitDistribution::Payoffs
     };
 
-    std::vector<double> weights = {0.1, 0.5, 0.9};
+    std::vector<double> weights(21, 0.0);
+    for (int i = 0; i < 21; ++i) weights[i] = i * 0.05;
 
-    //std::vector<double> weights(26, 0.0);
-    //for (int i = 0; i < 26; ++i) weights[i] = i * 0.04;
-
-    for (const auto& adjMatrix : adjacencyMatrices) {
-        std::string adjMatrixBinary = adjMatrixToBinaryString(adjMatrix);
+    for (const auto & adjMatrix : adjacencyMatrices) {
+         std::string adjMatrixFlattened = adjMatrixToFlattenedString(adjMatrix);
         size_t n = adjMatrix.size();
         auto shuffleSequences = makeShuffles(n);
         // Determine which shuffle sequences to use
@@ -553,16 +560,20 @@ std::vector<ParamCombination> makeCombinations(
         
         // Create combinations with default parameters
         for (const auto& strategy : strategies) {
+            // Default slope based on strategy 
+            double defaultSlope = (strategy == Strategy::Random || strategy == Strategy::Perfect) ? 0.0 : 2.0;
+
             if (n <= 8) {
+                
                 // For n <= 8, use all slopes
                 auto slopes = returnSlopeVector(strategy);
-                /*
+                // These parameters were used for figure 1, figure 2 E-H, A, Q. Slope 2 was used for everything except figure 2 E-H, which shows slope 1.25 and 5.0.
                 // Base cases: default values for all parameters, but vary the slopes
                 for (const auto& slope : slopes) {
                     for (int repl = 0; repl < replications; ++repl) {
                         combinations.push_back({
                             adjMatrix, 
-                            adjMatrixBinary, 
+                            adjMatrixFlattened, 
                             strategy, 
                             defaultDistribution, 
                             defaultAlpha, 
@@ -571,21 +582,21 @@ std::vector<ParamCombination> makeCombinations(
                             defaultPayoffDist, 
                             usedShuffleSequences,
                             defaultEdgeWeight,
-                            defaultLambda
+                            defaultTransparency,
+                            defaultClosure
                         });
                     }
                 }
-                */
+                
                 // Only continue with parameter variation if the adjacency matrix is size 8
                 if (n == 8 && SENSITIVITY_TESTS) {
-                    // Default slope based on strategy (for parameter variations)
-                    double defaultSlope = (strategy == Strategy::Random || strategy == Strategy::Perfect) ? 0.0 : 2.0;
                     /*
-                    // Vary alpha: Add combinations with alternative alpha
+                    // These parameters were used for figure 2 L
+                    // Vary alpha: Alpha controls whether payoffs are randomly distributed (alpha = 0.0) or increase with number of prerequisites (alpha = 1.0)
                     for (int repl = 0; repl < replications; ++repl) {
                         combinations.push_back({
                             adjMatrix, 
-                            adjMatrixBinary, 
+                            adjMatrixFlattened, 
                             strategy, 
                             defaultDistribution, 
                             alternativeAlpha, 
@@ -594,17 +605,19 @@ std::vector<ParamCombination> makeCombinations(
                             defaultPayoffDist, 
                             usedShuffleSequences,
                             defaultEdgeWeight,
-                            defaultLambda
+                            defaultTransparency,
+                            defaultClosure
                         });
                     }
                     
+                    // Figure 2 D & E
                     // Vary distribution: Add combinations with each non-default distribution
                     for (const auto& distribution : distributions) {
                         if (distribution != defaultDistribution) {
                             for (int repl = 0; repl < replications; ++repl) {
                                 combinations.push_back({
                                     adjMatrix, 
-                                    adjMatrixBinary, 
+                                    adjMatrixFlattened, 
                                     strategy, 
                                     distribution, 
                                     defaultAlpha, 
@@ -613,18 +626,20 @@ std::vector<ParamCombination> makeCombinations(
                                     defaultPayoffDist, 
                                     usedShuffleSequences,
                                     defaultEdgeWeight,
-                                    defaultLambda
+                                    defaultTransparency,
+                                    defaultClosure
                                 });
                             }
                         }
                     }
                     
+                    // Figure SX
                     // Vary payoffDist: Add combinations with one payoff being high and the rest low
                     for (size_t payoffDist = 1; payoffDist < 2; ++payoffDist) {  // Start from 1 since 0 is default
                         for (int repl = 0; repl < replications; ++repl) {
                             combinations.push_back({
                                 adjMatrix, 
-                                adjMatrixBinary, 
+                                adjMatrixFlattened, 
                                 strategy, 
                                 defaultDistribution, 
                                 defaultAlpha, 
@@ -633,23 +648,22 @@ std::vector<ParamCombination> makeCombinations(
                                 static_cast<int>(payoffDist), 
                                 usedShuffleSequences,
                                 defaultEdgeWeight,
-                                defaultLambda
+                                defaultTransparency,
+                                defaultClosure
                             });
                         }
                     }
-                    
-
-                    
-                    // Vary edge weight: transitive closure
-                    
+                    // Figure 2 G-I                     
+                    // Vary edge weight: we handle the possibility of skipping by converting the structure to its transitive closure
+                    // i.e., all ancestors of a trait are considered prerequisites
                     auto transitiveClosure = computeTransitiveClosure(adjMatrix);
-                    auto transitiveClosureBinary = adjMatrixToBinaryString(transitiveClosure);
+                    auto transitiveClosureFlattened = adjMatrixToFlattenedString(transitiveClosure);
 
                     for (const auto& weight : weights){
                         for (int repl = 0; repl < replications; ++repl) {
                             combinations.push_back({
                                 transitiveClosure, 
-                                transitiveClosureBinary, 
+                                transitiveClosureFlattened, 
                                 strategy, 
                                 defaultDistribution, 
                                 defaultAlpha, 
@@ -658,18 +672,21 @@ std::vector<ParamCombination> makeCombinations(
                                 defaultPayoffDist, 
                                 usedShuffleSequences,
                                 weight,
-                                defaultLambda
+                                defaultTransparency,
+                                1
                             });
                         }
                     }
                     
+                    // Figure SX                     
                     // Vary edge weight: transitive reduction
-                    
+                    // i.e., no ancestors of a trait are considered prerequisites
+
                     for (const auto& weight : weights){
                         for (int repl = 0; repl < replications; ++repl) {
                             combinations.push_back({
                                 adjMatrix, 
-                                adjMatrixBinary, 
+                                adjMatrixFlattened, 
                                 strategy, 
                                 defaultDistribution, 
                                 defaultAlpha, 
@@ -678,18 +695,20 @@ std::vector<ParamCombination> makeCombinations(
                                 defaultPayoffDist, 
                                 usedShuffleSequences,
                                 weight,
-                                defaultLambda
+                                defaultTransparency,
+                                defaultClosure
                             });
                         }
                     }
+                    
                     */
-
-                    // Vary lambda: Add combinations with different lambda values
-                    for (double lambda : {  0.5, 1.0, 1.5, 2.0, 10.0, 100.0}) {
+                    // Figure 2 J-L
+                    // Add combinations with different transparency values
+                    for (double transparency : {0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0}) {
                         for (int repl = 0; repl < replications; ++repl) {
                             combinations.push_back({
                                 adjMatrix, 
-                                adjMatrixBinary, 
+                                adjMatrixFlattened, 
                                 strategy, 
                                 defaultDistribution, 
                                 defaultAlpha, 
@@ -698,19 +717,25 @@ std::vector<ParamCombination> makeCombinations(
                                 defaultPayoffDist, 
                                 usedShuffleSequences,
                                 defaultEdgeWeight,
-                                lambda
+                                transparency,
+                                defaultClosure
                             });
                         }
                     }
+                    
+                    
                 }
-            } else {
-                // For n > 8, use only the default slope
+
+            } else if (postfix == "maths" || postfix == "cook" || postfix == "honey" || postfix == "tuber") {
                 double defaultSlope = (strategy == Strategy::Random || strategy == Strategy::Perfect) ? 0.0 : 2.0;
+
+                auto transitiveClosure = computeTransitiveClosure(adjMatrix);
+                auto transtiveClosureFlattened = adjMatrixToFlattenedString(transitiveClosure);
                 
                 for (int repl = 0; repl < replications; ++repl) {
                     combinations.push_back({
                         adjMatrix, 
-                        adjMatrixBinary, 
+                        adjMatrixFlattened, 
                         strategy, 
                         defaultDistribution, 
                         defaultAlpha, 
@@ -719,7 +744,67 @@ std::vector<ParamCombination> makeCombinations(
                         defaultPayoffDist, 
                         usedShuffleSequences,
                         defaultEdgeWeight,
-                        defaultLambda
+                        defaultTransparency,
+                        defaultClosure
+                    });
+                }
+                
+                for (int repl = 0; repl < replications; ++repl) {
+                    combinations.push_back({
+                        adjMatrix, 
+                        adjMatrixFlattened, 
+                        strategy, 
+                        defaultDistribution, 
+                        defaultAlpha, 
+                        repl, 
+                        defaultSlope, 
+                        defaultPayoffDist, 
+                        usedShuffleSequences,
+                        defaultEdgeWeight,
+                        10, //Transparency
+                        defaultClosure
+                    });
+                }
+
+
+
+                for (int repl = 0; repl < replications; ++repl) {
+                    combinations.push_back({
+                        transitiveClosure, 
+                        transtiveClosureFlattened, 
+                        strategy, 
+                        defaultDistribution, 
+                        defaultAlpha, 
+                        repl, 
+                        defaultSlope, 
+                        defaultPayoffDist, 
+                        usedShuffleSequences,
+                        0.5, // Edge weight
+                        defaultTransparency,
+                        1 // Use transitive closure 
+                    });
+                }
+
+            // Parameter settings used for figure 2 B-D 
+            // Expected inputs: adj_mat_20.csv, adj_mat_30.csv, adj_mat_50.csv 
+            } else {
+                // For n > 8, use only the default slope
+                double defaultSlope = (strategy == Strategy::Random || strategy == Strategy::Perfect) ? 0.0 : 2.0;
+                
+                for (int repl = 0; repl < replications; ++repl) {
+                    combinations.push_back({
+                        adjMatrix, 
+                        adjMatrixFlattened, 
+                        strategy, 
+                        defaultDistribution, 
+                        defaultAlpha, 
+                        repl, 
+                        defaultSlope, 
+                        defaultPayoffDist, 
+                        usedShuffleSequences,
+                        defaultEdgeWeight,
+                        defaultTransparency,
+                        defaultClosure
                     });
                 }
             }
@@ -728,6 +813,7 @@ std::vector<ParamCombination> makeCombinations(
     
     return combinations;
 }
+
 std::string stateToString(const Repertoire& state) {
     std::string result;
     result.reserve(state.size());
@@ -757,7 +843,7 @@ void printStates(const std::vector<Repertoire>& repertoiresList, const std::unor
     }
 }
 
-AdjacencyMatrix adjustMatrix(const AdjacencyMatrix& adjMatrix, double edgeWeight) {
+AdjacencyMatrix adjustMatrixWeights(const AdjacencyMatrix& adjMatrix, double edgeWeight) {
     auto weightedMatrix = adjMatrix;
     for (size_t row = 0; row < adjMatrix.size(); row++) {
         for (size_t col = 0; col < adjMatrix.size(); col++) {

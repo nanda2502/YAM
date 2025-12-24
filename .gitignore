@@ -7,3 +7,4 @@ yam.exe
 *.rds
 *.sh
 *.out
+output/

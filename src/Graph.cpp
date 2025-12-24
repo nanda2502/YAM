@@ -24,7 +24,7 @@ std::vector<double> computeDistances(const AdjacencyMatrix& adjMatrix, Trait roo
             }
         }
     } else {
-        // Unweighted: BFS from root (your existing logic)
+        // Unweighted: BFS from root
         std::vector<int> intDistances(n, -1);
         std::queue<Trait> q;
         

@@ -59,9 +59,9 @@ bool computeExpectedSteps(
     double alpha, // whether payoffs should increase with number of prerequisites
     const std::vector<size_t>& shuffleSequence,
     double slope,  // strength of strategy bias
-    double lambda, //knowledge of the learning constraints
+    double transparency, //knowledge of the learning constraints
     int payoffDist, // 0: equal spacing between 0 and 2 with mean = 1, 1: one high, remaining low values with mean = 1
-    traitDistribution distribution, 
+    TraitDistribution distribution, 
     std::vector<double>& expectedPayoffPerStep,                     
     std::vector<double>& expectedTransitionsPerStep,                
     std::vector<double>& expectedVariation,

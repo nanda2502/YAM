@@ -17,10 +17,11 @@ enum Strategy : std::uint8_t {
     Prestige,
     Conformity,
     Perfect,
-    Anticonformity
+    Anticonformity,
+    Prestige2 // Weigh by repertoire size instead of repertoire payoff
 };
 
-enum traitDistribution : std::uint8_t {
+enum TraitDistribution : std::uint8_t {
     Learnability,
     Uniform,
     Depth,
@@ -32,14 +33,15 @@ struct ParamCombination {
     AdjacencyMatrix adjMatrix;
     std::string adjMatrixBinary;
     Strategy strategy;
-    traitDistribution distribution;
+    TraitDistribution distribution;
     double alpha;
     int repl;
     double slope;
     int payoffDist;
     std::vector<std::vector<size_t>> shuffleSequences;
     double edgeWeight;
-    double lambda;
+    double transparency;
+    int closure;
 };
 
 struct Result {

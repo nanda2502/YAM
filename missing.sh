@@ -30,8 +30,8 @@ missing_count=0
 
 # Loop through expected files and count missing ones
 for i in $(seq 0 $max_index); do
-    if [ ! -f "./output/expected_steps_${i}.csv.gz" ]; then
-        echo "Missing file: expected_steps_${i}.csv.gz"
+    if [ ! -f "./output/yam_out_${i}.csv" ]; then
+        echo "Missing file: yam_out_${i}.csv"
         missing_count=$((missing_count + 1))
     fi
 done

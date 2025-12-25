@@ -11,7 +11,11 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 find_package(ZLIB REQUIRED)
 
 # Main executable
-file(GLOB_RECURSE MAIN_SOURCES "src/*.cpp")
+file(GLOB_RECURSE MAIN_SOURCES
+	"src/*.cpp"
+	"src/markov/*.cpp"
+	"src/learning/*.cpp"
+)
 add_executable(yam ${MAIN_SOURCES})
 
 target_include_directories(yam PRIVATE ${ZLIB_INCLUDE_DIRS})

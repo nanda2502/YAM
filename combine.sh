@@ -1,6 +1,6 @@
 cd output
 
-gz_count=$(ls -1 expected_steps_*.csv.gz 2>/dev/null | wc -l)
+csv_count=$(ls -1 yam_out_*.csv 2>/dev/null | wc -l)
 
 suffix="${1:-}"
 
@@ -8,7 +8,7 @@ if [ -z "$suffix" ]; then
    for n in {3..100}; do
        if [ -f "../data/adj_mat_${n}.csv" ]; then
            line_count=$(wc -l < "../data/adj_mat_${n}.csv")
-           if [ "$gz_count" -eq "$line_count" ]; then
+           if [ "$csv_count" -eq "$line_count" ]; then
                suffix=$n
                break
            fi
@@ -16,16 +16,16 @@ if [ -z "$suffix" ]; then
    done
 fi
 
-zcat expected_steps_0.csv.gz | head -n 1 > header.csv
+head -n 1 yam_out_0.csv > header.csv
 
-for file in expected_steps_*.csv.gz; do
-   zcat "$file" | tail -n +2 >> combined_data.csv
+for file in yam_out_*.csv; do
+   tail -n +2 "$file" >> combined_data.csv
 done
 
-cat header.csv combined_data.csv > expected_steps.csv
+cat header.csv combined_data.csv > yam_out.csv
 
-rm header.csv combined_data.csv expected_steps_*.gz
+rm header.csv combined_data.csv
 
 if [ -n "$suffix" ]; then
-   mv expected_steps.csv expected_steps_${suffix}.csv
+   mv yam_out.csv yam_out_${suffix}.csv
 fi

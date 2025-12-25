@@ -26,7 +26,7 @@ cd build || exit 1
 active_jobs=0
 
 for i in $(seq 0 $max_i); do
-    if [ ! -f "../output/expected_steps_${i}.csv.gz" ]; then
+    if [ ! -f "../output/yam_out_${i}.csv" ]; then
         while [ $active_jobs -ge $max_parallel ]; do
             wait -n
             active_jobs=$((active_jobs - 1))

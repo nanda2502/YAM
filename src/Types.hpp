@@ -16,9 +16,7 @@ enum Strategy : std::uint8_t {
     Proximal,
     Prestige,
     Conformity,
-    Perfect,
-    Anticonformity,
-    Prestige2 // Weigh by repertoire size instead of repertoire payoff
+    Prestige2 // Weight by repertoire size instead of repertoire payoff
 };
 
 enum TraitDistribution : std::uint8_t {
@@ -63,6 +61,13 @@ struct AccumulatedResult {
     std::vector<double> totalExpectedPayoffPerStep{std::vector<double>(20, 0.0)};
     std::vector<double> totalExpectedTransitionsPerStep{std::vector<double>(20, 0.0)};
     std::vector<double> totalExpectedVariation{std::vector<double>(20, 0.0)};
+};
+
+// Hash for repertoire vectors so they can be used in unordered_map/set.
+struct RepertoireHash {
+    std::size_t operator()(const Repertoire& repertoire) const {
+        return std::hash<std::string>{}(std::string(repertoire.begin(), repertoire.end()));
+    }
 };
 
 #endif // TYPES_HPP

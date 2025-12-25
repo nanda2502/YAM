@@ -31,7 +31,7 @@ touch $running_pids
 
 # Launch all tasks for this array job
 for i in $(seq $start $end); do
-    if [ ! -f "../output/expected_steps_${i}.csv.gz" ]; then
+    if [ ! -f "../output/yam_out_${i}.csv" ]; then
         echo "Starting task $i"
         ./yam "$i" 8 &
         echo $! >> $running_pids

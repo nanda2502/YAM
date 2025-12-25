@@ -8,3 +8,4 @@ yam.exe
 *.sh
 *.out
 output/
+.github/

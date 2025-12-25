@@ -9,7 +9,7 @@ export OMP_NUM_THREADS=4
 cd build
 
 for i in {0..317}; do
-    if [ ! -f "../output/expected_steps_${i}.csv.gz" ]; then
+    if [ ! -f "../output/yam_out_${i}.csv" ]; then
         ./yam "$i" 7&
     fi
 done

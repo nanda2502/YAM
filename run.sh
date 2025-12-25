@@ -14,7 +14,7 @@ cd build
 task_id=${SLURM_ARRAY_TASK_ID}
 
 # Check if the output already exists
-if [ ! -f "../output/expected_steps_${task_id}.csv.gz" ]; then
+if [ ! -f "../output/yam_out_${task_id}.csv" ]; then
     # Run the task
     ./yam "$task_id" 2
 fi

@@ -4,7 +4,6 @@
 #include "Types.hpp"
 #include <unordered_map>
 #include <vector>
-#include <string>
 
 std::vector<double> learnability(
     const Repertoire& repertoire,
@@ -14,12 +13,6 @@ std::vector<double> learnability(
 
 
 double stayProbability(std::vector<std::pair<Repertoire, double>> transitions);
-
-struct RepertoireHash {
-    std::size_t operator()(const Repertoire& repertoire) const {
-        return std::hash<std::string>{}(std::string(repertoire.begin(), repertoire.end()));
-    }
-};
 
 std::vector<double> baseWeights(
     Strategy strategy,
@@ -41,7 +34,9 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const std::vector<Repertoire>& allStates,
     double slope,
     const std::vector<double>& statePayoffs,
-    double transparency
+    double transparency,
+    const std::vector<double>& depths,
+    TraitDistribution dist
 );
 
 std::vector<Repertoire> generateAllRepertoires(const AdjacencyMatrix& adjMatrix);

@@ -1,3 +1,6 @@
+// This file implements the learning-related functions. 
+// This includes the definitions of social learning strategies and the mechanism for state transitions between repertoires.
+
 #include "Learning.hpp"
 #include "Debug.hpp"
 #include "Types.hpp"
@@ -84,32 +87,32 @@ std::vector<double> normalizedMissingPrereqs(
 
 std::vector<double> learnability(
     const Repertoire& repertoire,
-    const AdjacencyMatrix& adjMatrix
+    const AdjacencyMatrix& adjMatrix // w[prereq][trait]
 ) {
     size_t n = repertoire.size();
     std::vector<double> learnable(n, 0.0);
     
     for (Trait trait = 0; trait < n; ++trait) {
-        // If trait is already learned, it's not learnable
+         // Already known: not a candidate for learning attempts.
         if (repertoire[trait] == 1.0) {
             learnable[trait] = 0.0;
             continue;
         }
         
-        // Start with probability 1.0
+        // Learnability under soft dependencies: Π over missing prerequisites (1 - w).
         double probability = 1.0;
         
-        // Check all potential parents
-        for (Trait parent = 0; parent < n; ++parent) {
-            double edgeWeight = adjMatrix[parent][trait];
+        // Check all potential prerequisites
+        for (Trait prereq = 0; prereq < n; ++prereq) {
+            double edgeWeight = adjMatrix[prereq][trait];
             
-            if (edgeWeight > 0.0) {  // This is a direct parent
-                if (repertoire[parent] == 0.0) {
-                    // Parent is unknown - contribute with probability (1-edgeWeight)
+            if (edgeWeight > 0.0) {  // This is a direct prerequisite
+                if (repertoire[prereq] == 0.0) {
+                    // Prerequisite is not in repertoire - contribute with probability (1-edgeWeight) to learnability
                     // This represents the chance that this unknown parent isn't required
                     probability *= (1.0 - edgeWeight);
                 }
-                // If parent is known, it doesn't reduce the probability (contributes with factor 1.0)
+                // If prerequisite is in repertoire, it doesn't reduce the probability (contributes with factor 1.0)
             }
         }
                 
@@ -119,206 +122,97 @@ std::vector<double> learnability(
     return learnable;
 }
 
-double computeDelta(const Repertoire& r, const Repertoire& s) {
-    // count the number of traits that are present in target state s but not in current state r
-    return std::inner_product(s.begin(), s.end(), r.begin(), 0.0,
-        std::plus<>(), [](double s_i, double r_i) { return (s_i == 1.0 && r_i == 0.0) ? 1 : 0; });
+// Count traits present in demo but missing in learner
+int computeDelta(const Repertoire& learner, const Repertoire& demo) {
+    int gap = 0;
+    for (size_t t = 0; t < learner.size(); ++t) {
+        if (demo[t] == 1.0 && learner[t] == 0.0) ++gap;
+    }
+    return gap;
 }
-
-std::vector<double> proximalBaseWeightsOld(
-    const Repertoire& repertoire,
-    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
-    const std::vector<Repertoire>& allStates,
-    double slope
-) {
-    std::vector<double> w_star(repertoire.size(), 0.0);
-    
-    // Loop over each trait
-    for (size_t trait = 0; trait < repertoire.size(); ++trait) {
-        if (repertoire[trait] == 0) { // Agent doesn't have this trait
-            // Loop over all potential demonstrator states in the stateFrequencies map
-            for (const auto& [state, frequency] : stateFrequencies) {
-                if (state[trait] == 1) { // Demonstrator has this trait
-                    auto delta = computeDelta(repertoire, state);
-                    if (delta > 0) {
-                        // Add to the weight using inverse of delta
-                        w_star[trait] += frequency * std::pow(delta, -slope);
-                    }
-                }
-            }
-        }
-    }
-    
-    return w_star;
-}
-
-std::vector<double> proximalBaseWeights_meandist(
-    const Repertoire& repertoire,
-    const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
-    const std::vector<Repertoire>& allStates,
-    double slope
-) {
-    std::vector<double> w_star(repertoire.size(), 0.0);
-
-    // learner's repertoire size
-    int learnerSize = 0;
-    for (double val : repertoire) {
-        if (val == 1.0) learnerSize++;
-    }
-
-    // Precompute trait × size frequencies
-    size_t numTraits = repertoire.size();
-    size_t maxSize = numTraits;
-    std::vector<std::vector<double>> traitSizeFreq(numTraits, std::vector<double>(maxSize + 1, 0.0));
-
-    for (const auto& [state, frequency] : stateFrequencies) {
-        int demoSize = 0;
-        for (double val : state) {
-            if (val == 1.0) demoSize++;
-        }
-        for (size_t trait = 0; trait < numTraits; ++trait) {
-            if (state[trait] == 1.0) {
-                traitSizeFreq[trait][demoSize] += frequency;
-            }
-        }
-    }
-
-    // Compute weights for each unlearned trait using size-based delta
-    for (size_t trait = 0; trait < numTraits; ++trait) {
-        if (repertoire[trait] == 0.0) {
-            double sum = 0.0;
-            for (int demoSize = learnerSize + 1; demoSize <= (int)maxSize; ++demoSize) {
-                int delta = demoSize - learnerSize;
-                if (delta > 0) {
-                    sum += traitSizeFreq[trait][demoSize] * std::pow(delta, -slope);
-                }
-            }
-            w_star[trait] = sum;
-        }
-    }
-
-    return w_star;
-}
-
 
 std::vector<double> proximalBaseWeights(
     const Repertoire& repertoire,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
     const std::vector<Repertoire>& allStates,
+    const std::vector<double>& payoffs,
+    const std::vector<double>& depths,
+    TraitDistribution dist,
     double slope
 ) {
-    const size_t T = repertoire.size();
-    std::vector<double> w_star(T, 0.0);
+    const size_t n = repertoire.size();
+    std::vector<double> weights(n, 0.0);
+    
+    // Default case: traits are expressed with uniform probability
+    if (dist == TraitDistribution::Uniform) {
+        // Loop over each trait
+        for (size_t trait = 0; trait < n; ++trait) {
+            if (repertoire[trait] != 0) continue; // learner already has this trait
 
-    // Learner size m := |S(i)| = number of present traits in the focal repertoire
-    int m = 0;
-    for (double x : repertoire) if (x == 1.0) ++m;
+            // Loop over all potential demonstrator repertoires in the stateFrequencies map
+            for (const auto& [demoRep, f_demo] : stateFrequencies) {
+                if (demoRep[trait] == 0) continue; // demonstrator doesn't have the trait
 
-    // Build mean-field summaries from the population measure 'stateFrequencies'.
-    //
-    // θ_u(k)  := Pr(u ∧ |S|=k) — population mass of demonstrators of size k carrying trait u.
-    std::vector<std::vector<double>> theta(T, std::vector<double>(T + 1, 0.0));
-
-    // ψ_num[u][v][k] accumulates Pr(u ∧ v ∧ |S|=k).  Later we divide by θ_u(k) to obtain
-    // ψ_{u→v}(k) = Pr(v | u, |S|=k), i.e., the typical "bundle" of other traits that co-occur with u at size k.
-    std::vector<std::vector<std::vector<double>>> psi_num(
-        T, std::vector<std::vector<double>>(T, std::vector<double>(T + 1, 0.0))
-    );
-
-    // For the learner’s size m we also need g_v(m) = Pr(v | |S|=m),
-    // the prevalence of each trait v among peers of the same size.
-    std::vector<double> g_num(T, 0.0);
-    double Zm = 0.0; // Zm = Pr(|S|=m) (normalizer for the size-m slice)
-
-    // Single pass to fill θ, ψ numerators, and the size-m slice for g(·|m).
-    for (const auto& kv : stateFrequencies) {
-        const Repertoire& state = kv.first;
-        const double freq = kv.second;
-
-        int k = 0;
-        for (double x : state) if (x == 1.0) ++k;
-
-        // Contribute to g(·|m): restrict to the size-m subpopulation
-        if (k == m) {
-            Zm += freq;
-            for (size_t v = 0; v < T; ++v) if (state[v] == 1.0) g_num[v] += freq;
-        }
-
-        // Contribute to θ and ψ numerators across all traits present in this state
-        for (size_t u = 0; u < T; ++u) if (state[u] == 1.0) {
-            theta[u][k] += freq;                       // adds to Pr(u ∧ |S|=k)
-            for (size_t v = 0; v < T; ++v) if (state[v] == 1.0) {
-                psi_num[u][v][k] += freq;              // adds to Pr(u ∧ v ∧ |S|=k)
+                const auto delta = computeDelta(repertoire, demoRep);
+                if (delta == 0) continue; // don't learn from demonstrators with no new traits
+                
+                // Proximal weight contribution: f_demo * delta^{-alpha}
+                weights[trait] += f_demo * std::pow(delta, -slope);
+        
             }
+            
+        }
+        return weights;
+    }
+
+    auto sq = [](double x) { return x * x; };
+    
+    for (const auto& [demoRep, f_demo] : stateFrequencies) {
+        const auto delta = computeDelta(repertoire, demoRep);
+        if (delta == 0) continue;
+
+        const double base = f_demo * std::pow(delta, -slope);
+
+        // Normalize within this demonstrator so the average expression multiplier is ~1
+        double sumSq = 0.0;
+        size_t k = 0;
+        for (size_t t = 0; t < n; ++t) {
+            if (demoRep[t] == 0) continue;
+            const double v = (dist == TraitDistribution::Depth) ? depths[t] : payoffs[t];
+            sumSq += sq(v);
+            ++k;
+        }
+        const double norm = (k > 0 && sumSq > 0.0) ? (sumSq / static_cast<double>(k)) : 1.0;
+
+        for (size_t trait = 0; trait < n; ++trait) {
+            if (repertoire[trait] != 0) continue;
+            if (demoRep[trait] == 0) continue;
+
+            // Expression bias: scale by trait attribute and normalize within demonstrator
+            const double v = (dist == TraitDistribution::Depth) ? depths[trait] : payoffs[trait];
+            const double expr = sq(v) / norm;
+
+            weights[trait] += base * expr;
         }
     }
 
-    // Convert g_num → g(·|m) = Pr(v | |S|=m)
-    std::vector<double> g(T, 0.0);
-    if (Zm > 0.0) {
-        for (size_t v = 0; v < T; ++v) g[v] = g_num[v] / Zm;
-    }
-
-    // Small floor to keep the kernel Δ^{−slope} well-defined
-    const double eps = 1e-12;
-
-    // For each missing trait u, compute the proximal mean-field weight:
-    //
-    // w*(u) = Σ_k θ_u(k) · ϕ( E[Δ | m,u,k] ),   with ϕ(x)=x^{−slope}
-    //
-    // where the "expected directed gap" is
-    //   E[Δ | m,u,k] = k − Σ_{v≠u} Pr(v | u, k) · Pr(v | m)
-    //
-    // Interpretation:
-    //   • A size-k demonstrator with u carries ~k−1 other traits.
-    //   • A size-m learner typically shares g(v|m) of each other trait v.
-    //   • Subtract expected overlap to obtain the expected shortfall Δ against such demonstrators.
-    for (size_t u = 0; u < T; ++u) {
-        if (repertoire[u] != 0.0) continue; // evaluate only u ∉ S(i)
-
-        double sum = 0.0;
-
-        // Aggregate contributions from demonstrator size classes k
-        for (size_t k = 0; k <= T; ++k) {
-            const double mass_uk = theta[u][k]; // θ_u(k) = Pr(u ∧ |S|=k)
-            if (mass_uk <= 0.0) continue;
-
-            // Expected overlap on "other" traits:
-            // shared_other = Σ_{v≠u} ψ_{u→v}(k) · g(v|m)
-            double shared_other = 0.0;
-            for (size_t v = 0; v < T; ++v) {
-                if (v == u) continue;
-                const double psi_cond = psi_num[u][v][k] / mass_uk; // Pr(v | u, k)
-                shared_other += psi_cond * g[v];
-            }
-
-            // E[Δ | m,u,k] = k − shared_other
-            const double expected_delta = static_cast<double>(k) - shared_other;
-
-            // θ_u(k) · (E[Δ])^{−slope}
-            if (expected_delta > eps) {
-                sum += mass_uk * std::pow(expected_delta, -slope);
-            }
-        }
-
-        w_star[u] = sum;
-    }
-
-    return w_star;
+    return weights;
 }
+
+
 
 std::vector<double> payoffBaseWeights(
     const std::vector<double>& payoffs, 
     const std::vector<double>& traitFrequencies, 
     double slope
 ) {
-    std::vector<double> w_star(payoffs.size());
+    std::vector<double> weights(payoffs.size());
     
     for (size_t i = 0; i < payoffs.size(); ++i) {
-        w_star[i] = traitFrequencies[i] * std::pow(payoffs[i], slope);
+        weights[i] = traitFrequencies[i] * std::pow(payoffs[i], slope);
     }
     
-    return w_star;
+    return weights;
 }
 
 std::vector<double> prestigeBaseWeights(
@@ -327,127 +221,176 @@ std::vector<double> prestigeBaseWeights(
     const std::vector<Repertoire>& allStates,
     const std::vector<double>& statePayoffs,
     const std::vector<double>& payoffs,
+    const std::vector<double>& depths,
+    TraitDistribution dist,
     double slope
 ) {
-    std::vector<double> w_star(repertoire.size(), 0.0);
-    
-    // Loop over each trait
-    for (size_t trait = 0; trait < repertoire.size(); ++trait) {
-        if (repertoire[trait] == 0) { // Agent doesn't have this trait
-            // Loop over all potential demonstrator states in the stateFrequencies map
-            for (const auto& [state, frequency] : stateFrequencies) {
-                if (state[trait] == 1) { // Demonstrator has this trait
-                    auto delta = computeDelta(repertoire, state);
-                    if (delta > 0) {
-                        // Find the state in allStates to get its payoff
-                        auto stateIt = std::find(allStates.begin(), allStates.end(), state);
-                        if (stateIt != allStates.end()) {
-                            size_t stateIndex = std::distance(allStates.begin(), stateIt);
-                            //double statePayoff = statePayoffs[stateIndex];
-                            double statePayoff = 0.0;
-                            for (size_t j = 0; j < state.size(); ++j) {
-                                if (state[j] == 1.0) {
-                                    statePayoff += payoffs[j];
-                                }
-                            }
-                            // Add to the weight using payoff bias
-                            w_star[trait] += frequency * std::pow(statePayoff, slope);
-                        }
-                    }
-                }
-            }
+    std::vector<double> weights(repertoire.size(), 0.0);
+
+    // Map demonstrator repertoire -> total payoff (prestige signal).
+    std::unordered_map<Repertoire, double, RepertoireHash> payoffByState;
+    if (allStates.size() == statePayoffs.size()) {
+        payoffByState.reserve(allStates.size());
+        for (size_t i = 0; i < allStates.size(); ++i) {
+            payoffByState.emplace(allStates[i], statePayoffs[i]);
         }
     }
-    
-    return w_star;
+
+    const size_t n = repertoire.size();
+
+    // Default case: traits are expressed with uniform probability
+    if (dist == TraitDistribution::Uniform) {
+        for (size_t trait = 0; trait < n; ++trait) {
+            if (repertoire[trait] != 0.0) continue; // learner already has this trait
+
+            for (const auto& [demoState, f_demo] : stateFrequencies) {
+                if (demoState[trait] != 1.0) continue; // demonstrator doesn't express the trait
+
+                double demoPayoff = 0.0;
+                if (!payoffByState.empty()) {
+                    auto it = payoffByState.find(demoState);
+                    if (it != payoffByState.end()) demoPayoff = it->second;
+                } else {
+                    for (size_t j = 0; j < demoState.size(); ++j) {
+                        if (demoState[j] == 1.0) demoPayoff += payoffs[j];
+                    }
+                }
+
+                const double prestigeBias = (slope == 0.0 ? 1.0 : std::pow(demoPayoff, slope));
+                // Prestige weight: sum_{demo contains trait} f_demo * (totalPayoff_demo ^ slope)
+                weights[trait] += f_demo * prestigeBias;
+            }
+        }
+
+        return weights;
+    }
+
+    auto sq = [](double x) { return x * x; };
+
+    for (const auto& [demoState, f_demo] : stateFrequencies) {
+        double demoPayoff = 0.0;
+        if (!payoffByState.empty()) {
+            auto it = payoffByState.find(demoState);
+            if (it != payoffByState.end()) demoPayoff = it->second;
+        } else {
+            for (size_t j = 0; j < demoState.size(); ++j) {
+                if (demoState[j] == 1.0) demoPayoff += payoffs[j];
+            }
+        }
+
+        const double prestigeBias = (slope == 0.0 ? 1.0 : std::pow(demoPayoff, slope));
+        const double base = f_demo * prestigeBias;
+
+        // Normalize within this demonstrator so the average expression multiplier is ~1
+        double sumSq = 0.0;
+        size_t k = 0;
+        for (size_t t = 0; t < n; ++t) {
+            if (demoState[t] == 0.0) continue;
+            const double v = (dist == TraitDistribution::Depth) ? depths[t] : payoffs[t];
+            sumSq += sq(v);
+            ++k;
+        }
+        const double norm = (k > 0 && sumSq > 0.0) ? (sumSq / static_cast<double>(k)) : 1.0;
+
+        for (size_t trait = 0; trait < n; ++trait) {
+            if (repertoire[trait] != 0.0) continue; // learner already has this trait
+            if (demoState[trait] != 1.0) continue; // demonstrator doesn't express the trait
+
+            // Expression bias: scale by trait attribute and normalize within demonstrator
+            const double v = (dist == TraitDistribution::Depth) ? depths[trait] : payoffs[trait];
+            const double expr = sq(v) / norm;
+
+            weights[trait] += base * expr;
+        }
+    }
+
+    return weights;
 }
 
 std::vector<double> prestige2BaseWeights(
     const Repertoire& repertoire,
     const std::unordered_map<Repertoire, double, RepertoireHash>& stateFrequencies,
-    const std::vector<Repertoire>& allStates,
+    const std::vector<double>& payoffs,
+    const std::vector<double>& depths,
+    TraitDistribution dist,
     double slope
 ) {
-    // Used for Figure S3. This implementation weights by repertoire size instead of repertoire payoff
-    std::vector<double> w_star(repertoire.size(), 0.0);
-    
-    // Loop over each trait
-    for (size_t trait = 0; trait < repertoire.size(); ++trait) {
-        if (repertoire[trait] == 0) { // Agent doesn't have this trait
-            // Loop over all potential demonstrator states in the stateFrequencies map
-            for (const auto& [state, frequency] : stateFrequencies) {
-                if (state[trait] == 1) { // Demonstrator has this trait
-                    auto delta = computeDelta(repertoire, state);
-                    if (delta > 0) {
-                        // Calculate repertoire size (number of traits the demonstrator has)
-                        size_t repertoireSize = 0;
-                        for (size_t i = 0; i < state.size(); ++i) {
-                            if (state[i] == 1) {
-                                repertoireSize++;
-                            }
-                        }
-                        // Add to the weight using repertoire size bias
-                        w_star[trait] += frequency * std::pow(repertoireSize, slope);
-                    }
+    // Prestige-by-size: sum over demonstrators who have trait i of f_demo * (|demo repertoire|^slope)
+    std::vector<double> weights(repertoire.size(), 0.0);
+
+    const size_t n = repertoire.size();
+
+    // Default case: traits are expressed with uniform probability
+    if (dist == TraitDistribution::Uniform) {
+        for (size_t trait = 0; trait < n; ++trait) {
+            if (repertoire[trait] != 0) continue; // learner already has this trait
+
+            for (const auto& [demoState, f_demo] : stateFrequencies) {
+                if (demoState[trait] != 1) continue; // demonstrator lacks the trait
+
+                size_t demoSize = 0;
+                for (double i : demoState) {
+                    if (i == 1) ++demoSize;
                 }
+
+                weights[trait] += f_demo * std::pow(static_cast<double>(demoSize), slope);
             }
         }
+
+        return weights;
     }
-    
-    return w_star;
+
+    auto sq = [](double x) { return x * x; };
+
+    for (const auto& [demoState, f_demo] : stateFrequencies) {
+        size_t demoSize = 0;
+        for (double i : demoState) {
+            if (i == 1) ++demoSize;
+        }
+
+        const double base = f_demo * std::pow(static_cast<double>(demoSize), slope);
+
+        // Normalize within this demonstrator so the average expression multiplier is ~1
+        double sumSq = 0.0;
+        size_t k = 0;
+        for (size_t t = 0; t < n; ++t) {
+            if (demoState[t] == 0) continue;
+            const double v = (dist == TraitDistribution::Depth) ? depths[t] : payoffs[t];
+            sumSq += sq(v);
+            ++k;
+        }
+        const double norm = (k > 0 && sumSq > 0.0) ? (sumSq / static_cast<double>(k)) : 1.0;
+
+        for (size_t trait = 0; trait < n; ++trait) {
+            if (repertoire[trait] != 0) continue; // learner already has this trait
+            if (demoState[trait] != 1) continue; // demonstrator lacks the trait
+
+            // Expression bias: scale by trait attribute and normalize within demonstrator
+            const double v = (dist == TraitDistribution::Depth) ? depths[trait] : payoffs[trait];
+            const double expr = sq(v) / norm;
+
+            weights[trait] += base * expr;
+        }
+    }
+
+    return weights;
 }
 
 std::vector<double> conformityBaseWeights(
     const std::vector<double>& traitFrequencies,
     double slope
 ) {
-    std::vector<double> w_star(traitFrequencies.size());
+    std::vector<double> weights(traitFrequencies.size());
     
     // Conformity: frequency^slope 
-    std::ranges::transform(traitFrequencies, w_star.begin(), 
+    std::ranges::transform(traitFrequencies, weights.begin(), 
         [slope](double f) {
             return std::pow(f, slope);
         });
     
-    return w_star;
+    return weights;
 }
 
-std::vector<double> anticonformityBaseWeights(
-    const std::vector<double>& traitFrequencies,
-    double slope
-) {
-    
-    std::vector<double> w_star(traitFrequencies.size());
-    std::ranges::transform(traitFrequencies, w_star.begin(),
-        [slope](double f) {
-            return 1.0 - std::pow(f, slope); // 1 - frequency^slope
-        });
-    return w_star;
-}
-
-std::vector<double> perfectBaseWeights(
-    const Repertoire& repertoire,
-    const PayoffVector& payoffs,  
-    const std::vector<double>& learnableProbs
-) {
-    // This is not actually optimal because it doesn't consider how traits enable the learning of downstream traits.
-    std::vector<double> w_star(repertoire.size(), 0.0);
-    // Always learn the trait with the highest expected payoff that is not already learned
-    double maxExpectedPayoff = 0.0;
-    size_t bestTrait = 0;
-    for (size_t trait = 0; trait < repertoire.size(); ++trait) {
-        double expectedPayoff = payoffs[trait] * learnableProbs[trait];
-        if (expectedPayoff > maxExpectedPayoff) {
-            maxExpectedPayoff = expectedPayoff;
-            bestTrait = trait;
-        }
-    }
-    // Set the weight for the best trait to 1.0, others to 0.0
-    w_star[bestTrait] = 1.0;
-    
-
-    return w_star;
-}
 
 std::vector<double> baseWeights(
     Strategy strategy,
@@ -458,7 +401,9 @@ std::vector<double> baseWeights(
     const std::vector<Repertoire>& allStates,
     double slope,
     const std::vector<double>& statePayoffs,
-    const std::vector<double>& learnableProbs   
+    const std::vector<double>& learnableProbs,
+    const std::vector<double>& depths,
+    TraitDistribution traitDist   
 ) {
     switch (strategy) {
     case Random:
@@ -466,17 +411,13 @@ std::vector<double> baseWeights(
     case Payoff:
         return payoffBaseWeights(payoffs, traitFrequencies, slope);
     case Proximal:
-        return proximalBaseWeights(repertoire, stateFrequencies, allStates, slope);
+        return proximalBaseWeights(repertoire, stateFrequencies, allStates, payoffs, depths, traitDist, slope);
     case Prestige:
-        return prestigeBaseWeights(repertoire, stateFrequencies, allStates, statePayoffs, payoffs, slope);
+        return prestigeBaseWeights(repertoire, stateFrequencies, allStates, statePayoffs, payoffs, depths, traitDist, slope);
     case Conformity:
         return conformityBaseWeights(traitFrequencies, slope);
-    case Anticonformity:
-        return anticonformityBaseWeights(traitFrequencies, slope);
-    case Perfect:
-        return perfectBaseWeights(repertoire, payoffs, learnableProbs);
     case Prestige2:
-        return prestige2BaseWeights(repertoire, stateFrequencies, allStates, slope);
+        return prestige2BaseWeights(repertoire, stateFrequencies,  payoffs, depths, traitDist, slope);
     default:
         throw std::runtime_error("Unknown strategy");
     }
@@ -493,9 +434,14 @@ std::vector<double> normalizedWeights(
     double transparency,
     const std::vector<double>& statePayoffs,
     const std::vector<double>& learnableProbs,
-    const AdjacencyMatrix& adjMatrix
+    const AdjacencyMatrix& adjMatrix,
+    const std::vector<double>& depths,
+    TraitDistribution dist
 )  {
-    std::vector<double> w_star = baseWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, allStates, slope, statePayoffs, learnableProbs);
+    // Trait weights (typically w_i = f_i * bias_i)
+    std::vector<double> weights = baseWeights(
+        strategy, repertoire, payoffs, traitFrequencies, 
+        stateFrequencies, allStates, slope, statePayoffs, learnableProbs, depths, dist);
 
     DEBUG_PRINT(2, "Current repertoire:");
     if (DEBUG_LEVEL >= 2) {
@@ -507,55 +453,51 @@ std::vector<double> normalizedWeights(
 
     DEBUG_PRINT(2, "Base weights:");
     if (DEBUG_LEVEL >= 2) {
-        for (size_t i = 0; i < w_star.size(); ++i) {
-            std::cout << "Trait " << i <<": " << w_star[i] << '\n';
+        for (size_t i = 0; i < weights.size(); ++i) {
+            std::cout << "Trait " << i <<": " << weights[i] << '\n';
         }
     }
 
-    std::vector<double> w_unlearned(repertoire.size());
+    // Candidate weights: only traits not in repertoie and observable
+    std::vector<double> candidateWeights(repertoire.size());
     for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        w_unlearned[trait] = (repertoire[trait] == 1.0 || traitFrequencies[trait] == 0.0) ? 0.0 : w_star[trait];
+        candidateWeights[trait] = (repertoire[trait] == 1.0 || traitFrequencies[trait] == 0.0) ? 0.0 : weights[trait];
     }
 
-    DEBUG_PRINT (2, "Weights after setting learned ones to 0:");
+    DEBUG_PRINT (2, "Weights after filtering learned/unobserved traits:");
     if (DEBUG_LEVEL >= 2) {
-        for (size_t i = 0; i < w_unlearned.size(); ++i) {
-            std::cout << "Trait " << i <<": " << w_unlearned[i] << '\n';
+        for (size_t i = 0; i < candidateWeights.size(); ++i) {
+            std::cout << "Trait " << i <<": " << candidateWeights[i] << '\n';
         }
     }
 
-    // Attempt weights depend on partial structure knowledge. When transparency is 0, structure is completely opaque. 
-    auto missingPrereqs = normalizedMissingPrereqs(repertoire, adjMatrix, transparency);
+     // Perceived learnability: penalize traits with more missing prerequisites (controlled by transparency).
+    // missingPrereqFrac is normalized to [0,1] so (1 - missingPrereqFrac) is a “closeness” score.
+    auto missingPrereqFrac = normalizedMissingPrereqs(repertoire, adjMatrix, transparency);
 
     for (Trait trait = 0; trait < repertoire.size(); ++trait) {
-        w_unlearned[trait] = w_unlearned[trait] * std::pow((1 - missingPrereqs[trait]), transparency);
+        candidateWeights[trait] = candidateWeights[trait] * std::pow((1 - missingPrereqFrac[trait]), transparency);
     }
     
-    double total = std::accumulate(w_unlearned.begin(), w_unlearned.end(), 0.0);
+    const double total = std::accumulate(candidateWeights.begin(), candidateWeights.end(), 0.0);
 
     if (total == 0.0) {
         DEBUG_PRINT(1, "All weights are zero, returning zero vector for repertoire");
         return std::vector<double>(repertoire.size(), 0.0);
     }
 
-    std::ranges::transform(w_unlearned, w_unlearned.begin(),
+    // Normalize by total weight
+    std::ranges::transform(candidateWeights, candidateWeights.begin(),
         [total](double w) { return w / total; });
 
     DEBUG_PRINT(2, "Normalized weights:");
     if (DEBUG_LEVEL >= 2) {
-        for (size_t i = 0; i < w_unlearned.size(); ++i) {
-            std::cout << "Trait " << i <<": " << w_unlearned[i] << '\n';
+        for (size_t i = 0; i < candidateWeights.size(); ++i) {
+            std::cout << "Trait " << i <<": " << candidateWeights[i] << '\n';
         }
     };
 
-    if (strategy == Strategy::Prestige && DEBUG_LEVEL >= 1) {
-        std::cout << "After normalization - trait probabilities:\n";
-        for (size_t i = 1; i < w_unlearned.size(); ++i) {
-            std::cout << "  Trait " << i << ": " << w_unlearned[i] << std::endl;
-        }
-    }
-
-    return w_unlearned;
+    return candidateWeights;
 }
 
 Repertoire learnTrait(const Repertoire& repertoire, Trait trait) {
@@ -574,11 +516,15 @@ std::vector<std::pair<Repertoire, double>> transitionFromState(
     double slope,
     double transparency,
     const AdjacencyMatrix& adjMatrix,
-    const std::vector<double>& statePayoffs
+    const std::vector<double>& statePayoffs,
+    const std::vector<double>& depths,
+    TraitDistribution traitDist
 ) {
     std::vector<Repertoire> newStates = retrieveBetterRepertoires(allStates, repertoire);
     std::vector<double> learnableProbs = learnability(repertoire, adjMatrix);
-    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs, traitFrequencies, stateFrequencies, newStates, slope, transparency, statePayoffs, learnableProbs, adjMatrix);
+    std::vector<double> w = normalizedWeights(strategy, repertoire, payoffs,
+        traitFrequencies, stateFrequencies, newStates, slope, transparency,
+        statePayoffs, learnableProbs, adjMatrix, depths, traitDist);
     
 
     std::vector<std::pair<Repertoire, double>> transitions;
@@ -615,7 +561,9 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
     const std::vector<Repertoire>& allStates,
     double slope,
     const std::vector<double>& statePayoffs,
-    double transparency
+    double transparency,
+    const std::vector<double>& depths,
+    TraitDistribution dist
 ) {
     size_t n = adjMatrix.size();
     Repertoire initialRepertoire(n, 0.0);
@@ -636,7 +584,9 @@ std::pair<std::vector<Repertoire>, std::vector<std::vector<std::pair<Repertoire,
             visited.insert(r);
             result.push_back(r);
 
-            auto transitions = transitionFromState(strategy, r, payoffs, traitFrequencies, stateFrequencies, allStates, slope, transparency, adjMatrix, statePayoffs);
+            auto transitions = transitionFromState(strategy, r, payoffs,
+                traitFrequencies, stateFrequencies, allStates, slope,
+                transparency, adjMatrix, statePayoffs, depths, dist);
             allTransitions.push_back(transitions);
 
             for (const auto& transition : transitions) {

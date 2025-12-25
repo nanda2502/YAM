@@ -7,72 +7,10 @@
 
 #include "Utils.hpp"
 #include "Types.hpp"
-#include "ExpectedSteps.hpp"
+#include "ModelConfig.hpp"
+#include "IO.hpp"
+#include "StringUtils.hpp"
 
-
-void processRepl(
-    const ParamCombination& params,
-    AccumulatedResult& accumResult,
-    std::atomic<int>& failureCount
-) {
-    std::cout << "Processing strategy: " << strategyToString(params.strategy) << std::endl;
-    std::vector<double> totalExpectedPayoffPerStep(20, 0.0);
-    std::vector<double> totalExpectedTransitionsPerStep(20, 0.0);
-    std::vector<double> totalExpectedVariation(20, 0.0);
-    double totalTimeToAbsorption = 0.0;
-    double totalStationaryVariation = 0.0;
-    int successCount = 0;
-
-    AdjacencyMatrix weightedMatrix;
-    if (params.edgeWeight != 1.0) {
-        weightedMatrix = adjustMatrixWeights(params.adjMatrix, params.edgeWeight);
-    } else {
-        weightedMatrix = params.adjMatrix;
-    }
-
-    for (const auto& shuffleSequence : params.shuffleSequences) {
-        double timeToAbsorption;
-        double stationaryVariation;
-        timeToAbsorption = shuffleSequence == params.shuffleSequences[0] ? 0.0 : -1.0; // only compute time to absorption for the first shuffle sequence
-        std::vector<double> expectedPayoffPerStep(20, 0.0);
-        std::vector<double> expectedTransitionsPerStep(20, 0.0);
-        std::vector<double> expectedVariation(20, 0.0);
-        std::vector<std::vector<double>> transitionMatrix;
-
-        if (computeExpectedSteps(weightedMatrix, params.strategy, params.alpha, shuffleSequence,
-                                 params.slope, params.transparency, params.payoffDist, params.distribution, 
-                                 expectedPayoffPerStep,
-                                 expectedTransitionsPerStep,
-                                 expectedVariation,
-                                 transitionMatrix, 
-                                 timeToAbsorption,
-                                 stationaryVariation)) {
-            totalTimeToAbsorption += timeToAbsorption;
-            totalStationaryVariation += stationaryVariation;
-            for (size_t i = 0; i < 20; ++i) {
-                totalExpectedPayoffPerStep[i] += expectedPayoffPerStep[i];
-                totalExpectedTransitionsPerStep[i] += expectedTransitionsPerStep[i];
-                totalExpectedVariation[i] += expectedVariation[i];
-            }
-          successCount++;
-        } else {
-          failureCount++;
-        }
-    }
-
-    if (successCount > 0) {
-        for (size_t i = 0; i < 20; ++i) {
-            accumResult.count++;
-            accumResult.totalExpectedPayoffPerStep[i] += totalExpectedPayoffPerStep[i] / params.shuffleSequences.size();
-            accumResult.totalExpectedTransitionsPerStep[i] += totalExpectedTransitionsPerStep[i] / params.shuffleSequences.size();
-            accumResult.totalExpectedVariation[i] += totalExpectedVariation[i] / params.shuffleSequences.size();
-        }
-        accumResult.absorbing += totalTimeToAbsorption / params.shuffleSequences.size();
-        accumResult.stationaryVariation += totalStationaryVariation / params.shuffleSequences.size();
-    }
-
-    std::cout << "Failures: " << failureCount.load() << std::endl;
-}
 
 int main(int argc, char* argv[]) {
     std::string postfix = "8"; // Default value
@@ -96,7 +34,7 @@ int main(int argc, char* argv[]) {
         std::vector<size_t> indices(combinations.size());
         std::iota(indices.begin(), indices.end(), 0);
     
-        //#pragma omp parallel for
+        #pragma omp parallel for
         for (unsigned long idx : indices) {
             processRepl(
                 combinations[idx],

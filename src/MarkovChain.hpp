@@ -1,119 +1,71 @@
-/*
-#ifndef MARKOVCHAIN_HPP
-#define MARKOVCHAIN_HPP
+#pragma once
 
-#include "Debug.hpp"
-#include "Learning.hpp"
-#include "Graph.hpp"
-#include "Payoffs.hpp"
-#include "LinAlg.hpp"
 #include "Types.hpp"
-#include "Utils.hpp"
-#include "ExpectedSteps.hpp"
 
-#include <algorithm>
-#include <iostream>
-#include <stdexcept>
+
+#include <vector>
 #include <unordered_map>
-#include <numeric>
-#include <cmath>
+#include <tuple>
 
-class MarkovChain {
-public:
-    // Constructor
-    MarkovChain(
-        const ParamCombination& params, 
-        const std::vector<size_t>& shuffleSequence,                      
-        std::vector<double>& expectedPayoffPerStep,
-        std::vector<double>& expectedTransitionsPerStep,
-        std::vector<double>& expectedVariation,                       
-        std::vector<std::vector<double>>& transitionMatrix,
-        double& timeToAbsorption,
-        double& stationaryVariation
-    );
+std::vector<std::vector<double>> computeIMinusQ(
+    const std::vector<std::vector<double>>& reorderedTransitionMatrix,
+    int numTransientStates
+);
 
-    // Main computation method
-    bool compute();
+std::vector<std::vector<double>> buildTransitionMatrix(
+    const std::vector<Repertoire>& repertoiresList,
+    const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
+    std::vector<std::vector<std::pair<Repertoire, double>>>  allTransitions
+);
 
-    // Public access to results (references to external vectors)
-    std::vector<double>& expectedPayoffPerStep;
-    std::vector<double>& expectedTransitionsPerStep;
-    std::vector<double>& expectedVariation;
-    double& timeToAbsorption;
-    double& stationaryVariation;
-    std::vector<std::vector<double>>& transitionMatrix;
+bool isAbsorbingState(const Repertoire& repertoire, const std::vector<double>& traitFrequencies);
 
-private:
-    // ========== ORIGINAL PARAMETERS ==========
-    AdjacencyMatrix adjMatrix;
-    Strategy strategy;
-    double alpha;
-    const std::vector<size_t>& shuffleSequence;
-    double slope;
-    double transparency;
-    int payoffDist;
-    traitDistribution distribution;
+// Function to reorder the transition matrix, separating transient and absorbing states
+std::tuple<std::vector<std::vector<double>>, std::unordered_map<int, int>, int> reorderTransitionMatrix(
+    const std::vector<std::vector<double>>& transitionMatrix,
+    const std::vector<std::pair<Repertoire, int>>& repertoiresWithIndices,
+    const std::unordered_map<Repertoire, int, RepertoireHash>& repertoireIndexMap,
+    Trait rootNode,
+    const std::vector<double>& traitFrequencies
+);
 
-    // ========== DERIVED BASIC PROPERTIES ==========
-    Strategy baseStrategy;
-    size_t rootNode;
-    size_t n;  // number of traits
-    std::vector<double> distances;
-    PayoffVector payoffs;
-    Parents parents;
-    std::vector<double> traitFrequencies;
-    std::vector<Repertoire> allStates;
+double computeExpectedStepsFromMatrix(
+    const std::vector<std::vector<double>>& LU,
+    const std::vector<int>& p,
+    int initialStateNewIndex
+);
 
-    // ========== REPERTOIRE MANAGEMENT ==========
-    std::vector<Repertoire> repertoiresList;
-    std::vector<Repertoire> finalRepertoiresList;
-    std::unordered_map<Repertoire, int, RepertoireHash> repertoireIndexMap;
-    std::unordered_map<Repertoire, int, RepertoireHash> finalRepertoireIndexMap;
-    std::vector<std::pair<Repertoire, int>> repertoiresWithIndices;
+// Solve the linear system using the payoff vector
+std::vector<double> computeExpectedPayoffs(
+    const std::vector<std::vector<double>>& LU,
+    const std::vector<int>& p,
+    const std::vector<double>& payoffVector
+);
 
-    // ========== FREQUENCY DATA ==========
-    std::unordered_map<Repertoire, double, RepertoireHash> stateFrequencies;
-    std::unordered_map<Repertoire, double, RepertoireHash> initialStateFrequencies;
-    std::unordered_map<Repertoire, double, RepertoireHash> inferredStateFrequencies;
-    std::unordered_map<Repertoire, int, RepertoireHash> transientStateIndices;
-    std::vector<Repertoire> transientStates;
+// Compute learning success probability
+double computeExpectedTransitionsPerStep(
+    const std::vector<std::vector<double>>& fundamentalMatrix,
+    const std::vector<std::vector<double>>& reorderedTransitionMatrix,
+    int initialStateNewIndex,
+    int numTransientStates,
+    double expectedSteps
+);
 
-    // ========== TRANSITION DATA ==========
-    std::vector<Transition> allTransitions;
-    std::vector<Transition> finalAllTransitions;
+// Main function
+bool computeMarkovChain(
+    const AdjacencyMatrix& adjacencyMatrix,
+    Strategy strategy, 
+    double alpha, // whether payoffs should increase with number of prerequisites
+    const std::vector<size_t>& shuffleSequence,
+    double slope,  // strength of strategy bias
+    double transparency, //knowledge of the learning constraints
+    int payoffDist, // 0: equal spacing between 0 and 2 with mean = 1, 1: one high, remaining low values with mean = 1
+    TraitDistribution distribution, 
+    std::vector<double>& expectedPayoffPerStep,                     
+    std::vector<double>& expectedTransitionsPerStep,                
+    std::vector<double>& expectedVariation,
+    std::vector<std::vector<double>>& transitionMatrix,
+    double& timeToAbsorption,
+    double& stationaryVariation
+);
 
-    // ========== MATRIX COMPUTATION STATE ==========
-    std::vector<std::vector<double>> preliminaryTransitionMatrix;
-    std::vector<std::vector<double>> reorderedTransitionMatrix;
-    std::vector<std::vector<double>> fundamentalMatrix;
-    std::vector<std::vector<double>> iMinusQ;
-    std::vector<std::vector<double>> LU;
-    std::vector<int> p;  // permutation vector for LU decomposition
-    std::unordered_map<int, int> oldToNewIndexMap;
-    int numTransientStates;
-
-    // ========== PAYOFF INFORMATION ==========
-    std::vector<double> statePayoffs;
-    std::vector<double> allStatesPayoffs;
-    std::vector<double> initialStatePayoffs;
-
-    // ========== KEY REFERENCES ==========
-    int initialStateIndex;
-    Repertoire initialRepertoire;
-    Repertoire absorbingState;
-
-    // ========== PRIVATE MEMBER FUNCTIONS ==========
-    
-    // Main computation phases
-    void buildInitialTransitionMatrix();
-    void computeFundamentalMatrix();
-    void calculateStateFrequencies();
-    void updateTraitFrequencies();
-    void buildFinalTransitionMatrix();
-    void computeResults();
-
-    // Debug utilities
-    void debugPrint() const;
-};
-#endif // MARKOVCHAIN_HPP
-*/

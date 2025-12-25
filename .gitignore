@@ -9,3 +9,6 @@ yam.exe
 *.R
 *.Rmd
 *.pdf
+.Rhistory
+*.rds
+.csv

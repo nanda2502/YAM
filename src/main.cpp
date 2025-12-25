@@ -177,3 +177,16 @@ int main(int argc, char* argv[]) {
     
     return 0;
 }
+
+
+int main() {
+    std::cout << "Give me three numbers: " << '\n';
+    int a, b, c;
+    std::cin >> a >> b >> c;
+    std::cout << "You entered: " << a << ", " << b << ", " << c << '\n';
+
+    auto sum = a + b + c;
+    auto mean = sum / 3.0;
+    std::cout << "Sum: " << sum << ", Mean: " << mean << '\n';
+    return 0;
+}

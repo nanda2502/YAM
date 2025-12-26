@@ -8,7 +8,6 @@ set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "C:/msys64/mingw64")
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
-find_package(ZLIB REQUIRED)
 
 # Main executable
 file(GLOB_RECURSE MAIN_SOURCES
@@ -18,8 +17,6 @@ file(GLOB_RECURSE MAIN_SOURCES
 )
 add_executable(yam ${MAIN_SOURCES})
 
-target_include_directories(yam PRIVATE ${ZLIB_INCLUDE_DIRS})
-target_link_libraries(yam PRIVATE ${ZLIB_LIBRARIES})
 
 
 

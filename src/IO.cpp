@@ -143,8 +143,7 @@ std::vector<AdjacencyMatrix> readAdjacencyMatrices(const std::string& postfix) {
    return matrices;
 }
 
-void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData) {
-    // Construct the output CSV file path (no compression)
+void writeCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData) {
     std::string outputCsvPath = outputDir + "/yam_out_" + std::to_string(n) + ".csv";
 
     std::ofstream csvFile(outputCsvPath);

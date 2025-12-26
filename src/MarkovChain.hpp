@@ -63,9 +63,7 @@ bool computeMarkovChain(
     TraitDistribution distribution, 
     std::vector<double>& expectedPayoffPerStep,                     
     std::vector<double>& expectedTransitionsPerStep,                
-    std::vector<double>& expectedVariation,
     std::vector<std::vector<double>>& transitionMatrix,
-    double& timeToAbsorption,
-    double& stationaryVariation
+    double& timeToAbsorption
 );
 

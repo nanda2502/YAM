@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
             );
         }
     
-        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,step_variation,slope,distribution,absorbing,stationary_variation,payoffdist,edge_weight,transparency,closure";
+        std::string csvHeader = "num_nodes,adj_mat,alpha,strategy,repl,steps,step_payoff,step_transitions,slope,distribution,absorbing,payoffdist,edge_weight,transparency,closure";
         std::vector<std::string> csvData;
         csvData.push_back(csvHeader);
 
@@ -61,11 +61,9 @@ int main(int argc, char* argv[]) {
                     step + 1,// add 1 since the index is 0-based
                     accumResult.totalExpectedPayoffPerStep[step],
                     accumResult.totalExpectedTransitionsPerStep[step],
-                    accumResult.totalExpectedVariation[step],
                     comb.slope,
                     comb.distribution,
                     accumResult.absorbing,
-                    accumResult.stationaryVariation,
                     comb.payoffDist,
                     comb.edgeWeight,
                     comb.transparency,
@@ -77,7 +75,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        writeAndCompressCSV(outputDir, adj_idx, csvData);
+        writeCSV(outputDir, adj_idx, csvData);
        
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << '\n';

@@ -272,202 +272,6 @@ double computeJaccardDistance(const Repertoire& state1, const Repertoire& state2
     return 1.0 - (intersection / union_);
 }
 
-void computeExpectedVariation(const std::vector<std::vector<double>>& transitionMatrix,
-                                const std::vector<Repertoire>& repertoires,
-                                std::vector<double>& expectedVariation) {
-    size_t numStates = transitionMatrix.size();
-    std::vector<double> stateProbabilities(numStates, 0.0);
-    stateProbabilities[0] = 1.0; 
-
-    // Evolve state probabilities over num_steps
-    for (int step = 0; step < 20; ++step) {
-        std::vector<double> nextStateProbabilities(numStates, 0.0);
-
-        for (size_t i = 0; i < numStates; ++i) {
-            for (size_t j = 0; j < numStates; ++j) {
-                nextStateProbabilities[j] += stateProbabilities[i] * transitionMatrix[i][j];
-            }
-        }
-
-        stateProbabilities = nextStateProbabilities;
-
-        // Calculate total probability mass for active states
-        double totalActiveProbability = 0.0;
-        for (size_t i = 0; i < numStates; ++i) {
-            if (stateProbabilities[i] > 1e-10) {  // Only consider states with non-negligible probability
-                totalActiveProbability += stateProbabilities[i];
-            }
-        }
-
-        // Normalize state probabilities to sum to 1
-        std::vector<double> normalizedProbabilities;
-        for (size_t i = 0; i < numStates; ++i) {
-            if (stateProbabilities[i] > 1e-10) {
-                normalizedProbabilities.push_back(stateProbabilities[i] / totalActiveProbability);
-            }
-        }
-
-        double totalExpectedJaccardDistance = 0.0;
-        size_t numComparisons = 0;
-
-        // Calculate average pairwise Jaccard distance between states
-        // weighted by their normalized probabilities
-        for (size_t i = 0; i < repertoires.size(); ++i) {
-            for (size_t j = i + 1; j < repertoires.size(); ++j) {
-                if (stateProbabilities[i] > 1e-10 && stateProbabilities[j] > 1e-10) {
-                    double jaccardDistance = computeJaccardDistance(repertoires[i], repertoires[j]);
-                    double normalizedProb_i = stateProbabilities[i] / totalActiveProbability;
-                    double normalizedProb_j = stateProbabilities[j] / totalActiveProbability;
-                    totalExpectedJaccardDistance += normalizedProb_i * normalizedProb_j * jaccardDistance;
-                    ++numComparisons;
-                }
-            }
-        }
-
-        expectedVariation[step] = (numComparisons == 0) ? 0.0 : totalExpectedJaccardDistance;
-    }
-}
-
-double computeStationaryVariation(std::vector<std::vector<double>>& transitionMatrix,
-                                  const std::vector<Repertoire>& finalRepertoiresList) {
-    size_t numStates = transitionMatrix.size();
-    
-    // Identify absorbing states directly from the transition matrix
-    std::vector<bool> isAbsorbing(numStates, false);
-    for (size_t i = 0; i < numStates; ++i) {
-        isAbsorbing[i] = (std::abs(transitionMatrix[i][i] - 1.0) < 1e-10);
-        // Double-check by ensuring all other transitions are ~0
-        if (isAbsorbing[i]) {
-            for (size_t j = 0; j < numStates; ++j) {
-                if (i != j && transitionMatrix[i][j] > 1e-10) {
-                    isAbsorbing[i] = false;
-                    break;
-                }
-            }
-        }
-    }
-    
-    // Count transient states and create mapping
-    std::vector<int> transientStates;
-    for (size_t i = 0; i < numStates; ++i) {
-        if (!isAbsorbing[i]) {
-            transientStates.push_back(i);
-        }
-    }
-    
-    int numTransientStates = transientStates.size();
-    if (numTransientStates == 0) {
-        return 0.0; // No variation if all states are absorbing
-    }
-    
-    // Create mapping from original state indices to condensed transient matrix indices
-    std::unordered_map<int, int> stateToQIndex;
-    for (int i = 0; i < numTransientStates; ++i) {
-        stateToQIndex[transientStates[i]] = i;
-    }
-    
-    // Build the Q matrix (transitions between transient states)
-    std::vector<std::vector<double>> qMatrix(numTransientStates, std::vector<double>(numTransientStates));
-    for (int i = 0; i < numTransientStates; ++i) {
-        for (int j = 0; j < numTransientStates; ++j) {
-            qMatrix[i][j] = transitionMatrix[transientStates[i]][transientStates[j]];
-        }
-    }
-    
-    // Compute (I - Q) matrix
-    std::vector<std::vector<double>> iMinusQ(numTransientStates, std::vector<double>(numTransientStates));
-    for (int i = 0; i < numTransientStates; ++i) {
-        for (int j = 0; j < numTransientStates; ++j) {
-            iMinusQ[i][j] = (i == j ? 1.0 : 0.0) - qMatrix[i][j];
-        }
-    }
-    
-    // Compute fundamental matrix using LinAlg module
-    auto [LU, p] = decomposeLU(iMinusQ);
-    
-    // Compute fundamental matrix N = (I-Q)^(-1)
-    std::vector<std::vector<double>> fundamentalMatrix(numTransientStates, std::vector<double>(numTransientStates));
-    for (int i = 0; i < numTransientStates; ++i) {
-        std::vector<double> e_i(numTransientStates, 0.0);
-        e_i[i] = 1.0;
-        std::vector<double> column = solveUsingLU(LU, p, e_i);
-        
-        for (int j = 0; j < numTransientStates; ++j) {
-            fundamentalMatrix[j][i] = column[j];
-        }
-    }
-    
-    // Use first row of fundamental matrix to compute quasi-stationary distribution
-    std::vector<double> qsd(numStates, 0.0);
-    double totalTime = 0.0;
-    
-    for (int i = 0; i < numTransientStates; ++i) {
-        totalTime += fundamentalMatrix[0][i];
-    }
-    
-    for (int i = 0; i < numTransientStates; ++i) {
-        qsd[transientStates[i]] = fundamentalMatrix[0][i] / totalTime;
-    }
-    
-    // Group states by number of traits
-    std::unordered_map<int, std::vector<size_t>> traitCountGroups;
-    std::unordered_map<int, double> traitCountProbabilities;
-    
-    // Count traits in each state and group states by trait count
-    for (size_t i = 0; i < numStates; ++i) {
-        if (qsd[i] > 1e-10) { // Only consider states with non-negligible probability
-            int traitCount = countLearnedTraits(finalRepertoiresList[i]);
-            traitCountGroups[traitCount].push_back(i);
-            traitCountProbabilities[traitCount] += qsd[i];
-        }
-    }
-    
-    // Calculate variation within each trait count group
-    double totalWeightedVariation = 0.0;
-    double totalProbabilityMass = 0.0;
-    
-    // For each trait count group
-    for (const auto& [traitCount, stateIndices] : traitCountGroups) {
-        // Skip if only one state in this group (no variation possible)
-        if (stateIndices.size() <= 1) {
-            continue;
-        }
-        
-        double groupVariation = 0.0;
-        double groupWeightSum = 0.0;
-        
-        // Calculate pairwise Jaccard distances within this group
-        for (size_t idx = 0; idx < stateIndices.size(); ++idx) {
-            size_t i = stateIndices[idx];
-            for (size_t jdx = idx + 1; jdx < stateIndices.size(); ++jdx) {
-                size_t j = stateIndices[jdx];
-                
-                // Calculate normalized weights within this group
-                double normalizedWeight_i = qsd[i] / traitCountProbabilities[traitCount];
-                double normalizedWeight_j = qsd[j] / traitCountProbabilities[traitCount];
-                double pairWeight = normalizedWeight_i * normalizedWeight_j;
-                
-                double jaccardDistance = computeJaccardDistance(finalRepertoiresList[i], finalRepertoiresList[j]);
-                groupVariation += pairWeight * jaccardDistance;
-                groupWeightSum += pairWeight;
-            }
-        }
-        
-        // Normalize variation within this group
-        double normalizedGroupVariation = (groupWeightSum > 1e-10) ? groupVariation / groupWeightSum : 0.0;
-        
-        // Add to total weighted variation
-        totalWeightedVariation += traitCountProbabilities[traitCount] * normalizedGroupVariation;
-        totalProbabilityMass += traitCountProbabilities[traitCount];
-    }
-    
-    // Return weighted average of variation across groups
-    double result = (totalProbabilityMass > 1e-10) ? totalWeightedVariation / totalProbabilityMass : 0.0;
-    
-    DEBUG_PRINT(1, "Trait-count-controlled stationary variation: " << result);
-    return result;
-}
-
 size_t countLearnedTraits(const Repertoire& repertoire) {
     return std::count_if(repertoire.begin(), repertoire.end(), [](double value) { return value > 0.5; });
 }
@@ -702,11 +506,9 @@ bool computeMarkovChain(
     int payoffDist, 
     TraitDistribution distribution,                         
     std::vector<double>& expectedPayoffPerStep,
-    std::vector<double>& expectedTransitionsPerStep,
-    std::vector<double>& expectedVariation,                       
+    std::vector<double>& expectedTransitionsPerStep,                    
     std::vector<std::vector<double>>& transitionMatrix,
-    double& timeToAbsorption,
-    double& stationaryVariation
+    double& timeToAbsorption
 ) {
     try {
         // Initialization
@@ -725,14 +527,14 @@ bool computeMarkovChain(
         DEBUG_PRINT(1, "Slope: " << slope);
 
         if (DEBUG_LEVEL >= 1) {
-            std::cout << "Adjacency Matrix:" << std::endl;
+            std::cout << "Adjacency Matrix:" << '\n';
             for (const auto & i : adjacencyMatrix) {
                 for (double j : i) {
                     std::cout << j << " ";
                 }
-                std::cout << std::endl;
+                std::cout << '\n';
             }
-            std::cout << std::endl;
+            std::cout << '\n';
         }
 
         size_t n = adjacencyMatrix.size();
@@ -915,8 +717,6 @@ bool computeMarkovChain(
 
         timeToAbsorption = computeExpectedTimeToAbsorption(transitionMatrix, initialStateIndex);
 
-        stationaryVariation = computeStationaryVariation(transitionMatrix, finalRepertoiresList);
-
         computeExpectedPayoffAtNSteps(
             transitionMatrix,
             statePayoffs,
@@ -928,13 +728,6 @@ bool computeMarkovChain(
             transitionMatrix,
             initialStateIndex,
             expectedTransitionsPerStep
-        );
-
-        // Compute expected variation in traits
-        computeExpectedVariation(
-            transitionMatrix, 
-            finalRepertoiresList, 
-            expectedVariation
         );
 
         return true;

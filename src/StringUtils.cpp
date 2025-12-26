@@ -48,11 +48,9 @@ std::string formatResults(
     double expectedSteps, 
     double expectedPayoffPerStep, 
     double expectedTransitionsPerStep,
-    double expectedVariation,
     double slope,
     TraitDistribution distribution,
     double absorbing,
-    double stationaryVariation,
     int payoffDist,
     double edgeWeight,
     double transparency,
@@ -67,11 +65,9 @@ std::string formatResults(
     std::fixed << std::setprecision(4) << expectedSteps << ',' << 
     expectedPayoffPerStep << ',' << 
     expectedTransitionsPerStep << ',' <<
-    expectedVariation << ',' <<
     slope << ',' <<
     distributionToString(distribution) << ',' <<
     absorbing << ',' <<
-    stationaryVariation << ',' <<
     payoffDist << ',' <<
     edgeWeight << ',' <<
     transparency << ',' <<

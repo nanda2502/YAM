@@ -1,4 +1,5 @@
 #!/bin/bash
+# Script to check for number of missing output files based on the number of nodes
 
 if [ $# -ne 1 ]; then
     echo "Usage: $0 <num_nodes>"

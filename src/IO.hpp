@@ -25,7 +25,7 @@ AdjacencyMatrix parseMatrixString(const std::string& str);
 // Weighted matrices → compact format with single digits (0-9)
 std::string adjMatrixToFlattenedString(const AdjacencyMatrix& adjMatrix);
 
-// Write CSV data to file (without compression)
-void writeAndCompressCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData);
+// Write CSV data to file 
+void writeCSV(const std::string& outputDir, int n, const std::vector<std::string>& csvData);
 
 #endif // IO_HPP
